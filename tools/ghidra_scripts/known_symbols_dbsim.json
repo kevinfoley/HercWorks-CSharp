@@ -453,9 +453,15 @@
       "type": "function",
       "confidence": "high",
       "name": "MechType_BindHardpointSlots",
-      "description": "Builds one root's hardpoint slot list: for each hardpoint bone id, resolves the shape's vtable +0x24 to the ADDRESS of the part slot holding the part whose TSBasePart id number (+6) is that id, storing null for the -1 the invisible mounting emits. Writes a {void **slots; short count} pair, which MechType_InitOne keeps per LOD root at typeRec+0xe6 with the count at +0xea.",
+      "description": "(slotList, shapeRoot, count, boneIds): builds one root's hardpoint slot list. Stores the count at slotList+4 and a new array of that many pointers at slotList+0, then for each bone id stores the shape root's vtable +0x24 answer (TSPartList_FindPartSlot: the ADDRESS of the part slot holding the part whose id number +6 is that id, or null when no part in the tree carries it), and null for a negative id, the -1 the invisible mounting emits. MechType_InitOne keeps one {void **slots; short count} pair per LOD root at typeRec+0xe6, the root count at +0xea.",
       "source": "docs/retail/rendering/mech-shape-drawing.md",
-      "signature": "void __cdecl MechType_BindHardpointSlots(void *slotList, void *shapeRoot, short hardpointCount, short *boneIds)"
+      "signature": "void __cdecl MechType_BindHardpointSlots(void *slotList, void *shapeRoot, short hardpointCount, short *boneIds)",
+      "verified": {
+        "bytes": "0040304c+131",
+        "sha1": "7769ad7910fd",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004030d0",
@@ -463,9 +469,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_SpliceHardpointShapes",
-      "description": "Walks a root's hardpoint slot list against the machine's mount array and overwrites each slot: the mount's weapon shape when one is fitted, else the next 0x18-byte blank from typeRec+0xec. The replacement inherits the placeholder's TSBasePart transform (+4) and id number (+6). This is why a machine's own .DTS placeholder geometry is never drawn, fitted or not.",
+      "description": "(slotList, mountArray, blankRecords): walks a root's hardpoint slot list with the machine's mount array index by index; a slot past the mount array's count is left alone. Each non-null slot with a mount is overwritten with the mount's weapon shape when one is fitted, else with the current 0x18-byte blank record, and the replacement inherits the placeholder's TSBasePart transform (+4) and id number (+6). The blank-record cursor advances for every slot that has a mount, null slot included, so each hardpoint keeps its own blank. This is why a machine's own .DTS placeholder geometry is never drawn, fitted or not, and why a root whose slot is null draws no gun at that hardpoint.",
       "source": "docs/retail/rendering/mech-shape-drawing.md",
-      "signature": "void __cdecl Mech_SpliceHardpointShapes(void *slotList, void *mountArray, int blankRecords)"
+      "signature": "void __cdecl Mech_SpliceHardpointShapes(void *slotList, void *mountArray, int blankRecords)",
+      "verified": {
+        "bytes": "004030d0+154",
+        "sha1": "80240f5c9428",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040316c",
@@ -590,7 +602,13 @@
       "name": "Base_GetCollisionRadius",
       "description": "Structure vtable +0x7c: the radius at which this structure blocks a walking machine, read by Mech_CollisionTest of the object being walked into, and by Mech_AiObstacleAvoidance through the same vtable slot to decide whether a candidate is worth sweeping. Returns BASES.DAT +0x2a only for an ANIMATED type (typeRec+0x06 nonzero) that is not a wreck-with-hulk; 0 otherwise, and 0 means walk through me. The static types it returns 0 for are the ones Structure_GatherWalkCandidates's collision-volume sweep covers instead, so the two sets are exact complements.",
       "source": "docs/retail/simulation/hit-detection.md",
-      "signature": "short __cdecl Base_GetCollisionRadius(StructureObject *this)"
+      "signature": "short __cdecl Base_GetCollisionRadius(StructureObject *this)",
+      "verified": {
+        "bytes": "004035b8+84",
+        "sha1": "5aa7ef7f2ac2",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040360c",
@@ -695,8 +713,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Base_ArmedThinkTick",
-      "description": "StructureArmedVtable's +0x18 tick slot (BASES.DAT types 8, 0x0b, 0x20, 0x23). A structure that has already fallen hands the whole tick to Base_ThinkTick. While standing: retargets every 10000 ms via Ai_SelectTarget(this, 0x30, 0) and drops a target past 60000; steps the muzzle-flash cell on the +0x1f6 countdown while that countdown's own value at +0x1f7 is still non-zero, reloading it only while the cell has not wrapped back to 0, so the flash plays through once and stops; leads the target by range*targetSpeed/PROJ-record-2 speed inside 40000, which only a GUN tower does because the launcher form never looks the speed up; aims through Base_AimTurret; and fires both barrels from (+/-300, 400, 0) in the turret node's frame on a 1500 ms countdown at +0x211. typeRec+0x2e is the ARMAMENT CLASS read as a value: 2 fires Rocket_Fire(0,..) and everything else Bullet_Fire(2,..). The LAUNCHER, not the gun, rolls rand & 0x1f == 0 -- for barrel 0 and, only if that failed, for barrel 1 -- so it puts at most one round up per opportunity. The countdown at +0x86 is a FIRING WINDOW, not a barrel selector: each expiry flips the flag at +0x21b and reloads from the pair at 004973e0 (both 10000), so the tower fires for ten seconds and holds for ten. Fire is gated on that flag, on aim error inside +/-1000 on both axes, and on range inside 40000.",
-      "source": "docs/retail/simulation/structure-behaviour.md"
+      "description": "StructureArmedVtable's +0x18 tick slot (BASES.DAT types 8, 0x0b, 0x20, 0x23). A structure that has already fallen hands the whole tick to Base_ThinkTick. While standing it runs Base_DeathSequenceTick, then retargets when the +0x21d countdown expires, every 10000 timer units (about 4.9 s), through Ai_SelectTarget(this, 0x30, 0), keeping the target's holder count +0x1a2 and the +0x9d flag; and on any tick drops a target past 60000 by Math_DistanceBetweenPoints. It steps the muzzle-flash cell (typeRec+0x24) on the +0x1f6 countdown while that countdown's own value at +0x1f7 is non-zero, reloading it from typeRec+0x26 only while the cell has not wrapped back to 0, so the flash plays through once and stops. With a target it aims at the target's position plus the second triple of its vtable +0x30, led inside 40000 along the target's heading by range*targetSpeed/PROJ-record-2 speed, which only a gun tower does because the launcher form never looks the speed up; aims through Base_AimTurret. The countdown at +0x218 is a firing window: each expiry flips the flag at +0x21b and reloads from the pair at 004973e0 (both 10000), so the tower fires for about 4.9 s and holds for 4.9 s. On the 1500-unit refire countdown at +0x211 it fires from (+/-300, 400, 0) in the turret node's (part 2's) frame, gated on the window flag, aim error inside +/-1000 on both axes and range inside 40000. typeRec+0x2e is the ARMAMENT CLASS read as a value: 2 fires Rocket_Fire(0,..) and everything else Bullet_Fire(2,..). The LAUNCHER, not the gun, rolls rand & 0x1f == 0 -- for barrel 0 and, only if that failed, for barrel 1 -- so it puts at most one round up per opportunity; a gun fires both barrels. A shot reloads the refire countdown and kicks the flash countdown to 1.",
+      "source": "docs/retail/simulation/structure-behaviour.md",
+      "verified": {
+        "bytes": "00404100+1222",
+        "sha1": "36471214cf24",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004045c8",
@@ -823,9 +847,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Base_AttachToGroup",
-      "description": "Base/structure equivalent of Mech_AttachToGroup (00417aa8), called from DBSim_BuildGroupRecord (00423b34) for discriminator 2. Stores the group pointer at +0x45 and the member's slot index within the group's member-ref array at +0x49. Fills heading only if unset (-0x8000 sentinel), applying a per-slot heading nudge from a formation-indexed table when the slot is nonzero. Fills position only if unset: reads the group's own coordinate pointer (group+0x18) or falls back to its route (Route_WaypointAt), then -- only when the adjustAnchor arg (the raw block-11 record's own 0x06 paints-ground flag) is nonzero -- replaces that shared point's position within its terrain tile with the formation's own fixed fraction of it, from BFORMS.DAT record +0x14 (map dimension), +0xc and +0x10 (the fraction in 256ths). This is what puts the group on the pad Base_ApplyFormationTerrain (00405db0) paints over the same tile; the two are gated by the same flag. It then unconditionally calls the object's own vtable +0x78 (Base_ApplyFormationOffset, Base_ApplyFormationOffset) with the position, then Terrain_MarkStructureFootprint (00470dc8) with that position and the object's SimObject_GetShapeRadius, then a terrain height query. Mechs have no equivalent: Mech_AttachToGroup takes no such flag and contains none of this arithmetic.",
+      "description": "Base/structure equivalent of Mech_AttachToGroup (00417aa8), es2_xref finds one caller, DBSim_BuildGroupRecord (00423b34). Stores the group pointer at +0x45 and the member's slot index within the group's member-ref array at +0x49. Fills heading only if unset (+0x0c holds the -0x8000 sentinel): the group's heading plus, for a nonzero slot, that slot's per-slot heading nudge from the BFORMS.DAT formation the group names. Fills position only if unset (Z at +0x2e holds the -0x8000 sentinel, so a structure whose record named a position keeps it): reads the group's own coordinate pointer (group+0x18) or falls back to its route (Route_WaypointAt), then -- only when the adjustAnchor arg (the raw block-11 record's own 0x06 paints-ground flag) is nonzero -- replaces that shared point's position within its terrain tile with the formation's own fixed fraction of it, from BFORMS.DAT record +0x14 (map dimension), +0xc and +0x10 (the fraction in 256ths). This is what puts the group on the pad Base_ApplyFormationTerrain (00405db0) paints over the same tile; the two are gated by the same flag. Still inside that branch it calls the object's own vtable +0x78 (Base_ApplyFormationOffset) with the position, then Terrain_MarkStructureFootprint (00470dc8) with that position and the object's SimObject_GetShapeRadius, then a terrain height query, and stores the result as the position.",
       "source": "docs/retail/formats/script-dat.md (base formation terrain)",
-      "signature": "void __cdecl Base_AttachToGroup(void *structure, void *group, short slot, int adjustAnchor)"
+      "signature": "void __cdecl Base_AttachToGroup(void *structure, void *group, short slot, int adjustAnchor)",
+      "verified": {
+        "bytes": "00405c3c+372",
+        "sha1": "f35ced225cf5",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00405db0",
@@ -3384,7 +3414,13 @@
       "confidence": "high",
       "name": "GrenadeMount_TriggerHeld",
       "description": "GRENADE_WPN vtable +0x30 (00499248), (mount, input): a hold-to-throw trigger. Idle (+0x46 clear), a press (input+0xd) starts it -- +0x46 = 1, +0x81 = 20000 -- and returns 0. While charging it returns 1 on release; held, it adds 1000 to +0x81 per call and returns 1 once that passes 100000, calling Input_LatchButton(1, 1) as it does.",
-      "source": "DBSIM decompile at 0040e71c"
+      "source": "DBSIM decompile at 0040e71c",
+      "verified": {
+        "bytes": "0040e71c+107",
+        "sha1": "4428e4df86cc",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0040e788",
@@ -3617,8 +3653,14 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMount_PushEnergyGaugeState",
-      "description": "Energy mount vtable+0x50, called once per mount per frame from WeaponMounts_PerFrameUpdate. Copies the gauge's state block (EnergyWeaponGauge_GetState), fills it and hands it back through EnergyWeaponGauge_SetState. Block[0] is (charge << 10) / 1200, the LED bar's fill; the fixed 1200 denominator -- not the mount's own capacity -- is why a fully charged weapon fills four-fifths of its bar. Block[1] is the charge bar's slider position, and byte +0x34 (byte 1 of the +0x33 flag block) decides which way it flows: set, the charge target goes out as (target << 10) / 1200; clear, the slider position comes back as the charge target, +0x7b = position * 1200 >> 10. WeaponMount_CtorEnergy, WeaponMount_AdjustPowerLevel, WeaponMount_ZeroChargeTarget and WeaponMount_DrainCapacitor set it together with +0x3c, which carries it through one pool turn. No press reaches the charge bar, so the position read back is the one last pushed, less the round trip's loss (960 out as 819, back as 959); WeaponMount_RefireTick's AND with the +0x3b block clears it a pool turn later. Also fills the destroyed and mid-charge flags (+0x11, +0x12) and the three caller-supplied bytes (+0x14 selected, +0x15 in current fire group, +0x16 ready). See docs/retail/simulation/weapon-firing.md.",
-      "source": "docs/retail/simulation/weapon-mounts.md"
+      "description": "Energy and ELF mount vtable +0x50: (mount, b14, b15, b16). Copies the gauge's state block (EnergyWeaponGauge_GetState on mount+0x77), fills it and hands it back through the gauge's vtable +0x10 (EnergyWeaponGauge_SetState). Block+0x00 is the capacitor level, (+0x7d << 10) / 1200, the LED bar's fill; the fixed 1200 denominator -- not the mount's own capacity -- is why a capacitor at its spawn 960 fills four-fifths of its bar. Block+0x04 is the charge bar's slider position, and byte +0x34 (byte 1 of the +0x33 flag block) decides which way it flows: set, the charge target goes out as (+0x7b << 10) / 1200; clear, the slider position comes back as the charge target, +0x7b = position * 1200 >> 10. Also fills +0x11 with the destroyed byte +0x49, +0x12 with the mid-charge byte +0x43, and +0x14/+0x15/+0x16 with its three arguments. Who sets +0x34, and what the round trip does to the power level: docs/retail/simulation/weapon-firing.md#the-charge-bar.",
+      "source": "docs/retail/simulation/weapon-mounts.md",
+      "verified": {
+        "bytes": "0040f288+165",
+        "sha1": "799ff71df848",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040f330",
@@ -3626,8 +3668,14 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMount_PushAmmoGaugeState",
-      "description": "Ammunition mount vtable+0x50, the sibling of WeaponMount_PushEnergyGaugeState. Decays +0x7d toward capacity*256 at 250/tick if it is above it, then pushes +0x7d >> 8 as the round count the gauge prints, plus the destroyed flag and the three caller-supplied state bytes.",
-      "source": "docs/retail/simulation/weapon-mounts.md"
+      "description": "Ammunition mount vtable +0x50, the sibling of WeaponMount_PushEnergyGaugeState: (mount, b14, b15, b16). Copies the gauge's state block (AmmoWeaponGauge_GetState on mount+0x77), moves +0x7d toward the rounds remaining +0x7b * 256 -- down by Math_IntegrateRateOverTick(250) while above, and straight up to it when below -- then fills block+0x00 with +0x7d >> 8, the round count the gauge prints, +0x11 with the destroyed byte +0x49 and +0x14/+0x15/+0x16 with its three arguments, and hands the block to the gauge's vtable +0x10.",
+      "source": "docs/retail/simulation/weapon-mounts.md",
+      "verified": {
+        "bytes": "0040f330+133",
+        "sha1": "6c74a8122e8e",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040f3b8",
@@ -3778,8 +3826,14 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMountTemplate_ReadRecord",
-      "description": "Per-record reader for simvol0/dat/WEAPONS.DAT, called from Weapons_LoadResourceTables in a Total-length loop. Reuses HercPiece_ReadRecord (8-byte front + conditional dependent list) and Collision_ReadCluster/Collision_ReadSphereArray (2+2 bytes, then a variable count*8-byte array -- a per-weapon firing/mount-offset sequence, not real collision geometry) verbatim from the .DMG/.COL loaders, then a final raw 48-byte (0x30) block. Byte-exact verified: this exact read sequence consumes the real file's full 3790 content bytes across 33 records with zero remainder. Full writeup in docs/retail/formats/weapons-dat-sim.md.",
-      "source": "docs/retail/formats/weapons-dat-sim.md"
+      "description": "(record, stream): per-record reader for simvol0/dat/WEAPONS.DAT, called from Weapons_LoadResourceTables in a Total-length loop. HercPiece_ReadRecord into record+0x00 (the weapon's .DMG piece), Collision_ReadCluster into record+0x12 (its .COL hit-sphere cluster), then a raw 48-byte (0x30) read into record+0x22 through the stream's vtable +0x18, and finally stores word 0 at record+0x48 -- the middle (y) of the side-muzzle-offset vector at +0x46, which is zero in every retail record anyway. Full writeup in docs/retail/formats/weapons-dat-sim.md.",
+      "source": "docs/retail/formats/weapons-dat-sim.md",
+      "verified": {
+        "bytes": "0040f8bc+72",
+        "sha1": "287669e88480",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0040f904",
@@ -3788,7 +3842,13 @@
       "confidence": "high",
       "name": "WeaponMountTemplate_SideMuzzleOffset",
       "description": "Given a template and the hardpoint's mounting code (.GL +6: 0 on top, 1 underneath, 2 left, 3 right, 4 invisible), returns a 3-vector at 004a9b74 built from the template's lateral figure at +0x46 and vertical figure at +0x4a. Only one axis is ever nonzero: top/bottom take +/-vertical, left/right take -/+lateral, invisible takes neither. Y is always zero. This is what makes a mirrored hardpoint pair fire from mirrored points off one template.",
-      "source": "docs/retail/simulation/weapon-firing.md"
+      "source": "docs/retail/simulation/weapon-firing.md",
+      "verified": {
+        "bytes": "0040f904+125",
+        "sha1": "582c97c9e7fb",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0040f998",
@@ -3947,9 +4007,15 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMounts_BuildGauges",
-      "description": "Walks the mount array (pointer at +4, count at +8) and calls each mount's own gauge factory slot, vtable +0x64. The closing call of Gau_BuildCockpitWidgets, so every weapon row's clickables are appended to the flat list after all seven gauges and before the edge strips. An energy row registers two -- ChainedWeaponSelectGadget then the charge bar's WeaponSliderGadget -- which is why the select gadget wins where the bar overlaps it.",
+      "description": "Walks the mount array (pointer at +4, count at +8) and calls each non-null mount's own gauge factory slot, vtable +0x64. Gau_BuildCockpitWidgets calls it after building its seven top-level gauges, so the weapon rows' clickables follow theirs in the flat list; what each row registers, and why the select gadget wins where the charge bar overlaps it: docs/retail/simulation/cockpit-input.md.",
       "source": "docs/retail/simulation/cockpit-input.md",
-      "signature": "void __cdecl WeaponMounts_BuildGauges(int mountManager)"
+      "signature": "void __cdecl WeaponMounts_BuildGauges(int mountManager)",
+      "verified": {
+        "bytes": "00410644+43",
+        "sha1": "aeb16d764a05",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00410670",
@@ -4615,9 +4681,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_AiTick",
-      "description": "One machine's whole AI frame, and the only caller of the three behaviour dispatchers. No-ops unless a descriptor is installed at mech+0x4d. Order: reassess (vtable +0x1c) when the dwell countdown at mech+0x52 has reached 0; Timer_CountDown against that countdown unless descriptor+0x08[0] is set, which is true of every state but deciding, the five combat states, driving off en and fleeing; move (vtable +0x14); then think (vtable +0x18) unless mech+0xaf is set, in which case think is skipped and the flag cleared -- a think returning nonzero zeroes its own countdown. Ends by incrementing the block counter at +0x09 via 00413eb0. ITS ONLY CALLER IS Group_OrderTick (00423a74) at 00423af5, so the AI is driven from the mission-group layer and a machine that is not a live group member never thinks.",
+      "description": "One machine's whole AI frame, calling the three behaviour dispatchers through vtable +0x1c, +0x14 and +0x18. No-ops unless a descriptor is installed at mech+0x4d. Order: reassess (vtable +0x1c) when the dwell countdown at mech+0x52 has reached 0; Timer_CountDown against that countdown unless descriptor+0x08[0] is set, which is true of every state but deciding, the five combat states, driving off en and fleeing; move (vtable +0x14); then think (vtable +0x18) unless mech+0xaf is set, in which case think is skipped and the flag cleared -- a think returning nonzero zeroes its own countdown. Ends with Behaviour_CountTick on the behaviour block at +0x4d. es2_xref finds one caller, Group_OrderTick (00423a74) at 00423af5, which ticks each member of a group that has entered the mission.",
       "source": "docs/retail/simulation/ai-dispatch.md",
-      "signature": "void __cdecl Mech_AiTick(MechObject *mech)"
+      "signature": "void __cdecl Mech_AiTick(MechObject *mech)",
+      "verified": {
+        "bytes": "00411cec+117",
+        "sha1": "8de9f9c77b22",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00411d64",
@@ -4700,8 +4772,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Ai_SelectTarget",
-      "description": "The AI's general target acquisition, used by mechs, flyers and armed structures: (this, mask, coneLimit) walks the live object list and returns the best-scoring candidate. Candidates pass Ai_IsTargetable, then a tier bar of 2*designated+alive; range caps at 1000000 for the group order's designated target and 100000 otherwise. Score starts at Q10(70, 0x1000 - (bearingError >> 3)), is overridden inside 60000 by a range term, then multiplied by four Q10 weight tables at 0049933c/00499342/00499348/0049934e and divided by the number of other holders. Mask: 0x01 restrict the designated bonus, 0x02 drop the shooting-at-me weight, 0x04 drop the crowding divisor, 0x10 reject own class, 0x20 ignore bearing.",
-      "source": "docs/retail/simulation/ai-targeting.md"
+      "description": "The AI's general target acquisition, used by mechs, flyers and armed structures: (this, mask, coneLimit) walks the live object list and returns the best-scoring candidate, or 0. Candidates pass Ai_IsTargetable; one at +0xa4 (immobilised) is skipped unless it is the designated target and this machine's side byte (group+0x12) is nonzero; then a tier bar of 2*designated+alive, where designated is Group_IsOrderTarget with a group order verb of 0 (every candidate counts as designated when mask bit 0 is clear) and the bar starts at 1, or 0 under verb 3. Range, by Math_DistanceBetweenPoints, caps at 1000000 for the designated target and 100000 otherwise. Score starts at b = 0x1000 - (bearingError >> 3) (0 error with mask 0x20), a nonzero coneLimit rejecting anything past it, as Q10(70, b), raised inside 60000 to b / max(range >> 12, 1) when that is larger, then multiplied by the Q10 weight tables at 0049933c (candidate targets this), 00499342 (candidate's behaviour descriptor +9 clear and not locally piloted), 00499348 (candidate targets something else) and 0049934e (by object class, a class-1 candidate targeting this re-indexed as 0), indexed by vtable +0x4c, and divided by one more than the candidate's other holders (+0x1a2, less this machine's own hold). A higher tier replaces the best whatever its score and raises the bar. Mask: 0x01 restrict the designated bonus, 0x02 drop the shooting-at-me weight, 0x04 drop the crowding divisor, 0x10 reject own class, 0x20 ignore bearing.",
+      "source": "docs/retail/simulation/ai-targeting.md",
+      "verified": {
+        "bytes": "00411fa0+1033",
+        "sha1": "a6089a4b7442",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004123ac",
@@ -4940,8 +5018,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mission_Status",
-      "description": "The mission judgement: the player's own condition, then the mission box, then Mission_EvaluateObjectives. The third argument suppresses the hold, both box arms and the SYSTEM.STR post.",
-      "source": "docs/retail/simulation/mission-objectives.md"
+      "description": "The mission judgement: the player's own condition, then the mission box, then Mission_EvaluateObjectives. The second argument, the objective selector Mission_StatusForAlert passes, is not read. The third argument suppresses the hold, both box arms and the SYSTEM.STR post.",
+      "source": "docs/retail/simulation/mission-objectives.md",
+      "verified": {
+        "bytes": "004135e8+339",
+        "sha1": "ffab3c19aad1",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0041373c",
@@ -5411,8 +5495,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_LocomotionTick",
-      "description": "The Herc control law. Sets speed (mech+0x28e), turn rate (mech+0x28c), heading (mech+0x10) and animation rate (mech+0x2a0); about 60 percent of the body is the gait state machine. Writes no position -- all translation is animation root motion. Turn rate is a tent over speed peaking at half top speed; turn-in-place sets only the animation rate.",
-      "source": "docs/retail/simulation/mech-locomotion.md"
+      "description": "(mech, steer, desiredSpeed, avoidance arg): the HERC control law and gait state machine. An immobilised machine (+0xa4) has steer and desired speed zeroed. Otherwise, while the unstick timer at +0x26d runs, the desired speed is replaced by the type's top reverse speed when +0xae is set and its top forward speed when not; once it has expired +0xae is cleared, Mech_ApplyTerrainSlopeToSpeed adjusts the desired speed and it is clamped to the type's reverse and forward limits. A machine other than the player (004a9c08) that is not immobilised runs Mech_AiObstacleAvoidance. Leg or reactor damage scales the desired speed by Q10 400 (+0xa9/+0xab) or 750 (+0xa8/+0xaa), an engaged Turbo Pod at +0x317 adds its term, steer is clamped to +/-0x100, and the speed scalar +0x28e moves toward the desired speed by typeRec+0x08 per tick. The gait machine then compares |speed| with last tick's on the locomotion thread (+0x22c): while a transition frame is in flight (thread +4 != +8) it is skipped and the speed restored to last tick's; an immobilised machine not turning in place runs the fall to typeRec+0x46 (rate 100 then 0x78, sounds 0x1e and 0x29, latches +0xb4 and calls Mech_SpreadImpactDamage(150, 120) when the sequence has played out); every other machine requests or cuts to the walk, run, stop and turn-in-place sequences with AnimThread_SetTarget and AnimThread_SetSequence and sets the playback rate +0x2a0, per the table in docs/retail/simulation/mech-locomotion.md, 'The gait state machine'. After it a speed of 1 to 44 lifts a nonzero playback rate under 60 to 60, and the turn rate +0x28c moves by typeRec+0x0a toward Q8(Q10(1600, tent), steer), the tent over speed peaking at half top speed and zeroed when the speed is 0 or the gait machine stepped off or requested a stop this tick; the heading +0x10 takes the turn rate and +0x32 is cleared. It writes no position: all translation is animation root motion.",
+      "source": "docs/retail/simulation/mech-locomotion.md",
+      "verified": {
+        "bytes": "00416a04+2756",
+        "sha1": "4b29464234d1",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "004174c8",
@@ -5420,8 +5510,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_Draw",
-      "description": "Mech vtable +0x00, reached from the ObjList draw-table walk. Runs Mech_SpliceHardpointShapes over every LOD root of the type's shape -- replacing each hardpoint placeholder part with the fitted weapon's shape or a blank record -- and then calls Shape_DrawAtDetailLevel. Gated on Mech_DrawEnabled.",
-      "source": "docs/retail/rendering/mech-shape-drawing.md"
+      "description": "Mech vtable +0x00, the draw slot. Runs Mech_SpliceHardpointShapes over every LOD root of the type's shape -- replacing each hardpoint placeholder part with the fitted weapon's shape or a blank record -- and then calls Shape_DrawAtDetailLevel. Gated on Mech_DrawEnabled.",
+      "source": "docs/retail/rendering/mech-shape-drawing.md",
+      "verified": {
+        "bytes": "004174c8+104",
+        "sha1": "f4edb9b5ac44",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00417530",
@@ -5621,13 +5717,13 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_MovementTick",
-      "description": "Per-tick mech physics step. For the locally piloted machine (+0xa3) it first saves the position at 004a9d5c/004a9d60/004a9d64, the pre-move Z Mech_CollisionTest's uphill test compares against. Then SimObject_PushTransform and Mech_IntegrateMotion; for the player with the slide flag 004a9d68 set it adds the slide displacement 004a9d54/004a9d58 to X and Y; and it sets Z to Terrain_HeightQuery(ActiveHeightGrid) plus typeRec+0x16 (ride height). When Mech_CollisionTest refuses: SimObject_PopTransform; a machine that is not locally piloted arms the unstick manoeuvre (mech+0x26e = 10000, mech+0x254 = -5000, or +5000 when Math_RandomNext's low bit is clear, mech+0xae = speed > 0), the player gets Sound_Play(0x29); throttle +0x290 = 0 and the throttle-dirty byte +0x93 = 1. If the locomotion thread's +0x50 & 2 is set it switches that thread to the forward stop sequence (typeRec+0x12) and goes on to the legs. Otherwise it reverses: speed = -speed clamped to [typeRec+0x6e, typeRec+0x06], animation rate negated, Mech_IntegrateMotion again with no terrain clamp, and a second refusal pops the same saved transform and zeroes the speed. Mech_PlaceLegsOnGround last; returns 1. It steers nothing itself; every AI movement decision is a think function calling Mech_LocomotionTick. Dispatched from Mech_AiTick through mech vtable +0x14 (Behaviour_DispatchMove) and the behaviour descriptor's +0x24 triple.",
+      "description": "Per-tick mech physics step. For the locally piloted machine (+0xa3) it first saves the position at 004a9d5c/004a9d60/004a9d64, the pre-move Z Mech_CollisionTest's uphill test compares against. Then SimObject_PushTransform and Mech_IntegrateMotion; for the player with the slide flag 004a9d68 set it adds the slide displacement 004a9d54/004a9d58 to X and Y; and it sets Z to Terrain_HeightQuery(ActiveHeightGrid) plus typeRec+0x16 (ride height). When Mech_CollisionTest refuses: SimObject_PopTransform; a machine that is not locally piloted arms the unstick manoeuvre (mech+0x26e = 10000, mech+0x254 = -5000, or +5000 when Math_RandomNext's low bit is clear, mech+0xae = speed > 0), the player gets Sound_Play(0x29); throttle +0x290 = 0 and the throttle-dirty byte +0x93 = 1. If the locomotion thread's +0x50 & 2 is set (a transition frame in flight) it cuts that thread to frame 0 of the forward stop sequence (typeRec+0x12) and goes on to the legs. Otherwise it reverses: speed = -speed clamped to [typeRec+0x6e, typeRec+0x06], animation rate negated, Mech_IntegrateMotion again with no terrain clamp, and a second refusal pops the same saved transform and zeroes the speed. Mech_PlaceLegsOnGround last; returns 1. It steers nothing itself: the speed and turn it integrates are set by Mech_LocomotionTick. How it is dispatched is in docs/retail/simulation/ai-dispatch.md.",
       "source": "docs/retail/simulation/mech-locomotion.md",
       "verified": {
         "bytes": "0041a360+495",
         "sha1": "ec5110300171",
         "scope": "body",
-        "via": "both"
+        "via": "decompile"
       }
     },
     {
@@ -5967,9 +6063,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_BehaviourPlayerThink",
-      "description": "Think slot of behaviour states 1 player and 2 player fly. Gated on the machine being its group's leader, and always returns 0. Its first arm is the player's own waypoint arrival: the waypoint after the group's route cursor, inside 10000 units of ground range and not a closed route's terminating duplicate (Route_NextWaypointClosesRoute), posts WAYPOINT REACHED and steps the shared cursor. Three further arms switch on DAT_004a9ed8 into mission-objective work -- MISSION TARGET DETECTED, a 40000-unit goal proximity, and the four-message data-link sequence -- none of which touches the route.",
+      "description": "Think slot of behaviour states 1 player and 2 player fly. Gated on the machine being its group's leader, and always returns 0. Its first arm is the player's own waypoint arrival: the waypoint after the group's route cursor, inside 10000 units of ground range and not a closed route's terminating duplicate (Route_NextWaypointClosesRoute), posts WAYPOINT REACHED and steps the shared cursor. Then it switches on DAT_004a9ed8, the script.dat objective selector, into one mission-objective arm: 0 MISSION TARGET DETECTED (one-shot, raises +0x9f), 5 a 40000-unit goal proximity (raises +0x9f), 3 and 7 the four-message data-link sequence (raises +0xa0). Any other selector, 2 included, runs no arm. None of the arms touches the route.",
       "source": "docs/retail/simulation/player-waypoints.md",
-      "signature": "short __cdecl Mech_BehaviourPlayerThink(MechObject *mech)"
+      "signature": "short __cdecl Mech_BehaviourPlayerThink(MechObject *mech)",
+      "verified": {
+        "bytes": "0041c194+562",
+        "sha1": "56bca1ca2da1",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0041c3c8",
@@ -6345,8 +6447,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_ComputeCombatRating",
-      "description": "Writes the combat rating at mech+0x29e and latches the cache flag mech+0x94, which Mech_DirectFireHitTest (00418ba8) clears on a hit and Mech_PerTickSystemsUpdate tests to recompute. Rating = (typeRec+0x44 base + each live weapon mount's value scaled by its condition, for the mounts whose vtable +0x54 answers non-zero -- an ammunition mount only above an eighth of its magazine + each of 19 components' maximum scaled by its condition - a penalty per system over 70% damaged) >> 4, so it falls as the machine is shot apart or runs low.",
-      "source": "docs/retail/simulation/ai-targeting.md"
+      "description": "Writes the combat rating at mech+0x29e and sets mech+0x94, the flag that marks it current. Rating = (typeRec+0x44 + for each non-null mount whose damage reading (Mech_ReadDamageReadouts) is not negative and whose vtable +0x54 answers non-zero, Q8(template+0x4e, 0x100 - reading), the template being mount+0x1c + for each of 19 components with a non-negative reading, Q8(component maximum, 0x100 - reading) - typeRec+0x7e[i] for each of the first 10 systems whose reading is above 0xb4) >> 4. Returns the rating. See docs/retail/simulation/ai-targeting.md.",
+      "source": "docs/retail/simulation/ai-targeting.md",
+      "verified": {
+        "bytes": "0041edd8+316",
+        "sha1": "0f2bd84578e1",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0041ef14",
@@ -7273,7 +7381,13 @@
       "name": "Squad_BroadcastOrder",
       "description": "The MFD FLASH COMM page's transmit: sends one order to the whole of the player's group, best-suited machine first. Each pass scores every member not yet told -- verbs 0/2/5 prefer a machine whose behaviour descriptor +0x09 (committed) is clear, 1/8/0xf one where it is set, 4 and 7 one not already in the radar mode being asked for -- keeps the highest score and breaks ties on range to the issuer, then calls that machine's vtable +0x28 with the reply so far, so only the first recipient or the first to accept says anything. Verbs 0 and 2 stop at the first acceptance; the rest go round until everyone has been told. The score local is not initialised, so for a verb with no case every member carries the same leftover stack value ([EBP-0x1c]): range order when it is -1 or more, nobody told when it is below. Args derived from disassembly: [EBP+8], [EBP+0xc].",
       "source": "docs/retail/simulation/ai-squadmates.md",
-      "signature": "bool __cdecl Squad_BroadcastOrder(int group, SquadOrderRecord *order)"
+      "signature": "bool __cdecl Squad_BroadcastOrder(int group, SquadOrderRecord *order)",
+      "verified": {
+        "bytes": "004231a4+400",
+        "sha1": "118fc0751c47",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00423358",
@@ -7430,7 +7544,13 @@
       "confidence": "high",
       "name": "Group_OrderTick",
       "description": "Per-frame tick for a group that has entered the mission (the branch Sim_MainTick takes when group+0x14 is null). Runs the group's current order -- the row-15 link at group+0x44 indexed by the current-order index at group+0x6c -- and advances to the next when Group_IsOrderComplete reports it complete or its own action has activated, flagging the finished order in the byte array at group+0x70 and clearing each member's +0x52. Then ticks every member via Mech_AiTick.",
-      "source": "docs/retail/simulation/mission-deployment.md"
+      "source": "docs/retail/simulation/mission-deployment.md",
+      "verified": {
+        "bytes": "00423a74+149",
+        "sha1": "eb297166fe41",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00423b0c",
@@ -7474,9 +7594,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Mission_TotalSalvage",
-      "description": "Sums Mech_SalvageValue over every object on the other side from the player's that is destroyed (+0x99) or immobilised (+0xa4). Called once as the mission writes its results; the total is scaled by Q10(2500) into the campaign salvage pool.",
+      "description": "Sums Mech_SalvageValue over every object on the other side from the player's that is destroyed (+0x99) or immobilised (+0xa4). The second argument, the objective selector Mission_WriteResults passes, is not read. Called once as the mission writes its results; the total is scaled by Q10(2500) into the campaign salvage pool.",
       "source": "docs/retail/simulation/component-damage.md",
-      "signature": "int __cdecl Mission_TotalSalvage(void *playerGroup, short unused)"
+      "signature": "int __cdecl Mission_TotalSalvage(void *playerGroup, short unused)",
+      "verified": {
+        "bytes": "00423e88+126",
+        "sha1": "bc1916e031d5",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00423f08",
@@ -7903,7 +8029,13 @@
       "name": "Structure_WalkCollisionTest",
       "description": "The walking-collision half of the structure volume test, called from Structure_GatherWalkCandidates's gather. Per candidate: 2D distance from the point to the structure against shape+8 (the shape read through the model instance, obj+0x34 -> +4), then the offset rotated into shape space by the transposed XY block of the object's rotation, then GridShape_HeightAt(shape, point, 0), which applies the same origin << cellShift GridShape_Raycast applies, so a walker meets the footprint a shot meets. Returns the first nonzero height; the radius argument is not read.",
       "source": "docs/retail/simulation/hit-detection.md",
-      "signature": "int __cdecl Structure_WalkCollisionTest(int *point, unsigned short radius, int *candidates, short count)"
+      "signature": "int __cdecl Structure_WalkCollisionTest(int *point, unsigned short radius, int *candidates, short count)",
+      "verified": {
+        "bytes": "00427c68+280",
+        "sha1": "8713d8e3873f",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00427d80",
@@ -9329,9 +9461,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Squad_BroadcastOrderFromCockpit",
-      "description": "Stamps the order record's issuer field at +0x02 with the player's machine (view+0x203) and hands it to Squad_BroadcastOrder against the player's group (DAT_0049b0f8). Args derived from disassembly: [EBP+8], [EBP+0xc].",
+      "description": "Stamps the order record's issuer field at +0x02 with the player's machine (view+0x203) and hands it to Squad_BroadcastOrder against the player's group (DAT_0049b0f8), leaving that call's result in EAX untouched, so it returns whether anyone accepted; MfdFlashComm_Transmit tests it. Args derived from disassembly: [EBP+8], [EBP+0xc].",
       "source": "docs/retail/simulation/ai-squadmates.md",
-      "signature": "void __cdecl Squad_BroadcastOrderFromCockpit(int cockpitView, SquadOrderRecord *order)"
+      "signature": "bool __cdecl Squad_BroadcastOrderFromCockpit(int cockpitView, SquadOrderRecord *order)",
+      "verified": {
+        "bytes": "0043166c+36",
+        "sha1": "b642249bd587",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00431690",
@@ -9363,8 +9501,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Gau_Load",
-      "description": "PANEL.CPP's confirmed .GAU loader. Allocates a 1700-byte (0x6a4) struct -- matching .GAU's confirmed content size exactly -- then vector-constructs six arrays of 16-byte rects, counts 10, 3, 4, 13, 15 and 3: the first, the 10 weapon-row rects at +0x14 (.GAU offset 20, stride 16), with GauWeaponRect_ElementCtor, the other five with RectI_Ctor.",
-      "source": "memory project_es2_exe_recon"
+      "description": "PANEL.CPP's .GAU loader. Allocates a 1700-byte (0x6a4) struct -- the .GAU's content size -- then vector-constructs six arrays of 16-byte rects, counts 10, 3, 4, 13, 15 and 3: the first, the 10 weapon-row rects at +0x14 (.GAU offset 20, stride 16), with GauWeaponRect_ElementCtor, the other five with RectI_Ctor. Reads the file over it, and when the origin offset (ints 0 and 1) is non-zero adds it to the first n weapon-row rects, n being the int at +0x10, and to seven other rects (ints 0x75, 0x89, 0x9a, 0xb6, 0xfa, 0x110, 0x12f). See docs/retail/formats/gau-cockpit-layout.md.",
+      "source": "memory project_es2_exe_recon",
+      "verified": {
+        "bytes": "00431778+1151",
+        "sha1": "040cb8952f30",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00431bf8",
@@ -9372,9 +9516,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Gau_BuildCockpitWidgets",
-      "description": "Caller of Gau_Load. Builds the cockpit's widget tree, and the order it does so in IS the flat clickable list's order, which first-hit-wins makes into precedence: SystemButtons_Ctor's two system gadgets, then the seven top-level gauges from fixed literal .GAU offsets (468 console buttons, 548 energy meter, 616 shields, 728 MFD, 1000 throttle, 1088 roving gunsight, 1212 heads-down display) stored at cockpit+0x1e1..+0x1f9, then WeaponMounts_BuildGauges for the weapon rows. Also builds the pilot message port at +0x207 from .GAU 1668 and the computer's message port at +0x20b from 1684. Ends with the flyer branch: when the piloted machine's type record has a non-zero +0x50 (InputFlagFlyer, the RAZOR alone) it marks the power-up already finished at cockpit+0x245 and both arms and immediately latches (+0x8d = 1) the ten gauges and the three widgets at +0x1e9/+0x1f5/+0x1ed, so none of them plays its power-up animation and Cockpit_PowerUpSound never stamps a start tick.",
+      "description": "Loads the .GAU through Gau_Load, then builds the cockpit's widget tree, and the order it does so in IS the flat clickable list's order, which first-hit-wins makes into precedence: SystemButtons_Ctor's two system gadgets, then the pilot message port at +0x207 from .GAU 1668 (DialogPort_Ctor, or TrainingMessagePort_Ctor with the rect lifted by the int at 1664 in a training mission) and the computer's message port at +0x20b from 1684, then the seven top-level gauges from fixed literal .GAU offsets (468 console buttons, 548 energy meter, 616 shields, 728 MFD, 1000 throttle, 1088 roving gunsight, 1212 heads-down display) stored at cockpit+0x1e1..+0x1f9, then calls Gau_ShiftRects3Point, Gau_ShiftRects3 and Gau_ShiftRects5 on ints 0x41, 0x2d and 0x59 and shifts the first n weapon-row rects (n the int at +0x10) by VideoMode_X/YCoordShift, then WeaponMounts_BuildGauges for the weapon rows. Ends with the flyer branch: when the piloted machine's type record has a non-zero +0x50 (InputFlagFlyer, the RAZOR alone) it sets cockpit+0x245 and both arms and immediately latches (+0x8d = 1) the ten gauges at cockpit+0x70 and the three widgets at +0x1e9/+0x1f5/+0x1ed, so none of them plays its power-up animation.",
       "source": "docs/retail/simulation/cockpit-input.md",
-      "signature": "void __cdecl Gau_BuildCockpitWidgets(int *cockpit, char *hercName)"
+      "signature": "void __cdecl Gau_BuildCockpitWidgets(int *cockpit, char *hercName)",
+      "verified": {
+        "bytes": "00431bf8+1056",
+        "sha1": "93cf3b7af6f6",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00432018",
@@ -9391,8 +9541,14 @@
       "type": "function",
       "confidence": "high",
       "name": "CockpitView_CreateEnergyWeaponGauge",
-      "description": "(view, row, mount): copies the 16 bytes at CockpitGauRecord+0x14+row*0x10 to CockpitGauRecord+0x104, allocates 0xdf bytes, runs EnergyWeaponGauge_Ctor(gauge, record+0x104, view, row, mount) and CockpitView_RegisterWeaponGauge(view, gauge, row), and returns the gauge. 0040e0e0 stores the result at mount+0x77.",
-      "source": "DBSIM decompile at 00432074"
+      "description": "(view, row, mount): copies the 16 bytes at CockpitGauRecord+0x14+row*0x10 to CockpitGauRecord+0x104, allocates 0xdf bytes, runs EnergyWeaponGauge_Ctor(gauge, record+0x104, view, row, mount) and CockpitView_RegisterWeaponGauge(view, gauge, row), and returns the gauge.",
+      "source": "DBSIM decompile at 00432074",
+      "verified": {
+        "bytes": "00432074+175",
+        "sha1": "f16e41079da5",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00432124",
@@ -9400,8 +9556,14 @@
       "type": "function",
       "confidence": "high",
       "name": "CockpitView_CreateAmmoWeaponGauge",
-      "description": "(view, row, mount): copies the 16 bytes at CockpitGauRecord+0x14+row*0x10 to CockpitGauRecord+0xb4, allocates 0xef bytes, runs AmmoWeaponGauge_Ctor(gauge, record+0xb4, view, row, mount) and CockpitView_RegisterWeaponGauge(view, gauge, row), and returns the gauge. CockpitView_CreateEnergyWeaponGauge's ammunition twin; WeaponMount_CreateAmmoGauge stores the result at mount+0x77.",
-      "source": "DBSIM decompile at 00432124"
+      "description": "(view, row, mount): copies the 16 bytes at CockpitGauRecord+0x14+row*0x10 to CockpitGauRecord+0xb4, allocates 0xef bytes, runs AmmoWeaponGauge_Ctor(gauge, record+0xb4, view, row, mount) and CockpitView_RegisterWeaponGauge(view, gauge, row), and returns the gauge. CockpitView_CreateEnergyWeaponGauge's ammunition twin;",
+      "source": "DBSIM decompile at 00432124",
+      "verified": {
+        "bytes": "00432124+175",
+        "sha1": "09ec978dec13",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004321d4",
@@ -9409,9 +9571,15 @@
       "type": "function",
       "confidence": "high",
       "name": "CockpitView_CreatePodGauge",
-      "description": "Builds the cockpit weapon-row gauge for one equipment pod, switching on the pod's catalog id at pod+0x77: 0x12 (ECM) gets TogglePodGauge_Ctor, 0x1f (TURB) gets TurboPodGauge_Ctor, and 0x1d, 0x1e and 0x20 (TARG, SHLD, ENRG) get the plain PodGauge_Ctor. The split matches the tick table exactly -- the two classes with a tick of their own are the two with a gauge class of their own.",
+      "description": "(view, row, pod): builds the cockpit weapon-row gauge for one equipment pod. Copies the 16 bytes at CockpitGauRecord+0x14+row*0x10 to CockpitGauRecord+0x164 and builds from there, switching on the pod's catalog id at pod+0x77: 0x12 (ECM) gets TogglePodGauge_Ctor, 0x1f (TURB) gets TurboPodGauge_Ctor, and 0x1d, 0x1e and 0x20 (TARG, SHLD, ENRG) get the plain PodGauge_Ctor; then CockpitView_RegisterWeaponGauge at the row.",
       "source": "docs/retail/simulation/equipment-pods.md",
-      "signature": "int __cdecl CockpitView_CreatePodGauge(int cockpitView, short hardpoint, void *pod)"
+      "signature": "int __cdecl CockpitView_CreatePodGauge(int cockpitView, short hardpoint, void *pod)",
+      "verified": {
+        "bytes": "004321d4+363",
+        "sha1": "b46025ec39a7",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00432340",
@@ -9777,8 +9945,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Hud_WorldUnitsToMetres",
-      "description": "THE GAME'S UNIT SCALE, stated by the original itself: 'return (worldUnits / 1000) * 6', i.e. 1000 world units = 6 metres, one world unit = 6 mm, 166.667 units per metre. Three call sites, two unrelated HUD gadgets, both feeding it a raw difference of two world positions: Hud_UpdateWaypointIndicator (0043c3e4, the 'WAYPOINT n: d M.' string) and the scanner MFD contact-range readout (0043ebe0/0043eecc). The integer divide quantises the displayed figure to multiples of 6 m.",
-      "source": "docs/herculan/planning.md (world scale recovery)"
+      "description": "THE GAME'S UNIT SCALE, stated by the original itself: 'return (worldUnits / 1000) * 6', i.e. 1000 world units = 6 metres, one world unit = 6 mm, 166.667 units per metre. The integer divide truncates toward zero, so the figure is quantised to multiples of 6 m.",
+      "source": "docs/herculan/planning.md (world scale recovery)",
+      "verified": {
+        "bytes": "00434228+21",
+        "sha1": "241e72af3d61",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00434240",
@@ -12030,7 +12204,13 @@
       "name": "MfdFlashComm_SelectedVerb",
       "description": "The STRINGS0 group 0 verb the FLASH COMM page's selected row names: the row index at screen+0x32, plus 3 when that row's own state byte at screen+0x2c+row has bit 1 set. Only rows 4 and 5 ever have that bit set (MfdFlashComm_ToggleRowVariant refuses any other row), so the page sends verbs 0-5, 7 and 8. Args derived from disassembly: [EBP+8] only.",
       "source": "docs/retail/simulation/ai-squadmates.md",
-      "signature": "int __cdecl MfdFlashComm_SelectedVerb(int flashComm)"
+      "signature": "int __cdecl MfdFlashComm_SelectedVerb(int flashComm)",
+      "verified": {
+        "bytes": "0043f998+31",
+        "sha1": "c342d053cb7a",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0043f9b8",
@@ -12039,7 +12219,13 @@
       "confidence": "high",
       "name": "MfdFlashComm_SetScreenRow",
       "description": "(screen, row) copies screen +0x32 into the previous-row word +0x37, then stores row at +0x32. Seven calls from MfdFlashComm_HandleAltKey.",
-      "source": "docs/retail/simulation/mfd.md"
+      "source": "docs/retail/simulation/mfd.md",
+      "verified": {
+        "bytes": "0043f9b8+22",
+        "sha1": "a0bc6997fcc6",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0043f9d0",
@@ -12262,8 +12448,14 @@
       "type": "function",
       "confidence": "high",
       "name": "EnergyWeaponGauge_SetState",
-      "description": "EnergyWeaponGauge vtable +0x10 (gauge, block), the write-back twin of EnergyWeaponGauge_GetState over the 0x17-byte state block at +0xc2. Block[1], the charge bar's slider position, when it differs from +0xc6: stored there and set on the slider (child +0x1c) through its slot +0x14, SliderWidget_SetValueH, which commits back through EnergyWeaponGauge_OnChildClick. Block[0], the bar's fill, when it differs from +0xc2: stored there and at the bar's +0x7a, and at +0xdb unless the power-up fill is running (+0x8d). The destroyed byte (+0x11) puts both children's state (+0x1b) to 2 or back to 0, deferred through +0xc1 while CockpitView_GetShakeOffset reports a shake. Bytes +0x14..+0x16 go to +0xd6..+0xd8. Repaints whichever children changed.",
-      "source": "DBSIM decompile at 00440d4c; DBSIM_vtables_full.txt table_0049c91c"
+      "description": "EnergyWeaponGauge vtable +0x10 (gauge, block), the write-back twin of EnergyWeaponGauge_GetState over the 0x17-byte state block at +0xc2. Block+0x04, the charge bar's slider position, when it differs from +0xc6: stored there and passed to the slider (child +0x1c) through slot +0x14 of its table at +0x17. Block+0x00, the bar's fill, when it differs from +0xc2: stored there and at the slider's +0x7a (what WeaponSliderGadget_Paint fills the bar to), and at +0xdb, the live value EnergyWeaponGauge_PowerUpFill ramps toward, while the power-up is not done (+0x8d clear). The destroyed byte (+0x11) puts both children's state (+0x1b) to 2 or back to 0, deferred through +0xc1 while CockpitView_GetShakeOffset's +4 is non-zero. Bytes +0x14..+0x16 go to +0xd6..+0xd8. Repaints (slot +0x04) whichever children changed.",
+      "source": "DBSIM decompile at 00440d4c; DBSIM_vtables_full.txt table_0049c91c",
+      "verified": {
+        "bytes": "00440d4c+294",
+        "sha1": "07d8cbc5ff6f",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00440e74",
@@ -12272,7 +12464,13 @@
       "confidence": "high",
       "name": "EnergyWeaponGauge_GetState",
       "description": "Returns gauge+0xc2, the 0x17-byte display state block that WeaponMount_PushEnergyGaugeState and 0040e0e0 copy into a local.",
-      "source": "DBSIM decompile at 00440e74"
+      "source": "DBSIM decompile at 00440e74",
+      "verified": {
+        "bytes": "00440e74+13",
+        "sha1": "75710b04cb4b",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00440e84",
@@ -12308,8 +12506,14 @@
       "type": "function",
       "confidence": "high",
       "name": "AmmoWeaponGauge_Paint",
-      "description": "Ammunition row's paint: the select gadget, then itoa(rounds) into the value label in WHITE (selected) or GRAY, skipped while the row is dark or mid-wipe.",
-      "source": "docs/retail/simulation/cockpit-hud-widgets.md"
+      "description": "Ammunition row's paint, while the row is armed (+0x8c): paints the select gadget (+0x18) through its slot +0x00, then, unless the row is dark (+0x76) or mid-wipe (+0x6c sequencer not idle), its value label (+0xdb) is off screen, the select gadget's state +0x1b is 2 or the destroyed byte +0xd3 is set, itoa's the round count at +0xc2 into the label in ColorSchemePanels[10] WHITE when +0xd6 is set and [11] GRAY otherwise.",
+      "source": "docs/retail/simulation/cockpit-hud-widgets.md",
+      "verified": {
+        "bytes": "004411b4+180",
+        "sha1": "b637e033cc4b",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00441268",
@@ -12327,7 +12531,13 @@
       "confidence": "high",
       "name": "AmmoWeaponGauge_SetState",
       "description": "ProjectileWeaponGauge vtable +0x10 (0049c8fc), (gauge, block): EnergyWeaponGauge_SetState's ammunition twin. A new dword 0 (the round count) goes to +0xc2 and marks the row dirty (+0xb0 = 2). A new byte +0x11 goes to +0xd3 and sets the select gadget's (+0x18) state +0x1b to 2 or 0. New bytes +0x14/+0x15/+0x16 go to +0xd6/+0xd7/+0xd8. Any of the byte changes also invalidates the select gadget (its slot +0x04) and marks the row dirty.",
-      "source": "DBSIM decompile at 004413f4"
+      "source": "DBSIM decompile at 004413f4",
+      "verified": {
+        "bytes": "004413f4+173",
+        "sha1": "a26b5db013a1",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004414a4",
@@ -12336,7 +12546,13 @@
       "confidence": "high",
       "name": "AmmoWeaponGauge_GetState",
       "description": "Returns gauge+0xc2, the display state block WeaponMount_PushAmmoGaugeState copies into a local from the mount's +0x77 gauge. The ammunition twin of EnergyWeaponGauge_GetState.",
-      "source": "DBSIM decompile at 004414a4"
+      "source": "DBSIM decompile at 004414a4",
+      "verified": {
+        "bytes": "004414a4+13",
+        "sha1": "75710b04cb4b",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004414b4",
@@ -12675,8 +12891,14 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponSliderGadget_Paint",
-      "description": "WeaponSliderGadgetVtable +0x00, the energy row charge bar's paint: the LEDBarGraph at +0x46 to the value at +0x7a, skipped while the owning gauge (+0x42) is dark or mid-wipe or not yet armed.",
-      "source": "docs/retail/simulation/cockpit-hud-widgets.md"
+      "description": "WeaponSliderGadgetVtable +0x00, the energy row charge bar's paint: when the bar's rect is on screen, its state +0x1b is not 2 (destroyed), the owning gauge (+0x42) is neither dark (+0x76) nor mid-wipe (its +0x6c sequencer not idle) and is armed (+0x8c), it calls the LEDBarGraph at +0x46's slot +0x00 with the value at +0x7a -- the capacitor level EnergyWeaponGauge_SetState stores there -- then copies +0x7a to +0x4a and refreshes its cached span fields (+0x2e, +0x36, +0x6e).",
+      "source": "docs/retail/simulation/cockpit-hud-widgets.md",
+      "verified": {
+        "bytes": "00442b38+174",
+        "sha1": "c803fb95a551",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00442be8",
@@ -13378,7 +13600,13 @@
       "confidence": "high",
       "name": "MfdFlashComm_HandleAltKey",
       "description": "(mfd, code): FLASH COMM's [Alt] order keys, offered every code before the MFD's own command slot. For 0x21e, 0x222, 0x223, 0x218, 0x221 ([Alt]+A G H O F) it selects row 0, 1, 2, 3 or 5 through 0043f9b8 on the comm screen (+0xd1), transmits (MfdFlashComm_Transmit) and selects the row again (MfdFlashComm_SelectRow); 0x22e and 0x212 ([Alt]+C, E) select row 4 and transmit only when MfdFlashComm_SelectedVerb is 4 or 7 respectively. Returns 1 for those seven codes, 0 for any other. See docs/retail/simulation/mfd.md.",
-      "source": "DBSIM decompile at 00446c10"
+      "source": "DBSIM decompile at 00446c10",
+      "verified": {
+        "bytes": "00446c10+357",
+        "sha1": "8b093ff0e11f",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00446db4",
@@ -17931,8 +18159,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Input_BuildSourceTable",
-      "description": "Input-system init. Populates the source-pointer table at 004d2394 with the address of every available input value -- the two keyboard axis pairs Input_BuildKeyboardAxes writes, the four joystick axes at DAT_004d2414+0x0d/0x11/0x15/0x19, and the buttons -- so that a key or axis binding is a choice of pointer rather than a hardcoded path. This indirection is why Sim_PollPlayerInput reads some axes through a pointer-to-pointer.",
-      "source": "docs/retail/simulation/joystick-input.md"
+      "description": "Input-system init, run once by Sim_InitMissionSession: builds and enables the keyboard device (KeyboardInputDevice_Ctor) with its key listener and the mouse device (MouseInputDevice_Ctor), sets SimInput_SetEnabled(1), runs Prefs_InitPathAndHandlers and polls the live device block into DAT_004d2414. Then fills the pointer table at 004d2394: the eight destinations (the four game axes 004d2358-235e and buttons 004d2360-2367), and the sources -- the two keyboard axis pairs Input_BuildKeyboardAxes writes (004d2445-2451), the four joystick axes at DAT_004d2414+0x0d/0x11/0x15/0x19, the four keyboard button bytes 004d2455-2458 and the live block's eight buttons at +0x1d..+0x24 -- so that a key or axis binding is a choice of pointer rather than a hardcoded path. Clears the press-once latches of buttons 1-4 (004d237a-237d, not their states) and ends with Keyjoy_LoadConfig.",
+      "source": "docs/retail/simulation/joystick-input.md",
+      "verified": {
+        "bytes": "0045a5c0+562",
+        "sha1": "e91b8f20a651",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045a7f4",
@@ -17940,8 +18174,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Input_BuildPlayerDevice",
-      "description": "The per-frame input build: reads the twelve controls-block bytes at ControlsOptionBase and routes the joystick's four normalised axes, hat and eight buttons into the device struct at PlayerInputBlock that Sim_PollPlayerInput consumes. Each axis row's byte selects a DESTINATION pair (0 unassigned, 1 the movement pair, 2 the turret pair), not a source; a control whose destination is taken falls to a second rank that wins when both have moved, and the keyboard pairs are the last fallback. Also: pulls the first FIRE-bound button of the walker's block out to +0x0d and zeroes its byte (using a hardcoded 0x11 rather than ControlsOptionBase+4, so a RAZOR finds its trigger through the walker's block), applies the press-once button latch Input_LatchButton sets, writes the hat over the turret pair at 0xc0 under HAT=2, and applies keyjoy.cfg's Backturn and Rudder reversals. It also owns the command queue at DAT_004d2148: it drains each code through Sim_DispatchCommand after masking with SimCommandMask = 0x47ff (which discards the Shift bank, folding a shifted key onto the plain one) and then resets the count. It is the input-tape record and playback point too -- see docs/retail/formats/tap-input-tape.md.",
-      "source": "docs/retail/simulation/joystick-input.md"
+      "description": "The per-frame input build: reads the twelve controls-block bytes at ControlsOptionBase and routes the joystick's four normalised axes, hat and eight buttons into the device struct at PlayerInputBlock that Sim_PollPlayerInput consumes. Pumps messages first (WM_QUIT raises DemoAbort), zeroes the block's 0x30 bytes and polls the live device block through Input_PollDeviceBlock. Each axis row's byte selects a DESTINATION pair (0 unassigned, 1 the movement pair, 2 the turret pair), not a source; a control whose destination is taken falls to a second rank that wins when both have moved, and the keyboard pairs are the last fallback. Also: pulls the first FIRE-bound button of the walker's block out to +0x0d and zeroes its byte (using a hardcoded 0x11 rather than ControlsOptionBase+4, so a RAZOR finds its trigger through the walker's block), applies the press-once button latch Input_LatchButton sets (a latched button reading its latched state is masked to zero, one reading anything else drops the latch), writes the hat over the turret pair at 0xc0 under HAT=2, and applies keyjoy.cfg's Tilt, Missile, Rudder and Backturn reversals. It also owns the command queue at DAT_004d2148: it drains each code through Sim_DispatchCommand after masking with SimCommandMask = 0x47ff (which discards the Shift bank, folding a shifted key onto the plain one) and then resets the count. It is the input-tape record and playback point too: during playback it reads the frame record into the block, and jumps (0045aeda to 0045b2ae) past the source combine, the latch-release loop, the trigger extraction and the copy of the live block's pointer and mouse bytes (+0x02..+0x0c, left zero). The tail runs either way, after the recording write: outside the camera arm it zeroes the camera-axis pair while button 1's latch (004d237a) and its state (004d2382) are set, points +0x22/+0x26 at that pair, and applies Backturn -- see docs/retail/formats/tap-input-tape.md.",
+      "source": "docs/retail/simulation/joystick-input.md",
+      "verified": {
+        "bytes": "0045a7f4+3659",
+        "sha1": "dcdf7131e56b",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0045b640",
@@ -18636,7 +18876,13 @@
       "confidence": "high",
       "name": "DemoTape_PickRandom",
       "description": "Loads group 0x14 of tapes\\demolist.str and returns entry time() % count, or entry 0 when the table holds one name. The retail table holds DEMO1, DEMO2 and DEMO3.",
-      "source": "docs/retail/formats/tap-input-tape.md"
+      "source": "docs/retail/formats/tap-input-tape.md",
+      "verified": {
+        "bytes": "0045ce9c+270",
+        "sha1": "d4eeda21717d",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045cfac",
@@ -18955,7 +19201,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_Run",
-      "description": "WinMain's body: reads data\\drive.cfg into DriveCfg_Directory, parses the command line, and shows a message box and returns when 004d25a8 is clear. Otherwise runs subsystem phases 0 and 1, asserts at under 8 MB physical memory and sets CockpitArt_LoadOnDemand under 12 MB, runs Sim_InitMissionSession and phase 3, then loops: phase 4, Time_BeginSimTick unless TapePlayback, then while 004d25f6 is set Sleep(100) and Win_PumpMessages (WM_QUIT ends it), else Sim_MainTick, Cam_Update(ViewObjectPtr), Sim_RenderFrame, Sim_EndFrame, phase 6 and Sim_FrameCount++, until DemoAbort, the quit flag 004d2582 or a non-zero Sim_MainTick. Then stops the music and sound, saves option 6 if the full-screen state changed, reopens tapes\\prefs.cfg and tapes\\keyjoy.cfg after a tape playback, and calls Sim_Shutdown.",
+      "description": "WinMain's body: reads data\\drive.cfg into DriveCfg_Directory, parses the command line, and shows a message box and returns when 004d25a8 is clear. Otherwise runs subsystem phases 0 and 1, asserts at under 8 MB physical memory and sets CockpitArt_LoadOnDemand under 12 MB, runs Sim_InitMissionSession and phase 3, then loops: phase 4, Time_BeginSimTick unless TapePlayback, then while 004d25f6 is set Sleep(100) and Win_PumpMessages (WM_QUIT ends it), else Sim_MainTick, Cam_Update(ViewObjectPtr), Sim_RenderFrame, Sim_EndFrame, phase 6 and Sim_FrameCount++, until DemoAbort, the quit flag 004d2582 or a non-zero Sim_MainTick. Then stops the music and sound, saves option 6 if the full-screen state changed, deletes tapes\\prefs.cfg and tapes\\keyjoy.cfg (OpenFile with OF_DELETE) when TapePlayback is still set, and calls Sim_Shutdown.",
       "source": "docs/retail/command-line.md#exit-codes",
       "verified": {
         "bytes": "0045f144+798",
@@ -18970,9 +19216,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_MainTick",
-      "description": "DBSIM's per-frame simulation tick. Updates SimTickDelta from a hardware/timer source, iterates every global object list, and calls Mech_PerTickSystemsUpdate once per live mech in GlobalMechList.",
-      "source": "docs/retail/simulation/mission-deployment.md",
-      "signature": "short __cdecl Sim_MainTick(void)"
+      "description": "DBSIM's per-frame simulation tick, called once a frame by Sim_Run. Runs Input_BuildPlayerDevice and, during tape playback, copies the frame record's delta (block +0x2e) into SimTickDelta; otherwise it leaves SimTickDelta to Time_BeginSimTick. Unless 004d2576 is set it then ticks, each pool walked last to first through Pool_Prev and each object that returns nonzero queued for deletion: g_ExplosionPool (Explosion_TickUpdate), g_SmokeBallPool (Effect_DriftAndAnimate), g_SmokePool (Smoke_Tick), g_FirePool (FireEffect_TickUpdate), g_DebrisPool (Debris_TickUpdate), g_MeteorPool (Meteor_Tick); clears DAT_004d25aa; ticks g_ProjectilePool through vtable +0x14 and every g_StructurePool object whose group +0x14 is null through vtable +0x18; then walks MissionGroups in order, Group_DeploymentCheck for a group whose +0x14 is set and Group_OrderTick otherwise. A set 004d2580 is then moved into 004d2576. Sim_PollPlayerInput follows; a nonzero return ends the tick returning 1. Otherwise: ActionTimers_Tick and Actions_EvaluateTriggers(LocalPlayerMech) unless 004d2576; ViewChain_Apply; unless 004d2576, Sim_DetectionTick and Mech_PerTickSystemsUpdate for each GlobalMechList mech (last to first) whose group +0x14 is null and that is not destroyed. With the player not destroyed (+0x99) it runs Mission_PollStatus and, for a status of 0 or more other than 2, first runs Group_ApplyOutnumberedDamage on the player's group when the status is 3 (showing status 0x12 instead if that destroys the player), then runs a StatusAlertPanel for it and returns 1 when the answer equals AlertPanel_EndsMissionButton[status]. With the player destroyed and 004d2576 clear it runs StatusAlertPanel(2) once ViewChain_PlayerDeathCamera answers nonzero and returns 1. Returns 0 otherwise.",
+      "source": "docs/retail/simulation/random-generator.md#the-simulations-draws",
+      "signature": "short __cdecl Sim_MainTick(void)",
+      "verified": {
+        "bytes": "0045f464+1300",
+        "sha1": "81ffa9a97069",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045f978",
@@ -20487,7 +20739,13 @@
       "confidence": "high",
       "name": "Time_GetCoarseTicks",
       "description": "(GetTickCount() - startTick) >> 4, i.e. elapsed time in 16 ms units (62.5 Hz). The mission clock gadget (HudClock_Tick) advances one displayed second per 0x3c=60 of these units, so the original's clock runs ~4% fast. This is the coarse UI/event timebase and is NOT the same thing as SimTickDelta, which Sim_MainTick reads from a separate per-frame timing struct.",
-      "source": "docs/herculan/planning.md (world scale recovery)"
+      "source": "docs/herculan/planning.md (world scale recovery)",
+      "verified": {
+        "bytes": "00467724+15",
+        "sha1": "73dd792cfd39",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00467734",
@@ -20504,8 +20762,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Time_InitSimClock",
-      "description": "SimTickDelta = 0x100 and 004d3bea = 0x100, 004d3bf4 = 1000, 004d3bec/004d3bee/004d3bf0/004d3bf6 = 0x7d, and 004d3bf8/004d3bfc = GetTickCount(). Sim_InitMissionSession calls it after Light_CreateMissionSun, before DBSim_LoadScriptDat.",
-      "source": "DBSIM decompile at 0046773c"
+      "description": "SimTickDelta = 0x100 and 004d3bea = 0x100, 004d3bf4 = 1000, 004d3bec/004d3bee/004d3bf0/004d3bf6 = 0x7d, and 004d3bf8/004d3bfc = GetTickCount(). es2_xref finds one caller, Sim_InitMissionSession, which calls it after Light_CreateMissionSun and before DBSim_LoadScriptDat.",
+      "source": "DBSIM decompile at 0046773c",
+      "verified": {
+        "bytes": "0046773c+83",
+        "sha1": "5db95b2f9284",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00467790",
@@ -20514,7 +20778,13 @@
       "confidence": "high",
       "name": "Time_ElapsedToQ8Clamped",
       "description": "(unit, elapsed): (elapsed << 8) / unit clamped to [0x40, 0x1c2], returned in AX (the decompile drops the return). Time_BeginSimTick computes SimTickDelta with unit 004d3bec and 004d3bea with unit 004d3bee through it.",
-      "source": "DBSIM decompile and disassembly at 00467790"
+      "source": "DBSIM decompile and disassembly at 00467790",
+      "verified": {
+        "bytes": "00467790+43",
+        "sha1": "aad18c13cc3a",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "004677bc",
@@ -20524,7 +20794,13 @@
       "name": "Time_BeginSimTick",
       "description": "Spins until 40 ms have elapsed (25 Hz frame cap), then sets SimTickDelta = clamp((elapsedMs << 8) / 125, 0x40, 0x1c2). SimTickDelta is Q8 with 1.0 = 125 ms, so rate units are per-125 ms.",
       "source": "docs/retail/simulation/mech-locomotion.md",
-      "signature": "void __cdecl Time_BeginSimTick(void)"
+      "signature": "void __cdecl Time_BeginSimTick(void)",
+      "verified": {
+        "bytes": "004677bc+99",
+        "sha1": "044074378d2c",
+        "scope": "callees",
+        "via": "decompile"
+      }
     },
     {
       "address": "00467820",
@@ -21087,7 +21363,13 @@
       "confidence": "high",
       "name": "Group_FirstAbleMember",
       "description": "Returns the first of up to four of a group's members that is neither immobilised (+0xa4) nor destroyed (+0x99), or null. The ground-vehicle layer's notion of the group leader.",
-      "source": "docs/retail/simulation/ground-vehicles.md"
+      "source": "docs/retail/simulation/ground-vehicles.md",
+      "verified": {
+        "bytes": "0046a4b8+87",
+        "sha1": "afa963685c96",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0046a510",
@@ -21095,8 +21377,14 @@
       "type": "function",
       "confidence": "high",
       "name": "GroundVehicle_CollisionTest",
-      "description": "The two object sweeps of Mech_CollisionTest standing alone, for the ground vehicle class instead of the mech: same group +0x14 action gate, same asymmetric vtable +0x5c versus +0x7c radius pair, same Structure_GatherWalkCandidates volume sweep behind them. Declared void by the decompiler, but the return is real and is set in two places: AX = 1 on an object block, and otherwise whatever the GatherWalkCandidates tail reports. It drops the mech version's other two arms -- no terrain steepness test, so a ground vehicle drives up anything, and no collision damage. On an object block it still calls the blocker's vtable +0x68 (SimObject_SetRunInto), which makes it the SECOND of the two writers of obj+0xb1. Its only reference is GroundVehicle_ThinkTick.",
-      "source": "docs/retail/simulation/ai-combat-states.md"
+      "description": "The two object sweeps of Mech_CollisionTest standing alone, for the ground vehicle class instead of the mech: same group +0x14 action gate, same asymmetric vtable +0x5c versus +0x7c radius pair, same Structure_GatherWalkCandidates volume sweep behind them, passing itself as the gather's excluded structure. Declared void by the decompiler, but the return is real and is set in two places: AX = 1 on an object block, and otherwise 1 when the GatherWalkCandidates tail reports a block. It drops the mech version's other two arms -- no terrain steepness test, so a ground vehicle drives up anything, and no collision damage. On an object block it still calls the blocker's vtable +0x68 (SimObject_SetRunInto), which makes it the SECOND of the two writers of obj+0xb1. es2_xref finds one reference, the call from GroundVehicle_ThinkTick.",
+      "source": "docs/retail/simulation/ai-combat-states.md",
+      "verified": {
+        "bytes": "0046a510+191",
+        "sha1": "ee547b4bba98",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0046a5d0",
@@ -21105,7 +21393,13 @@
       "confidence": "high",
       "name": "GroundVehicle_ThinkTick",
       "description": "StructureGroundVehicleVtable's +0x18 tick slot (slot address 00497830), the only one of the five structure classes that moves. Gated on the group's first member answering targetClass 3, so a ground-vehicle type in a group led by anything else is an ordinary building. Fights with Base_ArmedThinkTick -- plus, with nothing on +0x1a4, a Base_TurretSeek with its own two turret angles fed back negated, which walks the turret to centre -- or for typeRec+0x2e == 0 just Base_ThinkTick. Then saves position/pitch/heading, runs GroundVehicle_Advance and SimObject_ConformToTerrain, and on a block from GroundVehicle_CollisionTest restores the save, zeroes speed and arms the back-off pair at +0x223/+0x227 the way Mech_MovementTick does. Its steering helpers are GroundVehicle_LocomotionTick (0046a798) and GroundVehicle_DriveToPoint (0046a854).",
-      "source": "docs/retail/simulation/ground-vehicles.md"
+      "source": "docs/retail/simulation/ground-vehicles.md",
+      "verified": {
+        "bytes": "0046a5d0+315",
+        "sha1": "be6b46f47757",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0046a70c",
@@ -21114,7 +21408,13 @@
       "confidence": "high",
       "name": "GroundVehicle_Advance",
       "description": "Steers a ground vehicle and steps it forward. Picks the group leader through 0046a4b8; if that is this object it drives the route (0046a8e4), otherwise it keeps formation on the leader (0046a95c). Then transforms (0, speed, 0) -- speed from +0x220, forward being model Y -- through the object's own frame at +0x12, rebuilding that frame first if +0x32 says it is stale, and writes the result as the new position. The frame includes the pitch and roll SimObject_ConformToTerrain gave it last tick, so the ground distance covered is foreshortened on a slope.",
-      "source": "docs/retail/simulation/ground-vehicles.md"
+      "source": "docs/retail/simulation/ground-vehicles.md",
+      "verified": {
+        "bytes": "0046a70c+137",
+        "sha1": "1c3ca747619f",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0046a798",
@@ -21122,9 +21422,15 @@
       "type": "function",
       "confidence": "high",
       "name": "GroundVehicle_LocomotionTick",
-      "description": "The ground vehicle's whole control law and the counterpart of Mech_LocomotionTick: (this, steer, speed). While the back-off countdown at +0x222 is still running it REPLACES the speed with +/-200 by the reverse flag at +0x227 and leaves the steer alone, so a blocked vehicle keeps navigating while it crawls clear. Then the steer is clamped to +/-0x100, the speed slews into +0x220 through Math_RateLimitedMoveToward at 0x1e a tick, and heading (+0x10) takes Math_Q8Multiply(200, steer) added straight on -- there is no turn rate and no inertia in the heading, only in the speed. Finally clears the rotation-valid flag at +0x32. Nothing here is scaled by the tick length. Called by both steering halves and by 0046a854.",
+      "description": "The ground vehicle's whole control law and the counterpart of Mech_LocomotionTick: (this, steer, speed). While the back-off countdown at +0x222 is still running it REPLACES the speed with +/-200 by the reverse flag at +0x227 and leaves the steer alone, so a blocked vehicle keeps navigating while it crawls clear. Then the steer is clamped to +/-0x100, the speed slews into +0x220 through Math_RateLimitedMoveToward at 0x1e a tick, and heading (+0x10) takes Math_Q8Multiply(200, steer) added straight on -- there is no turn rate and no inertia in the heading, only in the speed. Finally clears the rotation-valid flag at +0x32. Nothing here is scaled by the tick length. Called by GroundVehicle_LeaderSteer and GroundVehicle_DriveToPoint, among the callers es2_xref finds.",
       "source": "docs/retail/simulation/ground-vehicles.md",
-      "signature": "void __cdecl GroundVehicle_LocomotionTick(void *vehicle, short steer, short speed)"
+      "signature": "void __cdecl GroundVehicle_LocomotionTick(void *vehicle, short steer, short speed)",
+      "verified": {
+        "bytes": "0046a798+188",
+        "sha1": "89b10321a010",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0046a854",
@@ -21149,7 +21455,13 @@
       "confidence": "high",
       "name": "GroundVehicle_LeaderSteer",
       "description": "The group leader's route follow for a ground vehicle. No waypoint after the cursor means GroundVehicle_LocomotionTick(this, 0, 0) -- steer and speed both zero; otherwise it drives at that waypoint with GroundVehicle_DriveToPoint on the bearing between it and the cursor's own, passing speed 0 so the drive takes its own 0xaa default, and advances the route cursor when the drive reports arrival.",
-      "source": "docs/retail/simulation/ground-vehicles.md"
+      "source": "docs/retail/simulation/ground-vehicles.md",
+      "verified": {
+        "bytes": "0046a8e4+117",
+        "sha1": "318d4cebf3ee",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0046a95c",
@@ -21495,8 +21807,14 @@
       "type": "function",
       "confidence": "high",
       "name": "TerrainZone_PopulateFromBitmap",
-      "description": "Real retail terrain loader. Takes a loaded Dynamix bitmap (the SAME format used for ordinary .DBM/.DBA textures) and treats its 8-bit grayscale pixel grid directly as the heightmap: the width and height shifts are re-derived from the bitmap's own width/height fields (log2), each pixel byte (minus a bias param_3) becomes one HeightGrid cell's raw height byte (offset 0), and cell diagonal-select/material-type bits (offset 0xf) are assigned via a weighted random roll (~30.6% chance, first match wins) sparsely at an LOD-driven block stride. The roll's upper bound is the hard literal 2 (CMP EBX,0x2 at 0046c5ca), NOT the mat0 count, so this path only ever produces material 0 or 1 -- every shipped zone is a .dba and comes through here. Only the ASCII fallback in TerrainZone_LoadHeightmap bounds the roll by the mat0 count, and materials 2-12 reach shipped terrain solely through Terrain_PaintFormationPad (00471260) (finer cells inherit their block's already-rolled material). Verified byte-exact against real ES2/VOL/ZONES.VOL/DBA/ZONE*.DBA files: 128x128 zones are 16418 bytes (128*128+34-byte bitmap header), 256x256 zones are 65570 bytes (256*256+34) -- exact match.",
-      "source": "memory project_es2_exe_recon (terrain data-structure session)"
+      "description": "(grid, bitmap, bias): the retail zone heightmap loader; TerrainZone_LoadHeightmap calls it for a .dba path. Treats the Dynamix bitmap's 8-bit pixel grid as the heightmap: the width and height shifts (+0x100, +0x104) are the log2 of the bitmap's width (+6) and height (+4), the 16-byte cell array (+0xec) and the per-cell scratch byte array (+0xf0) are allocated, and rows are read bottom-up from the pixel pointer at bitmap+0xe. Each pixel less the bias byte becomes the cell's raw height (+0), the scratch byte is zeroed through HeightGrid_SetCellScratchByte, and +0x114 keeps the largest raw height seen. The +0xf material bits are set with the selector bit 1 kept (& 2): a cell on a block boundary rolls Math_RandomNext() & 0xfff < 0x4ce (about 30%) for material 1 against 0 -- the roll's upper bound is the literal 2 (CMP EBX,0x2 at 0046c5ca), not the mat0 count -- and every other cell copies its block's base cell, the block mask being (1 << (0x15 - mat0[0]+4 - cellShift)) - 1. Afterwards +0x110 (height base) is 0, +0x114 is multiplied by the height scale +0x118 into the zone's highest world height, and HeightOffsetTable_SetScale(grid+0xd0, base, scale) and HeightOffsetTable_Reset run. Every retail ZONE*.DBA is 128x128 (16418 bytes) or 256x256 (65570 bytes), the pixel count plus a 34-byte bitmap header.",
+      "source": "memory project_es2_exe_recon (terrain data-structure session)",
+      "verified": {
+        "bytes": "0046c3c0+650",
+        "sha1": "ce39cf709be6",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0046c650",
@@ -23418,8 +23736,14 @@
       "type": "function",
       "confidence": "high",
       "name": "TSPartBase_FindPart",
-      "description": "The DBSIM copy of VSHELL's TSPartBase_FindPart (00421bd2).",
-      "source": "es2_naming.py diff DBSIM 00476120 VSHELL 00421bd2: identical after normalisation; RTTI TSBSPGroup vtable slot"
+      "description": "(part, id): returns the part itself when its id number (+6) is id, else 0. The +0x20 find answer of leaf part classes. The DBSIM copy of VSHELL's TSPartBase_FindPart (00421bd2).",
+      "source": "es2_naming.py diff DBSIM 00476120 VSHELL 00421bd2: identical after normalisation; RTTI TSBSPGroup vtable slot",
+      "verified": {
+        "bytes": "00476120+20",
+        "sha1": "8cdf67577e81",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00476134",
@@ -23427,8 +23751,14 @@
       "type": "function",
       "confidence": "high",
       "name": "TSPartBase_FindPartSlot",
-      "description": "The DBSIM copy of VSHELL's TSPartBase_FindPartSlot (00421be6).",
-      "source": "es2_naming.py diff DBSIM 00476134 VSHELL 00421be6: identical after normalisation; RTTI TSBSPGroup vtable slot"
+      "description": "Returns 0: a leaf part holds no part slots. The +0x24 find-slot answer of TSGroup, TSBSPGroup and the other non-list part classes. The DBSIM copy of VSHELL's TSPartBase_FindPartSlot (00421be6).",
+      "source": "es2_naming.py diff DBSIM 00476134 VSHELL 00421be6: identical after normalisation; RTTI TSBSPGroup vtable slot",
+      "verified": {
+        "bytes": "00476134+7",
+        "sha1": "a737d8b8f0a0",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "0047613c",
@@ -23487,8 +23817,14 @@
       "type": "function",
       "confidence": "high",
       "name": "TSPartList_FindPart",
-      "description": "The DBSIM copy of VSHELL's TSPartList_FindPart (0042207f).",
-      "source": "es2_naming.py diff DBSIM 00476744 VSHELL 0042207f: identical after normalisation; RTTI TSCellAnimPart vtable slot"
+      "description": "(partList, id): returns the list itself when its own id number (+6) is id, else asks each child's vtable +0x20 in order and returns the first non-zero answer, 0 when none: a depth-first, self-first search. The DBSIM copy of VSHELL's TSPartList_FindPart (0042207f).",
+      "source": "es2_naming.py diff DBSIM 00476744 VSHELL 0042207f: identical after normalisation; RTTI TSCellAnimPart vtable slot",
+      "verified": {
+        "bytes": "00476744+62",
+        "sha1": "e10a89fcf144",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00476784",
@@ -23496,8 +23832,14 @@
       "type": "function",
       "confidence": "high",
       "name": "TSPartList_FindPartSlot",
-      "description": "The DBSIM copy of VSHELL's TSPartList_FindPartSlot (004220c0).",
-      "source": "es2_naming.py diff DBSIM 00476784 VSHELL 004220c0: differs only in callee labels and decompiler typing; RTTI TSShape vtable slot"
+      "description": "(partList, id): returns the address of the slot in the part-pointer array (+0x12, count +0x10) holding the child whose id number (+6) is id, checking this list's own children first and then asking each child's vtable +0x24 in turn; 0 when none answers. The list's own id is not tested. Installed at +0x24 of TSPartList, TSShape, ANShape, TSBSPPart, TSDetailPart, TSCellAnimPart and GridShape. The DBSIM copy of VSHELL's TSPartList_FindPartSlot (004220c0).",
+      "source": "es2_naming.py diff DBSIM 00476784 VSHELL 004220c0: differs only in callee labels and decompiler typing; RTTI TSShape vtable slot",
+      "verified": {
+        "bytes": "00476784+96",
+        "sha1": "84ef6f27665f",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "004767e4",
@@ -24697,8 +25039,14 @@
       "type": "function",
       "confidence": "high",
       "name": "AnimThread_SetSequence",
-      "description": "(thread, sequence, frame, offset): cuts a thread straight to a sequence and frame, abandoning any target. Stores the sequence at +4 and +8 and the frame at +6, the sequence's vtable +0x20 answer for the frame at +0xa, the intra-frame offset at +0x1c and the frame's duration from the sequence's 6-byte frame table (+0xc) at +0x1e, loads the frame's ground movement (AnimThread_LoadFrameGroundMovement), then clears the target (+0x16 and +0x18 = -1, +0x1a = 0), sets +0xc to -1 and +0x50 to 1. AnimThread_SeekToPosition, ShapeInst_AddThread and the locomotion ticks call it.",
-      "source": "DBSIM decompile and disassembly at 004791a0"
+      "description": "(thread, sequence, frame, offset): cuts a thread straight to a sequence and frame, abandoning any target. Stores the sequence at +4 and +8 and the frame at +6, the sequence's vtable +0x20 answer for the frame at +0xa, the intra-frame offset at +0x1c and the frame's duration from the sequence's 6-byte frame table (+0xc) at +0x1e, loads the frame's ground movement (AnimThread_LoadFrameGroundMovement), then clears the target (+0x16 and +0x18 = -1, +0x1a = 0), sets +0xc to -1 and +0x50 to 1. Callers found by es2_xref: ShapeInst_AddThread, AnimThread_Ctor, AnimThread_SeekToPosition, Mech_MovementTick and three sites in Mech_LocomotionTick.",
+      "source": "DBSIM decompile and disassembly at 004791a0",
+      "verified": {
+        "bytes": "004791a0+150",
+        "sha1": "1fd3a1f1c49a",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00479238",
@@ -24715,8 +25063,14 @@
       "type": "function",
       "confidence": "high",
       "name": "AnimThread_FindTransition",
-      "description": "(thread): walks the current sequence's (+4) frames from the current frame (+6) when playing backward (rate +0x4e < 0) or the next frame (+0xa) otherwise, stepping with the sequence's vtable +0x24 (previous) or +0x20 (next) until it laps, and scans each frame's transitions (8-byte records at anim +0x1e, a frame's first index and count in the sequence's 6-byte per-frame table at +0xc) for one whose destination (+2) is the target sequence (+0x16). A match is armed: duration (+0) to +0x12, the target to +0xe, destination frame (+4) to +0x10, transform index (+6) to +0x14. With no target frame (+0x18 == -1) that is final; otherwise the destination sequence's vtable +0x2c (backward) or +0x28 (forward) is asked, with (destination frame, target frame, +0x1c), whether it lands on the near side of the target, and the scan continues when it does not. Leaves the scan frame (+0xc) at -1 when nothing qualifies. AnimThread_SetTarget calls it.",
-      "source": "DBSIM decompile at 004792c8; ported as AnimationThread.FindTransition"
+      "description": "(thread): walks the current sequence's (+4) frames from the current frame (+6) when playing backward (rate +0x4e < 0) or the next frame (+0xa) otherwise, stepping with the sequence's vtable +0x24 (previous) or +0x20 (next) until it laps, and scans each frame's transitions (8-byte records at anim +0x1e, a frame's first index and count in the sequence's 6-byte per-frame table at +0xc) for one whose destination (+2) is the target sequence (+0x16). A match is armed: duration (+0) to +0x12, the target to +0xe, destination frame (+4) to +0x10, transform index (+6) to +0x14. With no target frame (+0x18 == -1) that is final; otherwise the destination sequence's vtable +0x2c (backward) or +0x28 (forward) is asked, with (destination frame, target frame, +0x1c), whether it lands on the near side of the target, and the scan continues when it does not. Leaves the scan frame (+0xc) at -1 when nothing qualifies. Caller found by es2_xref: AnimThread_SetTarget.",
+      "source": "DBSIM decompile at 004792c8; ported as AnimationThread.FindTransition",
+      "verified": {
+        "bytes": "004792c8+679",
+        "sha1": "8a50aaa78115",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00479570",
@@ -24724,9 +25078,15 @@
       "type": "function",
       "confidence": "high",
       "name": "AnimThread_SetTarget",
-      "description": "Asks playback to reach a sequence via whatever transition leads there rather than snapping to it: writes thread+0x16/+0x18/+0x1a, clears the at-target bit and runs AnimThread_FindTransition to find the transition. frame -1 means any frame will do; flags bit 0 stops playback dead on arrival. This, not AnimThread_SetSequence, is how the death fall is started, so sweeping the latter's call sites alone does not enumerate what plays a sequence. Args derived from disassembly: four pushes with ADD ESP,0x10 at 00416db5.",
+      "description": "(thread, sequence, frame, flags): asks playback to reach a sequence through whatever transition leads there rather than snapping to it. Writes the request to +0x16/+0x18/+0x1a and clears the at-target bit (+0x50 bit 0); then, when the sequence is not -1 and the thread is not already at it (playing sequence +4, frame +6 and intra-frame offset +0x1c of 0), runs AnimThread_FindTransition, and otherwise sets the at-target bit and +0xc to -1. Frame -1 means any frame will do; flags bit 0 makes AnimThread_Advance stop the thread dead on arrival. This, not AnimThread_SetSequence, is how the death fall and every gait change are started, so sweeping the latter's call sites alone does not enumerate what plays a sequence. Args from the disassembly: four pushes with ADD ESP,0x10 at 00416db5.",
       "source": "docs/retail/simulation/mech-locomotion.md",
-      "signature": "void __cdecl AnimThread_SetTarget(void *thread, short sequence, short frame, short flags)"
+      "signature": "void __cdecl AnimThread_SetTarget(void *thread, short sequence, short frame, short flags)",
+      "verified": {
+        "bytes": "00479570+91",
+        "sha1": "775e9008bb7d",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "004795cc",
@@ -24743,8 +25103,14 @@
       "type": "function",
       "confidence": "high",
       "name": "AnimThread_Advance",
-      "description": "Advances one animation thread by dt * thread[0x4e] >> 8, crossing frames forward or backward and driving the ground-movement load and commit hooks.",
-      "source": "docs/retail/simulation/mech-locomotion.md"
+      "description": "(thread, dt): advances one animation thread, skipped while both the at-target bit (+0x50 bit 0) and the stop-on-arrival flag (+0x1a bit 0) are set. Adds dt * rate(+0x4e) >> 8 to the intra-frame offset +0x1c and crosses frames forward (committing each frame's ground movement) or backward (uncommitting it) while the offset leaves [0, duration +0x1e). Crossing into the frame armed by AnimThread_FindTransition (+0xc) starts a transition frame: the next sequence +8 and next frame +0xa become the transition's target (+0xe) and destination frame (+0x10), the frame lasts the transition's duration (+0x12), its ground movement is the transition's transform (+0x14), +0xc is cleared to -1 and +0x50 bit 1 is set; any other crossing steps with the sequence's vtable +0x20/+0x24, takes that frame's duration, loads its ground movement and clears bit 1. Arriving at the requested sequence (+0x16) on the requested frame (+0x18, or any when -1) sets the at-target bit, and with stop-on-arrival also ends the advance there. A zero-duration frame stops a forward advance.",
+      "source": "docs/retail/simulation/mech-locomotion.md",
+      "verified": {
+        "bytes": "00479614+911",
+        "sha1": "2f94d9cef540",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004799a4",
@@ -27199,7 +27565,13 @@
       "confidence": "high",
       "name": "Math_FastMagnitude3D",
       "description": "Sqrt-free 3D magnitude approximation: L + M*0.34375 + S*0.25 (sorted |dx|,|dy|,|dz|). Verified via raw disassembly (three CMP/XCHG sort pairs, SAR+ADD coefficient chains). Direction-dependent error: about 8% low on the body diagonal, up to about 8.7% high elsewhere. Reused for collision bounding-sphere radius, sound placement, LOD size and the rocket's proximity beep (round to camera, not a fuze).",
-      "source": "docs/retail/simulation/dbsim-physics-notes.md"
+      "source": "docs/retail/simulation/dbsim-physics-notes.md",
+      "verified": {
+        "bytes": "0047dd66+72",
+        "sha1": "72c0349bcd11",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0047ddae",
@@ -33332,9 +33704,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Math_DistanceBetweenPoints",
-      "description": "Distance between two int Vec3s: copies a to a stack temp, subtracts b, and returns Point3I_Magnitude -- the Vec3 form of Math_FastMagnitude3D -- so it carries that function's direction-dependent error (about 8% low to 8.7% high). The MFD TARGET range readout and BeamTracer_Ctor's chain node count both go through it.",
+      "description": "Distance between two int Vec3s: copies a to a stack temp, subtracts b (Vec3_Subtract) and returns Point3I_Magnitude, the Vec3 form of Math_FastMagnitude3D, so it carries that function's direction-dependent error (about 8% low to 8.7% high).",
       "source": "docs/retail/simulation/beam-visuals.md, docs/retail/simulation/mfd.md",
-      "signature": "int __cdecl Math_DistanceBetweenPoints(int *a, int *b)"
+      "signature": "int __cdecl Math_DistanceBetweenPoints(int *a, int *b)",
+      "verified": {
+        "bytes": "00492780+66",
+        "sha1": "b3e576b61bf2",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "004927c4",
@@ -33430,7 +33808,13 @@
       "confidence": "high",
       "name": "Point3I_Magnitude",
       "description": "Returns Math_FastMagnitude3D of an int32 point's three components (through Math_FastMagnitude3D_Thunk; the decompile drops the return value).",
-      "source": "DBSIM decompile and disassembly at 00492971"
+      "source": "DBSIM decompile and disassembly at 00492971",
+      "verified": {
+        "bytes": "00492971+29",
+        "sha1": "8f2d9102e0f6",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0049298e",
@@ -33934,7 +34318,13 @@
       "confidence": "high",
       "name": "HeightOffsetTable_Reset",
       "description": "(table): memsets the per-height computed flags (table+0x10, length table+0xc) to 0 and writes the view-space image of the up vector (0, 0, 0x10000) under g_ModelToView into the vector table+0x18 points at, via Transform_RotatePoint_Thunk. Called on HeightGrid+0xd0 after each HeightOffsetTable_SetScale.",
-      "source": "DBSIM decompile at 004951f0"
+      "source": "DBSIM decompile at 004951f0",
+      "verified": {
+        "bytes": "004951f0+79",
+        "sha1": "0b641f6c6b0b",
+        "scope": "body",
+        "via": "disasm"
+      }
     },
     {
       "address": "00495240",

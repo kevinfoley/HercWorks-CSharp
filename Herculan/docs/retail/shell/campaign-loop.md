@@ -31,7 +31,7 @@ Game_ProcessMissionResults();    // 0040eae7: consume results.dat
 - it is persisted in every save slot, immediately after the salvage pool ([`../formats/save-games.md`](../formats/save-games.md));
 - it is the entire content of `data\mission.var`, in both directions.
 
-Before a mission is loaded, `MsnGen_SeedCampaignFlags` (`0040e94e`) writes flags 1 to 6: a training load clears the array first, a campaign load writes flags 1 and 2 as the career position's stage and mission, and both write flag 3 from `00482606` ([Open](#open)) and flags 4, 5 and 6 a draw below 12 each. The mission's conditions then compare against them, and its header patch clears the flags it names ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md#the-header-patch--row-2)).
+Before a mission is loaded, `MsnGen_SeedCampaignFlags` (`0040e94e`) writes flags 1 to 6: a training load clears the array first, a campaign load writes flags 1 and 2 as the career position's stage and mission, and both write flag 3 from `00482606` ([Open](#open)) and flags 4, 5 and 6 a draw below 12 each. None of the 62 retail missions has a condition testing flag 3 (`HercWorks.Query flag 3`, which finds 88 tests of flag 0), so `00482606`'s value gates no record of a retail mission. The mission's conditions then compare against them, and its header patch clears the flags it names ([`../formats/msn-mission-file.md`](../formats/msn-mission-file.md#the-header-patch--row-2)).
 
 The debrief writes three slots from its own accounting: 0 the mission's outcome code (`_maybe_CampaignFlagArray = DAT_00482ae9`), 9 the pilots lost and 8 the machines scrapped ([below](#the-debrief--game_processmissionresults-0040eae7)). On the simulator side the same array is `DAT_004a9ef4`, which DBSIM reads from `mission.var` at mission load, less a few slots it resets, and writes back at mission end — see [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md).
 
@@ -256,6 +256,6 @@ States 0 and 3 put up `REPLAY MISSION?` (`ReplayDialog_Show(state)`, `0044ca57`)
 
 ## Open
 
-- **Open:** what writes `00482606`, which `MsnGen_SeedCampaignFlags` copies into flag 3 before every mission load. Its one reference found, by a disassembly search and `es2_xref.py`, is that read; the startup memset from `MissionScreenView` clears it, so a load with nothing else writing it sees 0.
+- **Deferred:** what writes `00482606`, which `MsnGen_SeedCampaignFlags` copies into flag 3 before every mission load. Its one reference found, by a disassembly search and `es2_xref.py`, is that read; the startup memset from `MissionScreenView` clears it, so a load with nothing else writing it sees 0. The answer changes no retail mission ([above](#the-campaign-flag-array-is-the-msn-condition-store)).
 - **Open:** whether anything steps the map generator at `0x48106e` from the clock. `es2_xref.py --binary VSHELL 0048106e` finds the static initialiser's reset (`00401e5c`) and the two draws, and nothing else.
 - **Open:** a reader of `player.mec`'s trailing weapon table. None is among the functions that reference a `player.mec` path literal in `VSHELL.EXE` or `DBSIM.EXE` (a byte scan for the strings and for absolute references to them); a path built another way would escape that scan.

@@ -13,9 +13,10 @@ namespace HercWorks.Core.Data.File.Gau;
 ///   0 - <see cref="HudOrigin"/>, an origin offset added to every widget rect; (0,0) in retail.
 ///   8 - <see cref="HudScreenSize"/>, e.g. (320,400).
 ///   16 - <see cref="WeaponListTotal"/>, how many of the 10 slots below are in use.
-///   20 - <see cref="Weapons"/>, 10 weapon-row rects (5 left column, 5 right). Unused slots hold the
-///     sentinel rect (100,140,155,146) rather than zeros.
-///   180-467 - zero in every retail file.
+///   20 - <see cref="Weapons"/>, 10 weapon-row rects indexed by the .GL fire-chain byte. Unused slots
+///     hold a placeholder rect rather than zeros. See docs/retail/formats/gau-cockpit-layout.md#weapon-row-rects.
+///   180-467 - zero in every retail file. 180, 260 and 356 are the weapon gauge factories' scratch
+///     slots, which they copy a row's rect into at runtime.
 ///   468 - the console-button record, the offset its constructor is handed; its first 16 bytes are
 ///     zero in every retail file.
 ///   484, 500, 516 - <see cref="ChainButton"/>, <see cref="LinkButton"/>, <see cref="AutoTrackButton"/>.

@@ -2,7 +2,7 @@
 
 Reverse-engineered from `DBSIM.EXE` (Ghidra project `ES2Recon`); addresses are DBSIM virtual addresses. The fast-magnitude coefficients and the fixed-point shift amounts were checked against raw disassembly, not just decompiler output.
 
-Scope is the shared math-library primitives and the simulation's timestep, which every other simulation doc builds on. What uses them lives with the subsystem: projectile flight in [`projectiles.md`](projectiles.md) and [`rockets.md`](rockets.md), hit geometry in [`hit-detection.md`](hit-detection.md), damage in [`damage-system.md`](damage-system.md) and [`component-damage.md`](component-damage.md), the terrain heightmap in [`terrain-heightmap.md`](terrain-heightmap.md). The pseudo-random generator is a math-library utility of the same kind but not a fixed-point primitive, and has its own page: [`random-generator.md`](random-generator.md).
+Scope is the shared math-library primitives, the simulation's timestep and its world units, which every other simulation doc builds on. What uses them lives with the subsystem: projectile flight in [`projectiles.md`](projectiles.md) and [`rockets.md`](rockets.md), hit geometry in [`hit-detection.md`](hit-detection.md), damage in [`damage-system.md`](damage-system.md) and [`component-damage.md`](component-damage.md), the terrain heightmap in [`terrain-heightmap.md`](terrain-heightmap.md). The pseudo-random generator is a math-library utility of the same kind but not a fixed-point primitive, and has its own page: [`random-generator.md`](random-generator.md).
 
 ## Fixed-point math toolkit
 
@@ -53,6 +53,32 @@ An alpha-max-plus-beta-min-style approximation that avoids a real `sqrt`. It is 
 Every countdown in the simulation is in `SimTickDelta` counts, and **a count is not a millisecond**. `Math_CountdownTimerTick` and `Timer_CountDown` subtract `SimTickDelta`, which is Q8 with 1.0 = 125 ms and 81 on hardware that keeps up with the 40 ms frame cap. So one count is 125/256 ms, about 0.49 ms, and a stated reload of 10000 expires in about 4.9 seconds. Reading a stated constant as milliseconds overstates the interval by a factor of about two.
 
 A mission action timer's delay is the one stated in seconds: it is shifted left 11 on load, and 2048 counts are exactly one second ([`../formats/script-dat.md`](../formats/script-dat.md#block-6-in-memory--49-bytes-0x31)).
+
+## World units
+
+**1000 world units are 6 metres**, so one metre is about 166.667 units and a unit is 6 mm. The HUD prints distances to the player in metres, and `Hud_WorldUnitsToMetres` (`00434228`) is the whole of the conversion:
+
+```
+metres = (worldUnits / 1000) * 6
+```
+
+Its three call sites sit in two unrelated gadgets — the HUD waypoint indicator's `WAYPOINT n: d M.` string (`Hud_UpdateWaypointIndicator`, `0043c3e4`) and the scanner MFD's contact-range readout (`0043ebe0`, `0043eecc`) — and both hand it a raw difference of two world positions (`Vec2_Subtract`, then `Math_FastMagnitude2D`), so its input is world units. The integer divide makes every displayed range a multiple of 6 m, which a retail screenshot's `WAYPOINT 1: 72 M.` fits.
+
+What the world measures at that scale:
+
+| | World units | Metres |
+|---|---|---|
+| Terrain cell (shift 14) | 16384 | 98.3 |
+| Retail zone, 128 x 128 cells | 2097152 | 12580 |
+| Zone 504's highest ground | 23393 | 140 |
+| Drop pod landing blast | 3000 | 18 |
+| Mech death explosion | 2000 | 12 |
+| Rocket proximity warning | 40000 | 240 |
+| SAMSON model, bounding box height | 2364 | 14.2 |
+
+**DTS model units are world units.** Nothing in the load path scales a model: `MechType_InitOne` hands DTS points straight to the shape instance. Two fields of `dat\<mech>.DAT` corroborate it, being meaningful only as model-space measurements. COLOSSUS is the one retail mech whose model dips below model-space zero, to -400, and the one with a nonzero ride height, exactly 400. The hit-cylinder radius ([`mech-locomotion.md`](mech-locomotion.md#mech-type-record)) tracks chassis size: 1500 for OUTLAW's 1700-unit model, 2500 for every larger one (2030-2575).
+
+At this scale the HERC models measure 10.2 m (OUTLAW) to 15.5 m (OGRE), about 1.5 times the manual's quoted statures of 6.1 m to 10.4 m: a bounding box includes raised arms and antennae where a quoted height does not, and the weight-class order matches the manual's. The speed readout (`Mech_GetDisplaySpeedKph`, `0041bb3c`) is `speed * 315/1024`, which against each chassis' forward speed gives the manual's KPH: OUTLAW 325 to 100, SAMSON 190 to 58 (quoted 60), COLOSSUS 180 to 55, MAVERICK 285 to 88 (quoted 90).
 
 ## Rejected readings
 

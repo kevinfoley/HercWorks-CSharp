@@ -64,11 +64,11 @@ So `u` rises with `cellX` and, because of the negation, `v` **falls** with `cell
 
 Materials 0 and 1's block shift ([`MAT0.DAT`](../formats/zone-terrain.md#datmat0--the-material-table)) gives `shift = cellShift - 7`: **128 texels per cell at `cellShift` 14, repeating every 2 cells; 64 at 13, repeating every 4.** Either way a texel spans 128 world units, the cell size cancelling out.
 
-Materials **0 and 1 are the only ones a zone rolls**: `TerrainZone_PopulateFromBitmap`'s roll bound is the hard literal 2 (`CMP EBX,0x2` at `0046c5ca`), not the `mat0` count, and every shipped zone is a `.dba` that comes through it. Frame 0 is the plain tiling ground, frame 1 its variant.
+Materials **0 and 1 are the only ones a zone rolls**: `TerrainZone_PopulateFromBitmap`'s roll bound is the hard literal 2 (`CMP EBX,0x2` at `0046c5ca`), not the `mat0` count, and every shipped zone is a `.dba` that comes through it. Frame 0 is the plain tiling ground, frame 1 its variant. The roll takes the head of the simulation's random stream, so a zone scatters its variant cells the same way on every load ([`../simulation/random-generator.md`](../simulation/random-generator.md#the-simulations-draws)).
 
 Materials **2–12 are the eleven base-formation pads** — see [Base formation pads](#base-formation-pads) — and reach terrain only through `Terrain_PaintFormationPad`. Their block shift of 5 or 4 makes one frame span a whole 8- or 16-cell tile rather than tiling, which is why each is a single legible site plan rather than a repeating texture. Only `TerrainZone_LoadHeightmap`'s ASCII fallback bounds the roll by the `mat0` count and could roll one at random; no loose ASCII zone ships.
 
-**World scale:** `Hud_WorldUnitsToMetres` (`00434228`) defines 166.667 world units = 1 metre (recovered from the HUD's distance conversion in `docs/herculan/planning.md`), so 128 world units per texel is ~0.77 m/texel.
+**World scale:** `Hud_WorldUnitsToMetres` (`00434228`) defines 166.667 world units = 1 metre ([`../simulation/dbsim-physics-notes.md`](../simulation/dbsim-physics-notes.md#world-units)), so 128 world units per texel is ~0.77 m/texel.
 
 ## `grid+0x10c` — the LOD / draw-radius field
 
@@ -129,7 +129,3 @@ The material write, but not the levelling mark, is skipped when `CockpitArt_Load
 | A cell's UV rect attaches to the quad with both axes monotone — `u` rising with `cellX`, `v` rising with `cellY` | `v` falls with `cellY`. Monotone `v` mirrors every cell vertically against the row below it, so each cell boundary becomes a mirror seam |
 | Materials 2–12 are addressable but nothing assigns them, so they are dead data | Only the two zone loaders' rolls are capped at material 1. `Terrain_PaintFormationPad` assigns 2–12, one per base formation, and reading the loaders alone makes the gap look unexplained |
 | A formation's layout map is the pad's shape, so painting follows the map | The map is a levelling mask. The material is written to the whole tile regardless, and the pad outline is in the frame art. The maps read as legible site plans, which is what makes this the obvious reading |
-
-## Open
-
-- **Open:** whether DBSIM has already drawn from the shared RNG instance before terrain populates on a given zone load, which would offset the draw sequence and land the frame-1 roll ([Retail numbers](#retail-numbers)) on different cells even with a matching seed and algorithm; a retail screenshot comparison would settle it.

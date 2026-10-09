@@ -86,7 +86,7 @@ public sealed class SimulationStepper {
 			_recording.EmitPanel(_pilot.StickCapabilities);
 			if (_recording.DeferredTick && !_outcome.Over && !_panels.AnyOpen) {
 				_recording.DeferredTick = false;
-				TickLive(emit: false);
+				TickOn(_recording.DeferredControls, () => TickLive(emit: false));
 				frozen = _outcome.Over || _panels.AnyOpen;
 			}
 		}
@@ -117,6 +117,23 @@ public sealed class SimulationStepper {
 		if (_recording.Recorder != null && !_recording.PanelAtStart && !ticked && !_outcome.Over && _panels.AnyOpen) {
 			_recording.EmitTick(SimWorld.TickDelta, _pilot.StickCapabilities);
 			_recording.DeferredTick = true;
+			_recording.DeferredControls = _view.PilotMech?.Controls ?? MechControls.Neutral;
+		}
+	}
+
+	// One tick on the controls of the frame that raised a panel, which the panel wrote back as it closed; the
+	// ticks after it in this host frame go back to the controls this frame built.
+	private void TickOn(MechControls controls, Action tick) {
+		var mech = _view.PilotMech;
+		var current = mech?.Controls;
+		if (mech != null) {
+			mech.Controls = controls;
+		}
+
+		tick();
+
+		if (mech != null && current is { } restored) {
+			mech.Controls = restored;
 		}
 	}
 
@@ -164,18 +181,18 @@ public sealed class SimulationStepper {
 			if (!_tape.FrameUnderPanel && _panels.AnyOpen) {
 				// The frame's own input put a panel up, which in the original runs from inside that frame's
 				// tick; the rest of the tick waits for the panel.
-				_tape.DeferredTick = frame.TickDelta;
+				_tape.DeferredFrame = frame;
 			} else if (!_tape.FrameUnderPanel) {
 				TickTape(frame.TickDelta);
-			} else if (!_panels.AnyOpen && _tape.DeferredTick is { } deferred) {
-				// This frame took the panel down. The tick that raised it finishes now, and it reads the
-				// last input the panel's own loop built, because both share the one input block.
-				_tape.DeferredTick = null;
+			} else if (!_panels.AnyOpen && _tape.DeferredFrame is { } raising) {
+				// This frame took the panel down. The tick that raised it finishes now, on the input of the
+				// frame that raised it, which the panel wrote back into the input block as it closed.
+				_tape.DeferredFrame = null;
 				if (pilotMech != null) {
-					pilotMech.Controls = _pilot.TapeControls(frame, centerTorso: false, centerBody: false);
+					pilotMech.Controls = _pilot.TapeControls(raising, centerTorso: false, centerBody: false);
 				}
 
-				TickTape(deferred);
+				TickTape(raising.TickDelta);
 			}
 		}
 
@@ -227,6 +244,6 @@ public sealed class SimulationStepper {
 		_input.TakeLiveKeys();
 		SimMath.PerTickStepsScaled = true;
 		_tickAccumulator = 0;
-		_tape.DeferredTick = null;
+		_tape.DeferredFrame = null;
 	}
 }

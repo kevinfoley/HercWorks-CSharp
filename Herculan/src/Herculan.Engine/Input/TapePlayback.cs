@@ -56,10 +56,12 @@ public sealed class TapePlayback {
 	public double Accumulator { get; set; }
 
 	/// <summary>
-	/// The tick of a frame whose own input raised a modal panel. Sim_PollPlayerInput runs the panel from
-	/// inside Sim_MainTick, so that tick finishes once the panel is down, with the frame's SimTickDelta.
+	/// A frame whose own input raised a modal panel, its tick held back. Sim_PollPlayerInput runs the panel
+	/// from inside Sim_MainTick, so that tick finishes once the panel is down, with the frame's SimTickDelta
+	/// and its input: AlertPanel_Enter (00454630) saves the input block and AlertPanel_Leave (004548ac) writes
+	/// it back — docs/retail/formats/tap-input-tape.md#where-it-runs.
 	/// </summary>
-	public short? DeferredTick { get; set; }
+	public InputTape.Frame? DeferredFrame { get; set; }
 
 	/// <summary>
 	/// The pointer as the tape's mouse events leave it, in framebuffer pixels. The live pointer does not

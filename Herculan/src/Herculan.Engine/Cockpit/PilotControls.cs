@@ -39,8 +39,9 @@ public sealed class PilotControls {
 	// Input_LatchButton(1, 1), the first button row — always FIRE — held masked until it is let go, which
 	// also holds the axes still. Two things latch it: a flown round ending, and AlertPanel_Enter (00454630)
 	// opening any modal panel. The joystick's own latches are JoystickBindings'; this one also masks
-	// [Space], the row's key. DAT_0049ebe5 is the keyboard hold that goes with it — see
-	// docs/retail/simulation/joystick-input.md. Live input only: what a replay does with a latch is that doc's Open.
+	// [Space], the row's key. DAT_0049ebe5 is the keyboard hold that goes with it. A replay never lets it go:
+	// playback skips the release loop, so the latch holds until the tape ends — see
+	// docs/retail/simulation/joystick-input.md#a-latched-first-row-holds-the-axes.
 	private bool _fireRowLatched;
 	private int _missileKeyboardHold;
 
@@ -224,10 +225,26 @@ public sealed class PilotControls {
 	/// <summary>
 	/// The machine's controls from one tape frame: its axes, with this install's keyjoy.cfg Backturn applied as
 	/// the original applies it on playback, and its trigger.
+	///
+	/// <para>A flown round ending since the last frame latches the first button row here, as it does on the live
+	/// path, and nothing on this path lets it go. While it holds, the pair the camera-axis pointers address
+	/// reads zero, as in the live build; the trigger stays the tape's, since playback's jump skips the trigger
+	/// scan as well as the release loop.</para>
 	/// </summary>
 	public MechControls TapeControls(InputTape.Frame frame, bool centerTorso, bool centerBody) {
+		if (_scene.World.PlayerMissile.TakeFireRowLatch()) {
+			_fireRowLatched = true;
+		}
+
+		var tapeAxes = InputTapePlayer.AxesOf(frame);
+		if (_fireRowLatched && !_view.ControlsOnCamera) {
+			tapeAxes = StickTurretPair
+				? tapeAxes with { TorsoTwist = 0, TorsoPitch = 0 }
+				: tapeAxes with { Steer = 0, Throttle = 0 };
+		}
+
 		var axes = Bindings.Combine(
-			new JoystickPilotInput(InputTapePlayer.AxesOf(frame), false, Array.Empty<JoystickAction>()),
+			new JoystickPilotInput(tapeAxes, false, Array.Empty<JoystickAction>()),
 			PilotAxes.Centred);
 
 		return new MechControls(axes.Steer, axes.Throttle,

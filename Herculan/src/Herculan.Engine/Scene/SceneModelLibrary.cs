@@ -3,6 +3,7 @@ using HercWorks.Core.Data.File.Dat.Sim;
 using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Dgs;
 using HercWorks.Core.Data.File.Dts;
+using HercWorks.Core.Data.File.Dts.Anim;
 using HercWorks.Core.Data.File.Dyn;
 using HercWorks.Core.Io.Transform.Common;
 using HercWorks.Core.Io.Transform.Dbsim;
@@ -100,6 +101,9 @@ public sealed class SceneModelLibrary {
 	private readonly Dictionary<string, HercSimDamage?> _damageData = new(StringComparer.OrdinalIgnoreCase);
 
 	private readonly Dictionary<string, FlightModel?> _flightModels = new(StringComparer.OrdinalIgnoreCase);
+
+	// The mech shapes whose crude roots have been renumbered in place — see LoadMechShape.
+	private readonly HashSet<string> _remappedMechShapes = new(StringComparer.OrdinalIgnoreCase);
 
 	/// <summary>
 	/// The folder hardpoint lists live in — <c>ResourcePath_BuildFolderName(name, "gl")</c> at the
@@ -290,7 +294,7 @@ public sealed class SceneModelLibrary {
 			return cached;
 		}
 
-		var animation = ShapeAnimation.FromModel(LoadDts(mechName + ".DTS"));
+		var animation = ShapeAnimation.FromModel(LoadMechShape(mechName));
 		_animations[mechName] = animation;
 		return animation;
 	}
@@ -309,8 +313,14 @@ public sealed class SceneModelLibrary {
 			? HercSimDat.TextureGroupDbaBaseName(data.TextureGroup)
 			: null;
 
+		// A crude root's transform ids are root 0's once renumbered, so its parts are placed through
+		// root 0's animation list rather than the one the root carries.
+		var poseList = rootIndex > 0 && LoadMechShape(mechName)?.Roots is { Count: > 0 } roots
+			? ShapeAnimation.FirstAnimList(roots[0])
+			: null;
+
 		return Build(mechName + ".DTS", rootIndex, bankName, segmented: true,
-			hiddenPartIds: DtsMeshBuilder.AttachmentPartIds(MechHardpoints(mechName)));
+			hiddenPartIds: DtsMeshBuilder.AttachmentPartIds(MechHardpoints(mechName)), poseList: poseList);
 	}
 
 	/// <summary>
@@ -318,30 +328,18 @@ public sealed class SceneModelLibrary {
 	/// <c>Shape_DrawAtDetailLevel</c> picks between each frame (see <see cref="ShapeDetail"/>).
 	/// Empty when the <c>.DTS</c> is missing.
 	///
-	/// <para><b>The chain stops at the first root that renumbers its animation nodes.</b> In the file
-	/// each root declares its own node tree and a node id means nothing outside it
-	/// (<see cref="ShapeAnimation.SharesNodeNumbering"/>); this engine evaluates one animation per
-	/// machine, root 0's, so a root that compacts its numbering would have its parts posed onto
-	/// whichever joints happen to share their numbers — on APOCA's root 4 that puts the whole upper
-	/// body on a knee. Retail renumbers those roots onto root 0's nodes at load
-	/// (<c>MechType_RemapDetailRootTransforms</c>, <c>00420090</c>), which this engine does not yet
-	/// do; truncating here instead costs the crudest one to three roots of each chassis — see
-	/// docs/retail/rendering/mech-shape-drawing.md, "The crude roots are renumbered at load".</para>
+	/// <para>Every root is posed by root 0's one animation, which is what the load-time renumbering
+	/// (<see cref="LoadMechShape"/>) makes possible.</para>
 	///
-	/// <para>A prefix rather than a filtered set, because <see cref="ShapeDetail.SelectRoot"/> walks
-	/// the chain by index and a hole in it would move every root past the hole. Retail data makes
-	/// that free: the compatible roots are always the leading ones.</para>
+	/// <para>The chain stops at the first root that fails to build, because
+	/// <see cref="ShapeDetail.SelectRoot"/> walks it by index and a hole would move every root past
+	/// it.</para>
 	/// </summary>
 	public IReadOnlyList<SceneModel> MechDetailRoots(string mechName) {
-		string dtsName = mechName + ".DTS";
-		int count = LoadDts(dtsName)?.Roots?.Count ?? 0;
+		int count = LoadMechShape(mechName)?.Roots?.Count ?? 0;
 		var roots = new List<SceneModel>(count);
 
 		for (int i = 0; i < count; i++) {
-			if (i > 0 && !ShapeAnimation.SharesNodeNumbering(Root(dtsName, i), Root(dtsName, 0))) {
-				break;
-			}
-
 			if (Mech(mechName, i) is not { } root) {
 				break;
 			}
@@ -362,7 +360,23 @@ public sealed class SceneModelLibrary {
 	/// time.</para>
 	/// </summary>
 	public int MechShapeRadius(string mechName) =>
-		Root(mechName + ".DTS", 0) is TSBasePart root ? root.Radius : 0;
+		LoadMechShape(mechName)?.Roots is { Count: > 0 } roots && roots[0] is TSBasePart root ? root.Radius : 0;
+
+	/// <summary>
+	/// A machine's shape file, with every root after the first renumbered onto root 0's node
+	/// numbering the first time it is asked for, as <c>MechType_InitOne</c> does straight after
+	/// loading the roots — see <see cref="MechDetailRootRemap"/>. Every mech path goes through here,
+	/// so no root is built or read before it is renumbered.
+	/// </summary>
+	private DynamixThreeSpaceModel? LoadMechShape(string mechName) {
+		var model = LoadDts(mechName + ".DTS");
+		if (model?.Roots is { } roots && _remappedMechShapes.Add(mechName)
+				&& MechData(mechName) is { } data) {
+			MechDetailRootRemap.Apply(roots, data.ModelLoDBoneIds);
+		}
+
+		return model;
+	}
 
 	/// <summary>
 	/// The model for a flyer type, or null when the install has no <c>.DTS</c> for it. Split by cell
@@ -697,14 +711,15 @@ public sealed class SceneModelLibrary {
 
 	private SceneModel? Build(string dtsName, int rootIndex, string? bankName,
 			bool segmented = false, bool transparentBank = false, int cellFrame = 0,
-			IReadOnlySet<short>? hiddenPartIds = null, bool celled = false, bool leveled = false) {
+			IReadOnlySet<short>? hiddenPartIds = null, bool celled = false, bool leveled = false,
+			ANAnimList? poseList = null) {
 		string key = cellFrame == 0 ? $"dts\\{dtsName}#{rootIndex}" : $"dts\\{dtsName}#{rootIndex}@{cellFrame}";
 		if (_models.TryGetValue(key, out var cached)) {
 			return cached;
 		}
 
 		var model = BuildFromRoot(key, Root(dtsName, rootIndex), bankName, segmented, transparentBank,
-			cellFrame, hiddenPartIds, celled, leveled);
+			cellFrame, hiddenPartIds, celled, leveled, poseList);
 		_models[key] = model;
 		return model;
 	}
@@ -784,13 +799,14 @@ public sealed class SceneModelLibrary {
 
 	private SceneModel? BuildFromRoot(string key, TSObject? root, string? bankName,
 			bool segmented = false, bool transparentBank = false, int cellFrame = 0,
-			IReadOnlySet<short>? hiddenPartIds = null, bool celled = false, bool leveled = false) {
+			IReadOnlySet<short>? hiddenPartIds = null, bool celled = false, bool leveled = false,
+			ANAnimList? poseList = null) {
 		if (root == null) {
 			return null;
 		}
 
 		var atlas = bankName != null ? LoadAtlas(bankName, transparentBank) : null;
-		var build = DtsMeshBuilder.BuildRoot(root, atlas, _shading, cellFrame, hiddenPartIds);
+		var build = DtsMeshBuilder.BuildRoot(root, atlas, _shading, cellFrame, hiddenPartIds, poseList);
 		var (min, max) = DtsMeshBuilder.Bounds(build.Vertices);
 
 		Vector3 extent = max - min;
@@ -801,7 +817,7 @@ public sealed class SceneModelLibrary {
 		// without animating, levels for the transient shapes built a cell at a time.
 		return new SceneModel(key, build.Vertices, build.TriangleVertexCount, atlas,
 			(int)(extent.Y * WorldScale.WorldUnitsPerMeter),
-			segmented ? DtsMeshBuilder.BuildSegments(root, atlas, _shading, hiddenPartIds) : Array.Empty<MeshSegment>(),
+			segmented ? DtsMeshBuilder.BuildSegments(root, atlas, _shading, hiddenPartIds, poseList) : Array.Empty<MeshSegment>(),
 			DtsSpriteBuilder.Build(root),
 			celled ? DtsMeshBuilder.BuildCells(root, atlas, _shading, hiddenPartIds)
 				: leveled ? DtsMeshBuilder.BuildDetailLevels(root, atlas, _shading, cellFrame)

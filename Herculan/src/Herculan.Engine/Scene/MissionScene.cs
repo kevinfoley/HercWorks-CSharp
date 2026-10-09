@@ -129,9 +129,9 @@ public sealed class MissionScene {
 
 		// The one generator the whole session rolls on, at DBSIM's own starting state — the terrain
 		// material pass below is a randomised load-time pass in the original, and it draws from the
-		// same generator every later roll comes out of, so the same instance goes on to the world.
-		// Whether the original has already drawn from it by the time the terrain populates is not
-		// established; see SimRandom.
+		// same generator every later roll comes out of, so the same instance goes on to the world. The
+		// zone's roll is the first draw on it, as in the original — see
+		// docs/retail/simulation/random-generator.md#the-simulations-draws.
 		var random = new SimRandom();
 
 		// How far this mission draws is a player setting, not a property of the zone — see

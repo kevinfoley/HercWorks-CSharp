@@ -71,7 +71,7 @@ A record whose GUID an earlier survivor already has does not add a record. Rows 
 
 ### The header patch — row 2
 
-82 bytes read into one reused buffer and never kept: a condition, ten header words and thirty flag indices. The ten header words (`DAT_00485446` upward) are reset once row 1 is read — the first to 1, the rest to 0 — and each row-2 record whose condition passes writes every header word that is not its unset value, 1 for the first and 0 for the rest, and every flag index that is not `-1` into the clear list at `DAT_0048545a`. Then every flag the clear list names is zeroed (`Msn_ClearPatchedFlags` (`00417659`)). The clear list lies in VSHELL's uninitialised data, so it starts at zero, and no reset of it has been found ([Open](#open)); a load therefore clears flag 0 thirty times over until a patch names something else. No retail patch names a flag: none of the 145 row-2 records in the 62 files sets a flag index, so every retail load clears flag 0 and nothing more. The header words are [`script-dat.md`](script-dat.md#header-format)'s, and every retail mission sets its zone this way: each of the 62 has a row-2 record with a non-zero zone word.
+82 bytes read into one reused buffer and never kept: a condition, ten header words and thirty flag indices. The ten header words (`DAT_00485446` upward) are reset once row 1 is read — the first to 1, the rest to 0 — and each row-2 record whose condition passes writes every header word that is not its unset value, 1 for the first and 0 for the rest, and every flag index that is not `-1` into the clear list at `DAT_0048545a`. Then every flag the clear list names is zeroed (`Msn_ClearPatchedFlags` (`00417659`)). The clear list lies in VSHELL's uninitialised data, so it starts at zero, and no reset of it has been found ([Open](#open)); a load therefore clears flag 0 thirty times over until a patch names something else. No retail patch names a flag: none of the 145 row-2 records in the 62 files sets a flag index, so every retail load clears flag 0 and nothing more. The clear comes after row 1's comparisons, and the debrief stores the mission's outcome in flag 0 before its reload compares anything ([`../shell/campaign-loop.md`](../shell/campaign-loop.md#the-debrief--game_processmissionresults-0040eae7)), so no condition of either load sees the cleared value. The header words are [`script-dat.md`](script-dat.md#header-format)'s, and every retail mission sets its zone this way: each of the 62 has a row-2 record with a non-zero zone word.
 
 ### Record-array table — **empirically confirmed byte-exact against 61/62 real `.MSN` files**
 
@@ -275,7 +275,7 @@ The flyer roster, `script.dat` block 8; condition and variant are both well used
 | `0x02` | condition ref | 24% real (tier: rows #1/#3/#13) |
 | `0x04` | variant key | 30% real |
 | `0x06` | ? | **dead** — always `-1` |
-| `0x08–0x2F` | flag span (20 shorts) | 100% populated; boolean: 96.5% `0`, 3.5% `1`. What reads it is [open](#open) |
+| `0x08–0x2F` | flag span (20 shorts) | 100% populated; boolean: 96.5% `0`, 3.5% `1`. Exported as `script.dat` block 8's `0x00`–`0x27`, which DBSIM reads and drops ([below](#what-dbsim-takes-from-a-flyer-record)) |
 | `0x30` | ref→row #6 | always `-1` in retail, but **not dead** — DBSIM reads it as this flyer's spawn-position override (see `script-dat.md`) |
 | `0x32` | ref→row #7 | same, for heading |
 | `0x34` | **flyer type** | 68% real; always `0` when present — an index into `nam\FLYERS.NAM`, whose one flyer with data is `SKIMMER` |
@@ -283,7 +283,11 @@ The flyer roster, `script.dat` block 8; condition and variant are both well used
 | `0x38–0x5E` | 10 (counter ref, operation) pairs | 99.9% `-1`; one retail record uses a slot. The flyer's [out-of-action report](../simulation/mission-deployment.md#the-out-of-action-report), exported as `script.dat` block 8's `0x2e`/`0x42` |
 | `0x60` | engaged action, ref→row #10 | **dead** — always `-1`; exported as `script.dat` block 8's `0x56` |
 | `0x62` | defeated action, ref→row #10 | **only live ref** — 21% real; block 8's `0x58` |
-| `0x64` | constant | always exactly `100`; what reads it is [open](#open) |
+| `0x64` | constant | always exactly `100`, the shape of the mech and base rows' starting condition; exported as block 8's `0x5a`, which DBSIM reads and drops ([below](#what-dbsim-takes-from-a-flyer-record)) |
+
+### What DBSIM takes from a flyer record
+
+Both of DBSIM's passes read block 8's 92-byte records whole. `DBSim_LoadScriptDat` (`00424308`) keeps the type. `DBSim_SpawnMissionObjects` (`004253d8`) reads each live record into a stack buffer (`00425a21`) and takes `0x28` the position, `0x2a` the heading, `0x2c` the type, the counter spans at `0x2e` and `0x42`, and the two actions at `0x56` and `0x58`; no instruction of the function addresses the buffer's `0x00`–`0x27` or `0x5a`. So the 20-short span reaches no flyer, and where a HERC and a structure take a starting condition from their records, a flyer takes none ([Open](#open) covers a shell-side reader).
 
 
 ## Row #14 field decode — the base roster record (`DAT_0047065c`, 62 bytes/record)
@@ -436,6 +440,6 @@ All ten share the id, so the debrief carries **one** of them: a squadmate killed
 
 ## Open
 
-- **Open:** no reset of the row-2 clear list (`DAT_0048545a`) found by `es2_xref.py --binary VSHELL`: its three references are `Msn_ApplyHeaderPatch`'s write and `Msn_ClearPatchedFlags`'s two reads, and no other address from `00485440` to `00485495` but the header words is referenced.
+- **Deferred:** no reset of the row-2 clear list (`DAT_0048545a`) found by `es2_xref.py --binary VSHELL`: its three references are `Msn_ApplyHeaderPatch`'s write and `Msn_ClearPatchedFlags`'s two reads, and no other address from `00485440` to `00485495` but the header words is referenced. On retail data the answer changes no condition a load tests ([The header patch](#the-header-patch--row-2)).
 - **Open:** what row #16's `0x08` does.
-- **Open:** what reads row #13's 20-short flag span at `0x08–0x2F` and its constant `100` at `0x64`. The mech and base rows end in a starting-condition percentage of the same shape, but no flyer path is traced reading one.
+- **Deferred:** a VSHELL reader of row #13's 20-short flag span at `0x08–0x2F` or its constant at `0x64`. The functions found referencing the row's storage (`00470618`) by a disassembly search are the parser and its merge, variant and ref helpers, `MsnGen_FreeRows` and `WriteScriptDatFile`, where the same search over row 12's storage also finds `MsnGen_BuildPlayerHerc`; the briefing's map skips block 8 ([`script-dat.md`](script-dat.md#the-13-block-structure)). DBSIM's side is [What DBSIM takes from a flyer record](#what-dbsim-takes-from-a-flyer-record).

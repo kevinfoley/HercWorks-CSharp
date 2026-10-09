@@ -321,4 +321,3 @@ Stop after block 13's declared end and ignore trailing bytes. Files may have sta
 ## Open
 
 - **Open:** whether mechs get any per-slot heading turn on formation attach, the way bases do — `MFORMS.DAT`'s 28-byte formations have no field for one, so the fallback shape `Mech_AttachToGroup` shares with `Base_AttachToGroup` may simply have nothing to read.
-- **Open:** which arm of the player's think objective type 2 selects. `TRAIN1`-`TRAIN4` patch header offset 6, the objective type, to 2, 3, 2 and 2.

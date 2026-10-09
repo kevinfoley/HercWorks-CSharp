@@ -285,7 +285,3 @@ One LINK press runs the toggle **three** times: the button's own click handler (
 | Reading | Why it is wrong |
 |---|---|
 | The ELF's cell timer at `+0x84` is a per-cell interval, so the spin-up's length is a rate rather than a cell count | `ElfMount_TriggerHeld` zeroes it on the press and `ElfMount_SpinUpAndChargeTick` zeroes it again after every advance, and `Math_CountdownTimerTick` clamps at zero, so it expires on every tick it is asked. Nothing in the retail build ever gives it a non-zero value |
-
-## Open
-
-- **Open:** template fields other than those named here — see [`../formats/weapons-dat-sim.md`](../formats/weapons-dat-sim.md).

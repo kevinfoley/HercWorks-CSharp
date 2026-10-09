@@ -8,8 +8,6 @@ Each entry names the doc that owns the subject. **That doc is authoritative** fo
 
 The mechanism is understood; what is left is engine work.
 
-- **A machine's crudest LOD roots are never drawn.** Root selection is ported, but the roots that compact their node numbering — the crudest one to three of each chassis — are excluded, because drawn as loaded they put APOCA's upper body on a knee. The original renumbers those roots onto root 0's nodes at load, from a part-id list in the chassis `.DAT`; porting that lets every root be drawn. → [`docs/retail/rendering/mech-shape-drawing.md`](docs/retail/rendering/mech-shape-drawing.md#the-crude-roots-are-renumbered-at-load)
-
 ## Reverse-engineering still open
 
 The engine cannot be faithful here until the original is understood.

@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using HercWorks.Core.Data.File.Dbsim;
 using HercWorks.Core.Data.File.Dts;
+using HercWorks.Core.Data.File.Dts.Anim;
 using HercWorks.Core.Data.File.Dts.Bsp;
 using HercWorks.Core.Data.File.Dts.Part;
 using HercWorks.Core.Data.File.Dts.Poly;
@@ -389,6 +390,14 @@ public static partial class DtsMeshBuilder {
 		/// </summary>
 		public BspLeaf? Leaf { get; set; }
 
+		/// <summary>
+		/// The animation list every part is placed through, in place of the one the root's own
+		/// <see cref="ANShape"/> carries, or null to use that one. Set for a machine's crude LOD roots,
+		/// whose transform ids are root 0's once renumbered — see
+		/// <see cref="Scene.MechDetailRootRemap"/>.
+		/// </summary>
+		public ANAnimList? PoseList { get; init; }
+
 		private int _nextPolyId;
 
 		/// <summary>Claims the next <see cref="Triangle.PolyId"/>, once per source poly.</summary>
@@ -442,10 +451,15 @@ public static partial class DtsMeshBuilder {
 	/// <see cref="TSBasePart.IdNumber"/>s to leave out of the mesh entirely — a machine's hardpoint
 	/// attachment slots, from <see cref="AttachmentPartIds"/>. Null for every shape that has none.
 	/// </param>
+	/// <param name="poseList">
+	/// The animation list to place parts through instead of the root's own — root 0's, for a
+	/// machine's renumbered crude root (<see cref="Scene.MechDetailRootRemap"/>). Null for every
+	/// other shape.
+	/// </param>
 	public static MeshBuild BuildRoot(TSObject root, TextureAtlas? atlas = null,
 			SurfaceShading? shading = null, int cellFrame = 0,
-			IReadOnlySet<short>? hiddenPartIds = null) {
-		var sink = new Collector();
+			IReadOnlySet<short>? hiddenPartIds = null, ANAnimList? poseList = null) {
+		var sink = new Collector { PoseList = poseList };
 		Collect(root, null, sink, atlas, shading, cellFrame, hiddenPartIds);
 		return Emit(sink);
 	}
@@ -553,9 +567,11 @@ public static partial class DtsMeshBuilder {
 	/// alone.</para>
 	/// </summary>
 	/// <param name="hiddenPartIds"><inheritdoc cref="BuildRoot" path="/param[@name='hiddenPartIds']"/></param>
+	/// <param name="poseList"><inheritdoc cref="BuildRoot" path="/param[@name='poseList']"/></param>
 	public static MeshSegment[] BuildSegments(TSObject root, TextureAtlas? atlas = null,
-			SurfaceShading? shading = null, IReadOnlySet<short>? hiddenPartIds = null) {
-		var sink = new Collector { AllCells = true, AllDetailLevels = true };
+			SurfaceShading? shading = null, IReadOnlySet<short>? hiddenPartIds = null,
+			ANAnimList? poseList = null) {
+		var sink = new Collector { AllCells = true, AllDetailLevels = true, PoseList = poseList };
 		Collect(root, null, sink, atlas, shading, cellFrame: 0, hiddenPartIds);
 		return EmitSegments(sink);
 	}

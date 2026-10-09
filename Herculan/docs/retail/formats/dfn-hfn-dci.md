@@ -116,7 +116,7 @@ Index 0 is transparent and **every retail file uses exactly one other value as i
 | `DARK` | 19 | `CPGREEN` | 15 |
 | `RED` | 10 | `ACTIVE` | 24 |
 
-`ColorSchemePanels` (`0049b0ac`) is the 18-entry loaded-font array; see [`../simulation/cockpit-hud-widgets.md`](../simulation/cockpit-hud-widgets.md#hud-fonts) for the load order and which widget takes which entry.
+`ColorSchemePanels` (`0049b0ac`) is the 18-entry loaded-font array; see [`cockpit-hud-widgets.md`](../simulation/cockpit-hud-widgets.md#hud-fonts) for the load order and which widget takes which entry.
 
 ### `inkHeight` and label placement
 
@@ -124,13 +124,13 @@ Index 0 is transparent and **every retail file uses exactly one other value as i
 
 `bitsPerPixel` (`0x16`) is read by the same blitter, alongside `cellHeight` from `0x0e` (via `HudFont_CellHeight` (`00482410`)) and the glyph width from the per-glyph width byte (via `HudFont_GlyphWidth` (`0048238c`)).
 
-Full placement formula, including the horizontal rule: [`../simulation/mfd.md`](../simulation/mfd.md), "Label placement".
+Full placement formula, including the horizontal rule: [`mfd.md`](../simulation/mfd.md), "Label placement".
 
 ### Label background
 
 A label paints its rect before its text, in the colour at the label object's field `0x1d` — `0x2e` for a weapon row, `0x11` for the scanner's four readouts, `DAT_004d3c26` (`COLORS.DAT` id 19, palette 16, black) for the shield readouts. That is why retail's shield "100" sits on solid black rather than on the bezel art under it.
 
-The first two are **raw palette indices** and the third a logical id: a constructor's immediate is already an index, only a data file's number goes through `COLORS.DAT`. See [`colors-dat.md`](colors-dat.md#datcolorsdat--logical-colour-ids), "`dat\COLORS.DAT`".
+The first two are **raw palette indices** and the third a logical id: a constructor's immediate is already an index, only a data file's number goes through `COLORS.DAT`. See [`colors-dat.md`](colors-dat.md).
 
 ### Consumers
 
@@ -138,12 +138,12 @@ The first two are **raw palette indices** and the third a logical id: a construc
 
 ## Ruled out: `.BND` and `.SNC`
 
-Real files checked (`ACTOR.BND`, `MECH.BND`, `CAM.BND`, `PA_01000.SNC`, `PA_02000.SNC`) do NOT start with `[typeId][0x0028]` after the VOL prefix. Both are separate formats: see [`bnd-notes.md`](bnd-notes.md) and [`snc-lip-sync.md`](snc-lip-sync.md#sncnamesnc--portrait-lip-sync-scripts).
+Real files checked (`ACTOR.BND`, `MECH.BND`, `CAM.BND`, `PA_01000.SNC`, `PA_02000.SNC`) do NOT start with `[typeId][0x0028]` after the VOL prefix. Both are separate formats: see [`bnd-notes.md`](bnd-notes.md) and [`snc-lip-sync.md`](snc-lip-sync.md).
 
 ## Open
 
-- **Deferred:** the `.DFN`/`.HFN` header shorts at `0x0a` and `0x18`. They are 0 in every retail file and have no consumer found.
-- **Deferred:** `PCURSOR.DCI`'s 96 bytes past its envelope. The cursor's load reads one class item, which ends at the envelope; what reads these bytes is the open question. They may be a second image layer (an AND-mask or outline) specific to this cursor.
-- **Deferred:** whether DBSIM.EXE (not VSHELL) loads the SHELL0 fonts (`FONT.DFN`, `FONT2.DFN`, `BLACK.DFN`).
+- **Open:** the `.DFN`/`.HFN` header shorts at `0x0a` and `0x18`. They are 0 in every retail file and have no consumer found.
+- **Open:** `PCURSOR.DCI`'s 96 bytes past its envelope. The cursor's load reads one class item, which ends at the envelope; what reads these bytes is the open question. They may be a second image layer (an AND-mask or outline) specific to this cursor.
+- **Open:** whether DBSIM.EXE (not VSHELL) loads the SHELL0 fonts (`FONT.DFN`, `FONT2.DFN`, `BLACK.DFN`).
 - **Open:** the bitmap array's second `int16`, after the frame count.
-- **Deferred:** `dba\CORNERS.DBA`'s 606 bytes past its declared frames — whether anything reads them, or they are left over from an earlier, longer version of the file.
+- **Open:** `dba\CORNERS.DBA`'s 606 bytes past its declared frames — whether anything reads them, or they are left over from an earlier, longer version of the file.

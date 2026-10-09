@@ -144,9 +144,21 @@ Three gauge classes, one per mount class, all built on `WeaponGauge_Ctor` (`0044
 
 | Class | Factory → ctor | Value field |
 |---|---|---|
-| energy | `CockpitView_CreateEnergyWeaponGauge` (`00432074`) → `EnergyWeaponGauge_Ctor` (`00440a68`) | charge bar: a `WeaponSliderGadget` slider over an `LEDBarGraph` (`WeaponSliderGadget_Ctor`, `00442950`) |
-| ammunition | `CockpitView_CreateAmmoWeaponGauge` (`00432124`) → `AmmoWeaponGauge_Ctor` (`00440f78`) | round count, `itoa` (`AmmoWeaponGauge_Paint`, `004411b4`) |
+| energy | `CockpitView_CreateEnergyWeaponGauge` (`00432074`) → `EnergyWeaponGauge_Ctor` (`00440a68`) | charge bar: a `WeaponSliderGadget` slider over an `LEDBarGraph` (`WeaponSliderGadget_Ctor`, `00442950`), filled to the mount's capacitor level `+0x7d` |
+| ammunition | `CockpitView_CreateAmmoWeaponGauge` (`00432124`) → `AmmoWeaponGauge_Ctor` (`00440f78`) | round count, `itoa` (`AmmoWeaponGauge_Paint`, `004411b4`) of the mount's `+0x7d >> 8` |
 | pod | `CockpitView_CreatePodGauge` → one of three `PodGauge` classes | none — the name label widens over both fields — except the Turbo Pod's |
+
+**The mount pushes its row's values.** Its vtable `+0x50` — `WeaponMount_PushEnergyGaugeState` (`0040f288`) on the energy and ELF classes, `WeaponMount_PushAmmoGaugeState` (`0040f330`) on the ammunition class — copies the gauge's state block, fills it and hands it back through the gauge's vtable `+0x10`:
+
+| Block | Energy | Ammunition |
+|---|---|---|
+| `+0x00` | capacitor level, `(+0x7d << 10) / 1200` | rounds, `+0x7d >> 8` |
+| `+0x04` | the charge bar's slider position, exchanged with the power level `+0x7b` — [`weapon-firing.md`](weapon-firing.md#the-charge-bar) | — |
+| `+0x11` | destroyed, `+0x49` | destroyed, `+0x49` |
+| `+0x12` | mid-charge, `+0x43` | — |
+| `+0x14`-`+0x16` | the three state flags its caller passes | as energy |
+
+`EnergyWeaponGauge_SetState` (`00440d4c`) stores block `+0x00` at the bar's `+0x7a`, and `WeaponSliderGadget_Paint` (`00442b38`) fills the `LEDBarGraph` to that, so the bar shows the capacitor rather than the power level, against the fixed 1200: a capacitor at its spawn 960 fills four fifths of it. The ammunition row's `+0x7d` lags the magazine on purpose, which is what rolls the counter ([`weapon-mounts.md`](weapon-mounts.md#ammunition)).
 
 All three `strncpy` 12 bytes of the mount's name (`WeaponMount_GetDisplayName`, `0040e18c`) into the gauge at `+0xb1`. The pod class instead seeds an 11-char buffer with a space, appends the name, then appends `STRINGS0.STR` group 3 (`" POD"`) into the room left — `" SHIELD POD"`. A destroyed mount's row prints group 2 (`"OFFLINE"`) in place of the name.
 
@@ -178,7 +190,7 @@ The three state flags come from `WeaponMounts_PerFrameUpdate` (`00410b40`), the 
 
 ## Console buttons
 
-`ConsoleButton_Paint` (`00442c88`) blits `PWEAPONS` frame `2 + state` at the widget's own rect ([`.GAU` 484-532](../formats/gau-cockpit-layout.md#block-map)) — frame 2 unlit, solid palette index 34 (the retail blue, RGB `(77,77,182)`); frame 3 lit, index 14 green — then the caption in `[10]` `WHITE` unlit / `[12]` `DARK` lit. The plates are **not** canopy art.
+`ConsoleButton_Paint` (`00442c88`) blits `PWEAPONS` frame `2 + state` at the widget's own rect ([`.GAU` 484-532](../formats/gau-cockpit-layout.md#block-map)) — frame 2 unlit, solid palette index 34 (the retail blue, RGB `(77,77,182)`); frame 3 lit, index 14 green — then the caption in `[10]` `WHITE` unlit / `[12]` `DARK` lit. The plates are **not** canopy art. Which field is each button's `state`: [`weapon-mounts.md`](weapon-mounts.md#console-buttons).
 
 The chain button's caption is its count in Roman numerals from `ChainCountCaptions` (`0049c71c`): `"I"`, `"II"`, `"III"` — a literal table in `.rdata`. LINK and TRACK are not fixed the same way: `ConsoleButton_Paint` reads them from `DAT_004d13d0`, the `.bss` array `SimStrings_LoadAll` fills from `STRINGS0.STR` group 4 (see [`../formats/str-strings.md`](../formats/str-strings.md)), indexed by the widget's own kind field — entry 1 for LINK, entry 2 for TRACK.
 
@@ -372,4 +384,3 @@ Each display runs the toggle from its own update, so a display whose update does
 
 - **Deferred:** what consumes `PWEAPONS` frame 7, a 640x80 strip.
 - **Deferred:** whether any cockpit shows the `PanelAmbience` clock: two two-digit labels and a colon label that `PanelAmbience_TickClock` (`00452144`) blinks, advancing the clock on every second call, the second field wrapping at 59 and the whole at 99:59. Its one construction is in `Gau_PanelAmbienceWidget` (`004326a8`), from the `.GAU` block at 1604, for which `es2_xref.py` finds no caller; that block is zero in all nine retail `.GAU` files.
-- **Open:** which mech-object field picks each widget's frame or fill level per frame, for the widgets this doc does not already trace. The `.GAU` holds only geometry.

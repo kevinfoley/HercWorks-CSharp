@@ -72,7 +72,7 @@ Right after loading the roots, `MechType_InitOne` calls `MechType_RemapDetailRoo
 
 1. A 50-byte map per root, filled with `0xff`.
 2. For each listed part id, the part's transform id (`part+4`) in root 0, found through the shape's vtable `+0x20` (`TSPartList_FindPart`), is stored in each other root's map at that root's own transform id for the same part.
-3. `Shape_RemapTransformIds` (`0041ff88`) walks each other root through its map: a `TSGroup`'s and a `TSCellAnimPart`'s `+4`, and each entry of a `TSBSPPart`'s per-node transform array that is above 0, below the count at root 0's anim list `+0x10`, and maps to a non-negative entry. It recurses through part lists, shapes, detail parts and the `ANShape`.
+3. `Shape_RemapTransformIds` (`0041ff88`) walks each other root through its map: a `TSGroup`'s and a `TSCellAnimPart`'s `+4`, and each entry of a `TSBSPPart`'s per-node transform array that is above 0, below the size of root 0's keyframe pool (the anim list's `+0x10`, which `ANAnimList_ReadFromStream` (`00491aa4`) fills with the transform count), and maps to a non-negative entry. It recurses through part lists, shapes, detail parts and the `ANShape`.
 4. `Shape_RemapTransformId` (`0041ff68`) leaves a negative id alone and replaces any other with its signed map entry, so a `TSGroup` or `TSCellAnimPart` whose node no listed part reaches gets -1.
 
 So once loaded, a compacted root's parts name root 0's joints, and drawing it through root 0's pose array puts each part on the joint it belongs to. Retail lists:
@@ -85,6 +85,8 @@ So once loaded, a compacted root's parts name root 0's joints, and drawing it th
 | PITBULL | 1-5, 12-25 |
 | SPIDER | 1-4, 12, 14, 15, 18-23 |
 | RAZOR | 12 |
+
+**The lists reach every node a crude root draws through.** Across the 21 machine shapes, every `TSGroup` and `TSCellAnimPart` transform id in roots 1 onward has a map entry, and so does every positive entry of every `TSBSPPart`'s per-node array, so the renumbering leaves no part that has a node at -1 and none on its own root's numbering. Some parts in SAMSON's and RAPTOR2's crude roots have no node in the file, and keep -1.
 
 ### The three tunables
 
@@ -126,6 +128,8 @@ replacement[+6] = (*slot)[+6];                             // inherit the part i
 
 The invisible mounting has to be excluded on its own merits, not merely for tidiness: SAMSON's bone 5 carries a real torso part, and splicing it would delete the machine's middle.
 
+**A root without a hardpoint's part id draws no gun there.** The shape's vtable `+0x24` is `TSPartList_FindPartSlot` (`00476784`) on every part-list class: it checks its own children's ids, then asks each child in turn, and a leaf answers with `TSPartBase_FindPartSlot` (`00476134`), a bare `return 0`. A tree without the id therefore yields null, `MechType_BindHardpointSlots` stores it as it stores the invisible mounting's, and `Mech_SpliceHardpointShapes` passes over a null slot, still stepping past that hardpoint's blank record so the ones after it keep theirs. `SAMSON.DTS` roots 3-6, `COLOSSUS.DTS` roots 5 and 6, `OGRE.DTS` roots 4-6 and `OUTLAW.DTS` root 6 each lack one or more of their chassis' slot ids, and those crude models are drawn without those guns.
+
 **Every retail slot is a direct child of its root's `TSBSPPart`**, so the walk paints the spliced shape in that child's turn, ordered against the machine's other children as the slot was ([`dts-texture-binding.md`](dts-texture-binding.md#tsbsppart-child-selection)). `HYPERION.DTS` root 5's slot for part 66 is the child its tree never reaches, so that root draws no gun there.
 
 On most chassis the placeholders are recognisable in isolation — flat, two-sided, untextured, every slot of their surface record `0/1024` — but **the PITBULL's is an ordinary-looking `TSGroup`**, so that signature is a description of the usual case and not the rule.
@@ -156,9 +160,3 @@ The same reasoning covers 14 plain `TSPoly`s reachable at cell 0 across every dr
 | A mech `.DTS` carries one `ANAnimList`, on its root shape | One **per root**, and they differ in every dimension — APOCA's root 0 declares 8 sequences over 372 keyframes and 12 nodes, its root 4 declares 1 over 17 and 9 |
 | The `.DMG` record's `+0x03` byte is a HUD slot | It is the index of the `TSCellAnimPart` sequence the component drives, which the destruction path steps to its blank cell. The `= 2` write is a cell frame, not a damage state ([A destroyed component hides its own geometry](#a-destroyed-component-hides-its-own-geometry)) |
 | A nonzero detail bias is harmless because the walk can still reach root 0 | The walk only ever advances, and it starts at the bias. `g_ShapeDetailBias` is the floor on how fine a machine is ever drawn, which is what makes the lowest HERC DETAIL setting a visible change at point-blank range and not only at distance |
-
-## Open
-
-- **Open:** what `MechType_BindHardpointSlots` stores for a hardpoint whose part id a root does not carry, and so whether that root draws the gun. `SAMSON.DTS` roots 3-6, `COLOSSUS.DTS` roots 5 and 6, `OGRE.DTS` roots 4-6 and `OUTLAW.DTS` root 6 each lack one or more of their chassis' slot ids.
-- **Unported:** [the load-time renumbering of the crude roots](#the-crude-roots-are-renumbered-at-load) (`MechType_RemapDetailRootTransforms`, `00420090`).
-- **Open:** whether any part of a crude root is left at transform id -1 by the renumbering (a node no listed part id reaches), and so drawn in the object's own frame.

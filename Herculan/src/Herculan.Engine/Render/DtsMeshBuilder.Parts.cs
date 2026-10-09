@@ -37,8 +37,10 @@ public static partial class DtsMeshBuilder {
 				return;
 
 			case ANShape shape:
-				// An ANShape brings its own animation list into scope for everything beneath it.
-				CollectParts(shape.Parts, shape.AnimationList ?? animList, sink, atlas, shading, cellFrame,
+				// An ANShape brings its own animation list into scope for everything beneath it, unless
+				// the caller places the root through another's (Collector.PoseList).
+				CollectParts(shape.Parts, sink.PoseList ?? shape.AnimationList ?? animList, sink, atlas,
+					shading, cellFrame,
 					hiddenPartIds);
 				break;
 

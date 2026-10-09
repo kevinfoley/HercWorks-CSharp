@@ -246,7 +246,7 @@ The drop pod plays both its sounds at the camera's own position, `ViewObjectPtr 
 
 So the pod's whistle and landing are both heard **hard left**, whatever the pod's position. The MFD's map and missile view and the Heads-Down Display's command map install projections of their own ([Open](#open)).
 
-At 166.667 world units per metre ([`../../herculan/planning.md`](../../herculan/planning.md)), a `max` of 40 is about 245 m, the largest authored one — `herceng1`'s 50 — about 307 m, and the default 100 that every `-` row of [the catalog](../formats/sounds-str.md#the-catalog) takes about 614 m.
+At 166.667 world units per metre ([`dbsim-physics-notes.md`](dbsim-physics-notes.md#world-units)), a `max` of 40 is about 245 m, the largest authored one — `herceng1`'s 50 — about 307 m, and the default 100 that every `-` row of [the catalog](../formats/sounds-str.md#the-catalog) takes about 614 m.
 
 ### The play-request gate
 

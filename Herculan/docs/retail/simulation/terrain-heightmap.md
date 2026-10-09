@@ -15,6 +15,7 @@ Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). Cov
 | `+0x108` | `int` | Cell shift — log2(world-units per cell); also the shift used to convert world (x,y) → cell (x,y) |
 | `+0x10c` | `int` | **View radius in cells**: 6, 10 or 14, by detail setting. Its derivation, writer and consumers are in [`../rendering/terrain-texturing.md`](../rendering/terrain-texturing.md#grid0x10c--the-lod--draw-radius-field); `Terrain_DrawCellQuad` installs `+0x10c << +0x108` as the visibility range distance fog is measured against — see [`../rendering/distance-fog-and-sky.md`](../rendering/distance-fog-and-sky.md) |
 | `+0x110` | `int` | Height base — additive height offset (0 for real/binary zones; `MinHeight*8` for the ASCII debug format) |
+| `+0x114` | `int` | **Highest height**, in world units. `TerrainZone_PopulateFromBitmap` (`0046c3c0`) zeroes it, keeps the largest raw byte as it fills the cells (the pixel less the loader's bias, unsigned), and once the grid is full multiplies it by the height scale `+0x118`. The [flattening pass](#structure-footprints--the-flattening-pass) only averages, so it stays a bound on the ground. The terrain draw's ground clip ([`../rendering/terrain-drawing.md`](../rendering/terrain-drawing.md)) and the gunsight's altitude scale ([`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md)) read it as the top of the zone's height range, `+0x110` its foot |
 | `+0x118` | `int` | Height scale — multiplicative height scale applied to each cell's raw byte |
 | `+0x11d` | `int` | Material/detail-type record count (from `dat\mat0`) |
 | `+0x121` | `int*` | Pointer to the material/detail-type table (`ZONES_MaterialTable`, from `dat\mat0` — [layout](../formats/zone-terrain.md#datmat0--the-material-table)) |
@@ -139,4 +140,3 @@ The same segment and the same walk, with a different question at each step: is t
 ## Open
 
 - **Deferred:** confirm `Razor_MovementTick`'s source file — assumed `flyersys.cpp` by naming convention, but no assert string in the binary names it.
-- **Open:** the writer of `+0x114`, which the terrain draw ([`../rendering/terrain-drawing.md`](../rendering/terrain-drawing.md)) and the gunsight's altitude scale ([`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md)) read as the zone's highest height. The struct table above has no row for it.

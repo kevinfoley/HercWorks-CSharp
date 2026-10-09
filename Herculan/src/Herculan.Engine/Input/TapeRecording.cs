@@ -30,6 +30,12 @@ public sealed class TapeRecording {
 	public bool DeferredTick { get; set; }
 
 	/// <summary>
+	/// The controls of the frame that raised that panel, which its tick runs on once the panel is down, as
+	/// a replay's does (<see cref="TapePlayback.DeferredFrame"/>).
+	/// </summary>
+	public Sim.MechControls DeferredControls { get; set; }
+
+	/// <summary>
 	/// The top of a recorded host frame: whether it is a panel's, and the keys that went down since the last
 	/// one. Keys are edges of the polled state rather than the device's own events, because the handlers poll
 	/// too: a key pressed and let go between two frames is one no handler saw. Only what reaches the game is

@@ -65,38 +65,6 @@ Primary development/testing target is **Windows**, but OS-specific code paths sh
 - Motivation: a possible future mission editor that renders the mission environment in-engine.
 - The namespace layout, the move of game rules out of the host, and the staged refactor toward both are in [`plan-architecture-refactor.md`](plan-architecture-refactor.md).
 
-## World scale
-
-**1000 world units are 6 metres.** `WorldScale.WorldUnitsPerMeter` is `1000/6` ≈ **166.667**. This is not an estimate — it is the original's own constant.
-
-**Where it comes from.** The HUD prints distances to the player in metres, so DBSIM has to state its scale somewhere, and `Hud_WorldUnitsToMetres` (`00434228`) is the whole of it:
-
-```
-metres = (worldUnits / 1000) * 6
-```
-
-Three call sites in two unrelated gadgets share it — the HUD waypoint indicator's `WAYPOINT n: d M.` string (`Hud_UpdateWaypointIndicator`, `0043c3e4`) and the scanner MFD's contact-range readout (`0043ebe0`/`0043eecc`) — and both hand it a raw difference of two world positions (`Vec2_Subtract` then `Math_FastMagnitude2D`), so its input really is world units. A gameplay screenshot showing `WAYPOINT 1: 72 M.` is consistent: 72 is a multiple of 6, which every value this function can produce must be.
-
-**What the world measures at that scale:**
-
-| | world units | metres |
-|---|---|---|
-| terrain cell (`CellShift` 14) | 16384 | 98.3 |
-| retail zone (128 x 128 cells) | 2097152 | 12580 (12.6 km) |
-| zone 504's highest ground | 23393 | 140 |
-| drop pod landing blast radius | 3000 | 18 |
-| mech death explosion | 2000 | 12 |
-| rocket proximity warning | 40000 | 240 |
-| SAMSON model, bounding box height | 2364 | 14.2 |
-
-**DTS model units are world units.** Two fields of `dat\<mech>.DAT`, a file the sim reads in world units, carry values that are only meaningful as model-space measurements. COLOSSUS is the one retail mech whose model dips below model-space zero, to `-400`, and it is the one retail mech with a nonzero `RideHeight`: exactly `400`. A correction expressed in the same numbers as the model's own coordinates is a 1:1 unit relationship. The second field is `HitRadius`, the machine's hit-cylinder radius (see [`mech-locomotion.md`](../retail/simulation/mech-locomotion.md#mech-type-record)); it tracks chassis size across the fleet — 1500 for OUTLAW's 1700-unit model, 2500 for everything larger (2030–2575) — so it corroborates the scale, though as a size measure rather than a height. Nothing in the load path scales a model: `MechType_InitOne` hands DTS points straight to the shape instance.
-
-At 166.667 u/m, HERC models measure 10.2m (OUTLAW) to 15.5m (OGRE), ~1.5x the manual's quoted stature (6.1m/10.4m) — bounding box (includes raised arms/antennae) vs. quoted height; weight-class ordering matches the manual exactly.
-
-**Independent order-of-magnitude check:** HUD speed readout (`Mech_GetDisplaySpeedKph`, `0041bb3c`) = `speed * 315/1024`; against each mech's `SpeedForward` reproduces the manual's KPH: OUTLAW 325 → 100 (exact), SAMSON 190 → 58 (quoted 60), COLOSSUS 180 → 55, MAVERICK 285 → 88 (quoted 90). Tick rate was later resolved directly (25 Hz, `Time_BeginSimTick` (`004677bc`) — see [`dbsim-physics-notes.md`](../retail/simulation/dbsim-physics-notes.md)), confirmed independently by `mech-locomotion.md`'s root-motion speed verification.
-
-Symbols: `Hud_WorldUnitsToMetres`, `Hud_UpdateWaypointIndicator`, `Hud_UpdateSpeedReadout` (`0043dc78`), `Mech_GetDisplaySpeedKph`, `Math_Q10Multiply`, `Math_Q16Multiply`, `Math_Q16Divide`, `Math_FastMagnitude2D`, `Math_MapRange`, `Time_GetCoarseTicks`, `Vec2_Subtract`, `Vec2_Magnitude`, `Vec2_DistanceBetween`.
-
 ## Where missing and divergent behaviour is tracked
 
 [`../../ROADMAP.md`](../../ROADMAP.md) is the single list of what the engine does not implement yet. Behavioural divergences — implemented but wrong — stay in [`../../KNOWN_ISSUES.md`](../../KNOWN_ISSUES.md).

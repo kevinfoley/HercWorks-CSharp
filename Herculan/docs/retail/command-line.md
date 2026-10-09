@@ -35,7 +35,7 @@ The state word at `00402070` (ES.EXE) starts at 1 and is replaced by each child'
 | 2 | `dbsim dummy -eggplant -X<state> -R<n> [-s] [-l] [-r<name>] [-SPRUNKNOWN]` |
 | 5 | The same, with `-D` |
 
-`<n>` counts simulator launches from 0 within one run of `ES.EXE`, so successive missions play CD tracks 2, 3, 4, 5, 6, 2… ([`formats/audio.md`](formats/audio.md#which-track-and-whether-there-is-one)). The simulator's list also has slots for `-m` and `-Z`; their conditions test a local initialised to 0 and one initialised to 1 that nothing afterwards writes, so neither is ever passed. In the simulator-only loop every pass forces the state to 2, so the simulator reruns the mission already in `data\` and the shell never starts; an exit code of 0 still ends it.
+`<n>` counts simulator launches from 0 within one run of `ES.EXE`, so successive missions play CD tracks 2, 3, 4, 5, 6, 2… ([`simulation/audio.md`](simulation/audio.md#which-track-and-whether-there-is-one)). The simulator's list also has slots for `-m` and `-Z`; their conditions test a local initialised to 0 and one initialised to 1 that nothing afterwards writes, so neither is ever passed. In the simulator-only loop every pass forces the state to 2, so the simulator reruns the mission already in `data\` and the shell never starts; an exit code of 0 still ends it.
 
 ### v1.10's language switch
 
@@ -86,17 +86,17 @@ Two parsers. `WinMain_ParseSwitches` (`0045e6b0`) (DBSIM) runs first from `WinMa
 | Switch | Store | Effect |
 |---|---|---|
 | `-eggplant` or `-EGGPLANT` | `004d25a8` = 1 | Without it `WinMain` shows "dbsim.exe is not meant to be run…" and exits |
-| `-v<d>` | `VideoMode_Configure(d)` | [`formats/cockpit-views.md`](formats/cockpit-views.md#video-modes) |
+| `-v<d>` | `VideoMode_Configure(d)` | [`simulation/cockpit-views.md`](simulation/cockpit-views.md#video-modes) |
 | `-Z1`, `-Z0`/`-Z` | `004d25e2` | Full screen or windowed; [`simulation/preferences.md`](simulation/preferences.md#the-video-mode-and-full-screen-bytes) |
-| `-b` | `Display_UseScrollWindow` = 0 | [`formats/cockpit-views.md`](formats/cockpit-views.md#the--b-paged-path) |
-| `-S` | `CmdLineSwitch_S` = 1 | No effect; [`formats/cockpit-views.md`](formats/cockpit-views.md#the--b-paged-path) |
+| `-b` | `Display_UseScrollWindow` = 0 | [`simulation/cockpit-views.md`](simulation/cockpit-views.md#the--b-paged-path) |
+| `-S` | `CmdLineSwitch_S` = 1 | No effect; [`simulation/cockpit-views.md`](simulation/cockpit-views.md#the--b-paged-path) |
 | `-SPRUNKNOWN` | `DAT_0049ef60` toggled | The developer keys below |
 | `-s` | `004d254c` toggled from 1 | `Sound_Init(0)`: no sound driver |
-| `-R<n>` | `Music_TrackSelect` | [`formats/audio.md`](formats/audio.md#which-track-and-whether-there-is-one) |
+| `-R<n>` | `Music_TrackSelect` | [`simulation/audio.md`](simulation/audio.md#which-track-and-whether-there-is-one) |
 | `-E`, `-F`, `-G` | `004d25ba` = `s`, `f`, `g` | The language letter, `r` by default. `Voice_ArchiveName` (`0045ef68`) puts it last in `simvoice` unless it is `r`, and `Language_StringFilePath` (`0045ef00`) puts it last in `str`, giving the `st<letter>\` string folder ([`retail-builds.md`](retail-builds.md#how-a-language-is-chosen)). `s` is Spanish: `SIMALERT.VOL` has an `STS\` folder, and no `SIMVOICS.VOL` ships in either build |
-| `-l` | `CockpitArt_LoadOnDemand` = 1 | [`formats/audio.md`](formats/audio.md#memory-budget-and-eviction), [`formats/terrain-texturing.md`](formats/terrain-texturing.md#base-formation-pads) |
+| `-l` | `CockpitArt_LoadOnDemand` = 1 | [`simulation/audio.md`](simulation/audio.md#memory-budget-and-eviction), [`rendering/terrain-texturing.md`](rendering/terrain-texturing.md#base-formation-pads) |
 | `-C<name>` | `CockpitOverride_Index` (`0049ac4c`), `CockpitOverride_Name` (`0049ac50`) | `_stricmp` against 13 names at `0049ac64`: `ROADRUNNER`, `OUTLAW`, `RAPTOR2`, `TOMAHAWK`, `PATRIOT`, `PANTHER`, `SAMSON`, `COLOSSUS`, `APOCA`, `RAZOR`, `MAVERICK`, `OGRE`, `TEST3`. A match replaces the herc index and name the cockpit view manager takes from the player's machine (`+0x27`, `+0x2d`), and the name the canopy-crack art is built from |
-| `-t<n>` | `CommBox0PilotOverride` | `HddGauge_LoadPilotFrames` (`0044a7c0`) takes it as the pilot index of squad comm box 0 when it is non-negative; [`formats/heads-down-display.md`](formats/heads-down-display.md#squad-comm-boxes) |
+| `-t<n>` | `CommBox0PilotOverride` | `HddGauge_LoadPilotFrames` (`0044a7c0`) takes it as the pilot index of squad comm box 0 when it is non-negative; [`simulation/heads-down-display.md`](simulation/heads-down-display.md#squad-comm-boxes) |
 | `-r<name>`, `-p<name>`, `-D` | | [`formats/tap-input-tape.md`](formats/tap-input-tape.md#the-switches) |
 | `-d` | `004d2562` | Opens the checkpoint file `<tape stem>.dmp`; [`formats/tap-input-tape.md`](formats/tap-input-tape.md#the-checkpoint-file) |
 | `-B` | `004d25b0` = 1 | In `Sim_HandleWindowKey` (`0045fd60`): `Ctrl+B` (`0x430`) calls `__break` (`004679d4`), an `INT3`; and `Alt+Enter` (`0x21c`) stops toggling full screen while a tape plays |
@@ -107,7 +107,7 @@ Two parsers. `WinMain_ParseSwitches` (`0045e6b0`) (DBSIM) runs first from `WinMa
 | `-c` | block `+0x72` = 1 | |
 | `-X<n>` | `004d283c` | Zeroed by `Sim_Run` (`0045f144`) before `Sim_ParseCommandLine` runs; no effect |
 
-"Block" is the `0xc3`-byte global block at `004d2540` ([`formats/cockpit-views.md`](formats/cockpit-views.md#video-modes)). For `-T`, `-V`, `-W`, `-a` and `-c`, three searches find only the stores above ([Open](#open)): `es2_xref.py` on the five addresses, which finds one dword each in the whole PE, the parser's own; every absolute operand from `004d2590` to `004d25bf`, which also rules out a wider load overlapping one of these fields; and the displacements off the base in the fifteen register holders and the three blit helpers it is pushed to, none of which spills, copies or rebases it. The same searches find the reads of the neighbouring `+0x54`, `+0x7b` and `+0x7c`. No `.EXE` of either build passes any of the five: `ES.EXE`'s simulator list above has none of them, and VSHELL's unreferenced list below has none either.
+"Block" is the `0xc3`-byte global block at `004d2540` ([`simulation/cockpit-views.md`](simulation/cockpit-views.md#video-modes)). For `-T`, `-V`, `-W`, `-a` and `-c`, three searches find only the stores above ([Open](#open)): `es2_xref.py` on the five addresses, which finds one dword each in the whole PE, the parser's own; every absolute operand from `004d2590` to `004d25bf`, which also rules out a wider load overlapping one of these fields; and the displacements off the base in the fifteen register holders and the three blit helpers it is pushed to, none of which spills, copies or rebases it. The same searches find the reads of the neighbouring `+0x54`, `+0x7b` and `+0x7c`. No `.EXE` of either build passes any of the five: `ES.EXE`'s simulator list above has none of them, and VSHELL's unreferenced list below has none either.
 
 ### `-SPRUNKNOWN`: the developer keys
 

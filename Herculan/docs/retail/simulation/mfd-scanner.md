@@ -69,7 +69,7 @@ A contact at the display range therefore lands 25 GAU units from the centre, ins
 
 The survivor is rotated into the machine's own frame by `Math_BuildRotation2D(-heading)` and stored as `(x, -y)`, so the plot is **hull-relative with the nose up** while the wedge shows the turret. The selected target's entry is remembered at `+0x51c` and its range, in metres, at `+0x520`.
 
-**Friendlies always plot; a Cybrid plots only once something has painted it** (`obj+0x95`, [`../simulation/target-selection.md`](../simulation/target-selection.md)). That is what makes the PASS/ACTIVE choice visible on this screen.
+**Friendlies always plot; a Cybrid plots only once something has painted it** (`obj+0x95`, [`target-selection.md`](target-selection.md)). That is what makes the PASS/ACTIVE choice visible on this screen.
 
 ### The blinking ghost contact is dead code
 
@@ -141,15 +141,7 @@ It reaches the scanner screen object through `CockpitView+0x1ed`'s `+0xd9`, call
 
 ### Geometry
 
-Top-left is **`.GAU` offset 1196/1200**, two more ints of the gunsight block that `Gau_RovingGunsightWidget` reads into the widget at `+0x10b`/`+0x10f`. Position is per herc:
-
-| Herc | Point | Herc | Point |
-|---|---|---|---|
-| APOCA | `40,27` | RAPTOR2 | `54,29` |
-| COLOSSUS | `50,11` | RAZOR | `15,20` |
-| MAVERICK | `50,29` | SAMSON | `51,5` |
-| OGRE | `67,80` | TOMAHAWK | `53,28` |
-| OUTLAW | `44,28` | | |
+Top-left is **`.GAU` offset 1196/1200**, two more ints of the gunsight block that `Gau_RovingGunsightWidget` reads into the widget at `+0x10b`/`+0x10f`. Position is per herc: [`../formats/gau-cockpit-layout.md`](../formats/gau-cockpit-layout.md#per-herc-values).
 
 The extent is not in the file: the paint squares off `0x2e` GAU units from that point on both axes, so the circle is 92x92 device with a 46-pixel radius. **The plot scale divides by that half-size, not by the screen's `0x19`**, so a contact at the display range lands on the rim rather than short of it. Range is the same setting the F4 screen's RANGE button sets.
 

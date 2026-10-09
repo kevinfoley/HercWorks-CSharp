@@ -71,7 +71,7 @@ public sealed class CdMusic : IDisposable {
 	///
 	/// <para>The original's unconditional <c>Sound_SetMusicEnabled(1)</c> at the end of the session
 	/// setup, which turns music back on behind a MUSIC-off preference, is not reproduced: the row's
-	/// setting stands (docs/retail/formats/audio.md, "The mission session overrides the MUSIC preference").</para>
+	/// setting stands (docs/retail/simulation/audio.md, "The mission session overrides the MUSIC preference").</para>
 	/// </summary>
 	/// <param name="select">The <c>-R</c> value; see <see cref="MissionTrack"/>.</param>
 	/// <param name="musicEnabled"><see cref="SoundDirector.MusicEnabled"/>.</param>

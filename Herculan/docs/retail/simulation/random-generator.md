@@ -36,11 +36,11 @@ Its draw sites are the sixteen `PUSH 0x4d268f` in the image besides that seeding
 | `004340ea` | `Cockpit_HitShakeTick` | `(next & 0xffff) % 5`, the shake step |
 | `00435cb5` | `PilotMessagePort_Post` (`00435c48`), the squad port's post | `(next & 0xffff) % variants`, drawn only for two or more |
 | `00436a67` | `MessagePort_PickVariant` | the same |
-| `00438d7f` | `PanelGauge_RollDuration` (`00438d6c`) | `(next & 0xffff) % (hi - lo) + lo`, not drawn when `hi == lo` — the [sensor dropout](../formats/cockpit-hud-widgets.md#sensor-dropout)'s spell lengths |
-| `0044b138` | `HddGauge_PaintPilotFrame` | `next % 3`, discarded — [`../formats/heads-down-display.md`](../formats/heads-down-display.md#the-three-paints) |
+| `00438d7f` | `PanelGauge_RollDuration` (`00438d6c`) | `(next & 0xffff) % (hi - lo) + lo`, not drawn when `hi == lo` — the [sensor dropout](cockpit-hud-widgets.md#sensor-dropout)'s spell lengths |
+| `0044b138` | `HddGauge_PaintPilotFrame` | `next % 3`, discarded — [`heads-down-display.md`](heads-down-display.md#the-three-paints) |
 | `0044b381` | `HddGauge_PaintScream` | `Math_RandomBelow(0x14)` |
 | `0045db2f` | `LiftStart_Rise` (`0045d840`) | `(next & 0xffff) % 5`, the lift's closing shake step, once a frame for `0x1e` coarse ticks — [`mission-deployment.md`](mission-deployment.md#the-lift-start) |
-| `0045dcfb` | `Sim_DeathFlash` (`0045dc34`) | `Math_RandomBelow(10)`, the same kind of shake step — [`../formats/cockpit-canopy-palette.md`](../formats/cockpit-canopy-palette.md#palette-module) |
+| `0045dcfb` | `Sim_DeathFlash` (`0045dc34`) | `Math_RandomBelow(10)`, the same kind of shake step — [`../rendering/cockpit-canopy-palette.md`](../rendering/cockpit-canopy-palette.md#palette-module) |
 | `00462753`, `004627ff` | `Sound_Play`, `Sound_PlayAt` | `Math_RandomBelow` over the sound's variation count |
 
 ## Open

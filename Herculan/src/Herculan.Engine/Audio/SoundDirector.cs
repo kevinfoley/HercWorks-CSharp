@@ -6,7 +6,7 @@ namespace Herculan.Engine.Audio;
 /// <summary>
 /// DBSIM's own <c>Sound_*</c> layer: the rules that sit between a catalog id and the mixer —
 /// variation rolls, the category split, the distance cutoff and the stereo pan. See
-/// docs/retail/formats/audio.md for where each of them comes from.
+/// docs/retail/simulation/audio.md for where each of them comes from.
 ///
 /// <para><b>One record per catalog id; copies of it overlap.</b> The original allocates exactly one
 /// <c>SFX</c> voice per row of <c>SOUNDS.STR</c> and keeps it for the mission, but that record is
@@ -14,7 +14,7 @@ namespace Herculan.Engine.Audio;
 /// <c>0x100</c> playing flag and issues a fresh <c>sosDIGIStartSample</c> every call, so two
 /// machines firing the same weapon in the same tick are heard twice. The record holds this id's
 /// current volume, pan and pitch and the handle of the <b>newest</b> playback only — see
-/// docs/retail/formats/audio.md, "A repeated play layers; it does not restart".</para>
+/// docs/retail/simulation/audio.md, "A repeated play layers; it does not restart".</para>
 ///
 /// <para>One consequence is worth knowing before it looks like a bug: because the settings are the
 /// id's and not the copy's, placing a new copy retunes the previous one. <see cref="Place"/> writes
@@ -339,7 +339,7 @@ public sealed class SoundDirector : IDisposable {
 		//
 		// A source with no horizontal offset at all, which has no bearing: Math_Atan2Bam answers 0
 		// for (0, 0), so the original pans it hard left. The drop pod's two sounds, played at the
-		// camera itself, reach it every time; see docs/retail/formats/audio.md, "A sound played at
+		// camera itself, reach it every time; see docs/retail/simulation/audio.md, "A sound played at
 		// the camera". It is centred instead.
 		int pan;
 		if (forward == 0 && right == 0) {
@@ -461,7 +461,7 @@ public sealed class SoundDirector : IDisposable {
 	/// <c>Sound_SuspendAll</c> (<c>00463078</c>) — stops everything, marking for the matching
 	/// <see cref="ResumeAll"/> only the ids that loop forever and are playing. A one-shot or a
 	/// finite repeat cut off by the suspend is not restarted, and its outstanding repeats are
-	/// dropped. The original does this when the window loses focus. See docs/retail/formats/audio.md,
+	/// dropped. The original does this when the window loses focus. See docs/retail/simulation/audio.md,
 	/// "Mute, suspend and resume".
 	/// </summary>
 	public void SuspendAll() {
@@ -562,7 +562,7 @@ public sealed class SoundDirector : IDisposable {
 	/// <para>Nothing checks whether the id is already sounding, which is the whole of the original's
 	/// behaviour here: <c>Sfx_Play</c> (<c>00463f34</c>) never tests its voice's <c>0x100</c> playing
 	/// flag and issues a fresh <c>sosDIGIStartSample</c> every call, so the copies overlap. See
-	/// docs/retail/formats/audio.md, "A repeated play layers; it does not restart".</para>
+	/// docs/retail/simulation/audio.md, "A repeated play layers; it does not restart".</para>
 	/// </summary>
 	private void Start(int id, SoundCatalog.Entry entry) {
 		if (_samples[id] < 0) {

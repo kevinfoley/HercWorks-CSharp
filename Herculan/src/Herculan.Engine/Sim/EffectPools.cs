@@ -44,7 +44,7 @@ public sealed class EffectPools {
 	/// <summary>
 	/// The dynamic lights impact effects are currently casting — the effect light manager
 	/// <c>DAT_004a968c</c>. The renderer reads it to decide what each drawn object is lit by; see
-	/// <see cref="EffectLightField"/> and docs/retail/formats/effect-lights.md.
+	/// <see cref="EffectLightField"/> and docs/retail/rendering/effect-lights.md.
 	/// </summary>
 	public EffectLightField Lights { get; } = new();
 
@@ -445,7 +445,7 @@ public sealed class EffectPools {
 	/// (<c>EffectLightPool_FlushDeletes</c>, <c>004077e8</c>) before the impact effects'
 	/// (<c>ExplosionPool_FlushDeletes</c>, <c>00407b3c</c>). The second is what queues an ended effect's light
 	/// handle, so the first does not return it until the next frame — see
-	/// docs/retail/formats/effect-lights.md#claiming-a-slot.
+	/// docs/retail/rendering/effect-lights.md#claiming-a-slot.
 	/// </summary>
 	internal void FlushRenderFrameDeletes() {
 		Lights.FlushReleases();

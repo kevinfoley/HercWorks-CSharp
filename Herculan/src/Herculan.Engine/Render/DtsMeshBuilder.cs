@@ -98,7 +98,7 @@ public readonly record struct MeshCell(CellGate Gate, MeshVertex[] Vertices, int
 /// see <see cref="MeshVertex.OutlineFillRamp"/>.</para>
 ///
 /// <para>The points are one-vertex polys, which the same fill draws as a single pixel
-/// (docs/retail/formats/dts-texture-binding.md, "<c>TSSolidPoly</c> — palette index, unlit, fill plus
+/// (docs/retail/rendering/dts-texture-binding.md, "<c>TSSolidPoly</c> — palette index, unlit, fill plus
 /// outline").</para>
 /// </summary>
 /// <param name="Vertices">Triangle corners in <c>[0, TriangleVertexCount)</c>, line-segment
@@ -132,7 +132,7 @@ public readonly record struct MeshBuild(MeshVertex[] Vertices, int TriangleVerte
 /// "the value" is the drawn side's fill entry in <c>Surfaces[ColorIndexId / 4]</c>.</para>
 ///
 /// <para><see cref="TSTexture4Poly"/> polys resolve to real texture through the chain established in
-/// docs/retail/formats/dts-texture-binding.md: the value is a frame index into the mesh's bound
+/// docs/retail/rendering/dts-texture-binding.md: the value is a frame index into the mesh's bound
 /// <c>.DBA</c> bank, and the four UV corners are the frame's own rect.</para>
 ///
 /// <para><b>The untextured poly types are three separate mechanisms</b>, distinguished by what their

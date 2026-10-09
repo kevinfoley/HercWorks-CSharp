@@ -77,7 +77,7 @@ public sealed partial class MechObject {
 	/// How many times this machine's cockpit has been jolted — a hit on one of its two cockpit
 	/// components, or a slide landing. The host watches it for the edge rather than a flag, the same
 	/// way it watches <see cref="Footfalls"/>, so a jolt taken between two frames is not missed. See
-	/// <c>CockpitHitShake</c>, and docs/retail/formats/cockpit-canopy-palette.md, "The damage shake".
+	/// <c>CockpitHitShake</c>, and docs/retail/rendering/cockpit-canopy-palette.md, "The damage shake".
 	/// </summary>
 	public int CockpitHits { get; private set; }
 
@@ -415,7 +415,7 @@ public sealed partial class MechObject {
 	/// <para><b><c>0x12</c> <c>DAMAGE LEVEL CRITICAL</c> is never said.</b> Its call site sits
 	/// between the two readings and needs the later one to have <i>fallen</i> below the earlier; no
 	/// retail <c>PROJ.DAT</c> record can make the write negative, so the line is unreachable — see
-	/// docs/retail/formats/cockpit-messages.md, "Posters". The cockpit jolt that shares its gate is a
+	/// docs/retail/simulation/cockpit-messages.md, "Posters". The cockpit jolt that shares its gate is a
 	/// separate effect and is raised, through <see cref="CockpitHits"/>. What the test reads as
 	/// having been meant is implemented beside that jolt under the
 	/// <see cref="TweakSettingDefinitions.CriticalDamageMessage"/> tweak.</para>

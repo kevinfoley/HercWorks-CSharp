@@ -123,7 +123,7 @@ This is `data\player.mec`, and the record it emits is the one DBSIM's reader (`D
 |---|---|
 | *(file header)* player entry index | literal `0` — the player is always entry 0 |
 | *(file header)* entry count | `00482a7a` |
-| pilot name index | the pilot's `esnames.bin` name index (pilot `+0x02`). DBSIM reads the same field as an index into `str\PILOTS.STR` — [`heads-down-display.md`](../formats/heads-down-display.md#who-is-in-it) |
+| pilot name index | the pilot's `esnames.bin` name index (pilot `+0x02`). DBSIM reads the same field as an index into `str\PILOTS.STR` — [`heads-down-display.md`](../simulation/heads-down-display.md#who-is-in-it) |
 | skill | the pilot's skill tier (pilot `+0x25`) |
 | mech type | HERC record `+0x00` |
 | slot count | HERC record `+0x4c`, the mount capacity; both arrays below are this long |

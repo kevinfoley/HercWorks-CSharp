@@ -1,6 +1,6 @@
 # The HUD target indicator
 
-The front window's target box, its off-screen arrow, and the reticle's on-target frames. Children 4 and 5 of the gunsight complex — see [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md) for the complex itself and [`../simulation/target-selection.md`](../simulation/target-selection.md) for what makes a selection.
+The front window's target box, its off-screen arrow, and the reticle's on-target frames. Children 4 and 5 of the gunsight complex — see [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md) for the complex itself and [`target-selection.md`](target-selection.md) for what makes a selection.
 
 ## Where the selection reaches the HUD
 
@@ -24,11 +24,11 @@ The 38-byte state block, offsets from the gunsight's `+0xb1` and from a child's 
 | 36 | **Indicator armed.** Set to 1 by all three selection entry points and never cleared; the box's paint refuses to draw until it is set |
 | 37 | `mech+0x9b`, missile lock |
 
-`Player_ResolveTargetAimPoint` has two branches. With a Targeting Pod fitted (`mech+0x30b`) and the target inside 30000 units — 180 m, the manual's "close range" — it hands off to `TargetingPod_ResolveAimPoint` (`0040e4dc`) for a component aim point and a component id; otherwise it takes the target's vtable `+0x24` aim node and writes 0 to the component id. The pod side is [`../simulation/target-selection.md`](../simulation/target-selection.md#component-targeting--the-targeting-pod)'s.
+`Player_ResolveTargetAimPoint` has two branches. With a Targeting Pod fitted (`mech+0x30b`) and the target inside 30000 units — 180 m, the manual's "close range" — it hands off to `TargetingPod_ResolveAimPoint` (`0040e4dc`) for a component aim point and a component id; otherwise it takes the target's vtable `+0x24` aim node and writes 0 to the component id. The pod side is [`target-selection.md`](target-selection.md#component-targeting--the-targeting-pod)'s.
 
 ## Child 4 — the reticle
 
-`GunsightChild_CtorBase` plus vtable `0049c124`, painted by `Gunsight_ReticlePaint` (`0043b7e0`). Blitted centred on the `.GAU`'s reticle point (offset 1136), which is also the `.VUE` projection centre. Its own rect (that point ± offset 1144) is never read, and 1144 is zero in all 9 retail files.
+`GunsightChild_CtorBase` plus vtable `0049c124`, painted by `Gunsight_ReticlePaint` (`0043b7e0`). Blitted centred on the `.GAU`'s reticle point (offset 1136), which is also the `.VUE` projection centre. Its own rect (that point ± offset 1144) is never read.
 
 `HUD` bank frame, in the paint's own order of tests:
 
@@ -74,15 +74,7 @@ The brackets and ticks are drawn only when state-block offset 24 is 0. A Targeti
 
 ### The arrow
 
-Drawn when the projected point is not inside the `.GAU`'s gunsight area (offset 1148) — or whenever the target is behind. Every retail file places that rect well inside the canopy's window opening, which is what keeps the arrow off the cockpit frame:
-
-| Herc | Area | Herc | Area |
-|---|---|---|---|
-| APOCA | `66,0 – 253,146` | RAPTOR2 | `106,0 – 228,146` |
-| COLOSSUS | `80,0 – 239,155` | RAZOR | `55,68 – 264,186` |
-| MAVERICK | `81,0 – 238,135` | SAMSON | `82,0 – 237,148` |
-| OGRE | `84,0 – 235,150` | TOMAHAWK | `81,0 – 239,151` |
-| OUTLAW | `86,0 – 233,143` | | |
+Drawn when the projected point is not inside the `.GAU`'s gunsight area (offset 1148) — or whenever the target is behind. Every retail file places that rect well inside the canopy's window opening ([per herc](../formats/gau-cockpit-layout.md#per-herc-values)), which is what keeps the arrow off the cockpit frame.
 
 The apex sits where the ray from the reticle to the target crosses that rect's border: solve for y on the vertical border the target is on, and if that lands outside the rect solve for x on the horizontal one instead. The base is `10 << YCoordShift` back down the ray, `(6 << YCoordShift) / 2` to either side. (The original builds that triangle about the origin and rotates it by the crossing's bearing less a quarter turn — `Math_Atan2Bam` (`0047d220`) then `Math_BuildRotation2D` (`0047ea24`) — which comes to the same thing. Both literals use the *vertical* shift on both axes, with no effect in any retail video mode.)
 
@@ -97,7 +89,7 @@ A render context (`0x239` bytes) carries a clip block at `ctx+4`, which `Raster_
 | Context | Built by | Clip |
 |---|---|---|
 | `CockpitViewInstance+4` | `Gau_BuildCockpitWidgets` (`00431bf8`), through `Cockpit_CreateCanvasContext` (`00430ea0`) | Mode 1, rect = the whole cockpit canvas, translation on |
-| The one under it | `CockpitView_ApplyViewState` (`00429e60`) loads the current view's `0x204`-byte block into it | Mode 2, regions = the herc's `.HD`/`.ED` canopy cutout (see [`cockpit-views.md`](cockpit-views.md#hd0-hd3--ed0-ed3--3d-viewport-clip-regions)) |
+| The one under it | `CockpitView_ApplyViewState` (`00429e60`) loads the current view's `0x204`-byte block into it | Mode 2, regions = the herc's `.HD`/`.ED` canopy cutout (see [`../formats/hd-ed-clip-regions.md`](../formats/hd-ed-clip-regions.md)) |
 
 `Cockpit_PushCanvasContext` (`004311e0`) pushes the current context and installs the canvas one; `Cockpit_PopRenderContext` (`00431210`) pops. Every widget paint runs inside such a pair, which is why the console instruments — outside the canopy cutout — can draw at all.
 

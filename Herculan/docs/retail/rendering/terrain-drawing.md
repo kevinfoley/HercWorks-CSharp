@@ -22,7 +22,7 @@ Sim_RenderFrame (0045fb9c)
      └─ ObjList_DrawAfterTerrain (0042883c)
 ```
 
-`CockpitView_ShowsWorld` is 0 when the current view's `.VUE` rect has no height and no view transition is running — the heads-down view on every HERC but RAZOR ([`cockpit-views.md`](cockpit-views.md#vue--per-view-geometry)) — so that view draws no ground, though its objects are still submitted.
+`CockpitView_ShowsWorld` is 0 when the current view's `.VUE` rect has no height and no view transition is running — the heads-down view on every HERC but RAZOR ([`../simulation/cockpit-views.md`](../simulation/cockpit-views.md#the-razors-heads-down-view)) — so that view draws no ground, though its objects are still submitted.
 
 ## The visible region — `Terrain_SetupVisibleRegion` (`0046ca98`)
 
@@ -37,7 +37,7 @@ Before building, it installs at `grid+0x1c` the grid origin in view space, and a
 
 ### The planes
 
-`ViewFrustum_Build` reads the view's position (`+4`), its euler triple (`+0x10`, pitch, roll, heading), its perspective shift `s` (`+0x1a`, so the focal length is `f = 2^s` pixels) and, through its render context (`+0x16`), the view rect at `+0x210` and the pair at `+0x220` whose negation is the projection centre `(cx, cy)` within the rect ([`cockpit-views.md`](cockpit-views.md#the-projection-centre-is-not-the-middle-of-the-view)). With `w`, `h` the rect's size, each plane is built in view axes (across, depth, up), rotated by the view's `BuildEulerRotationMatrixQ14` matrix, and handed to `Plane_FromPointNormal` (`0047e344`):
+`ViewFrustum_Build` reads the view's position (`+4`), its euler triple (`+0x10`, pitch, roll, heading), its perspective shift `s` (`+0x1a`, so the focal length is `f = 2^s` pixels) and, through its render context (`+0x16`), the view rect at `+0x210` and the pair at `+0x220` whose negation is the projection centre `(cx, cy)` within the rect ([`../simulation/cockpit-views.md`](../simulation/cockpit-views.md#the-projection-centre-is-not-the-middle-of-the-view)). With `w`, `h` the rect's size, each plane is built in view axes (across, depth, up), rotated by the view's `BuildEulerRotationMatrixQ14` matrix, and handed to `Plane_FromPointNormal` (`0047e344`):
 
 | Plane | `+` | Through | Normal |
 |---|---|---|---|
@@ -54,17 +54,17 @@ The four side planes pass `M` outside the eye rather than through it, and the ne
 
 ### The clip
 
-`ViewFrustum_ClipGroundPolygon(frustum, polygon, lowZ, highZ, out)` is called with the grid's `+0x110` and `+0x114`, the lowest and highest heights its ground can take ([`terrain-heightmap.md`](terrain-heightmap.md#the-heightgrid-struct)). It copies the six planes and shifts every one that is not vertical (`Plane_IsVertical` (`0049512a`): no Z component and not all zero) along Z with `Plane_ShiftAlongZ` (`00495148`, `d −= v · nz`): by `lowZ` when its Z component is 0 or less and by `−highZ` when it is positive. Each plane is then tested at whichever of the two heights passes it more easily, so a point of the ground square is kept when some height the zone can have above it is inside the loosened frustum. The square is taken relative to the eye (`Poly3_SubtractOffset`, `00494f98`), cut by `Poly_SplitByPlane` (`0047e630`), keeping the front, against left, right, top, bottom, far and near in that order, and moved back (`Poly3_AddOffset`, `00494fe0`).
+`ViewFrustum_ClipGroundPolygon(frustum, polygon, lowZ, highZ, out)` is called with the grid's `+0x110` and `+0x114`, the lowest and highest heights its ground can take ([`../simulation/terrain-heightmap.md`](../simulation/terrain-heightmap.md#the-heightgrid-struct)). It copies the six planes and shifts every one that is not vertical (`Plane_IsVertical` (`0049512a`): no Z component and not all zero) along Z with `Plane_ShiftAlongZ` (`00495148`, `d −= v · nz`): by `lowZ` when its Z component is 0 or less and by `−highZ` when it is positive. Each plane is then tested at whichever of the two heights passes it more easily, so a point of the ground square is kept when some height the zone can have above it is inside the loosened frustum. The square is taken relative to the eye (`Poly3_SubtractOffset`, `00494f98`), cut by `Poly_SplitByPlane` (`0047e630`), keeping the front, against left, right, top, bottom, far and near in that order, and moved back (`Poly3_AddOffset`, `00494fe0`).
 
 `ViewFrustum_ClipPolygon` (`00494ba8`) is the same clip with the planes as built.
 
 ## The cell walk — `Terrain_DrawVisibleCells` (`0046d0a4`)
 
-`Scene_DrawTerrain` (`00428140`) installs the transform at `DAT_004aab08` as the model transform, sets the render context's clip mode (`+0x208`, see [`hud-target-indicator.md`](hud-target-indicator.md)) to 1 for the duration when its clip block holds one region and that region's first dword is 0, and calls `Terrain_DrawVisibleCells(g_TerrainDrawGrid, view)`. `g_TerrainDrawGrid` (`0049aac8`) is the grid `Terrain_LoadZone` builds.
+`Scene_DrawTerrain` (`00428140`) installs the transform at `DAT_004aab08` as the model transform, sets the render context's clip mode (`+0x208`, see [`../simulation/hud-target-indicator.md`](../simulation/hud-target-indicator.md)) to 1 for the duration when its clip block holds one region and that region's first dword is 0, and calls `Terrain_DrawVisibleCells(g_TerrainDrawGrid, view)`. `g_TerrainDrawGrid` (`0049aac8`) is the grid `Terrain_LoadZone` builds.
 
 `Terrain_DrawVisibleCells` does nothing while `grid+0x11c` is clear. Otherwise it points the render context's `+0x22c` at a zero dword for the duration, puts the viewer's cell (the view's position shifted down by the cell shift) in `DAT_006b4fd4`/`d8`, and that cell's pending-object count in `DAT_006b4fe0`. Then it walks the region polygon around the viewer's cell.
 
-**Rows or columns, by heading.** When the view's heading (`+0x14`), as a magnitude with `−0x8000` read as `0x7fff`, lies in `0x2001`..`0x5fff`, the view looks more along X than along Y, and the walk goes by column: `CellWalk_PolygonByColumn` (`004723f8`) with `Terrain_DrawCellColumnRun` (`0046dea4`). Otherwise it goes by row: `CellWalk_Polygon` (`00471e38`) with `Terrain_DrawCellRowRun` (`0046dcd8`). `CellWalk_SetCallback` (`00471e24`) installs the callback with the grid as its value. The walks are the DBSIM copies of [`../polygon-fill.md`](../polygon-fill.md#walking-a-polygons-cells)'s, and both go far to near: the column walk always, and the row walk because the two flags it tests hold the values that select that branch in the image.
+**Rows or columns, by heading.** When the view's heading (`+0x14`), as a magnitude with `−0x8000` read as `0x7fff`, lies in `0x2001`..`0x5fff`, the view looks more along X than along Y, and the walk goes by column: `CellWalk_PolygonByColumn` (`004723f8`) with `Terrain_DrawCellColumnRun` (`0046dea4`). Otherwise it goes by row: `CellWalk_Polygon` (`00471e38`) with `Terrain_DrawCellRowRun` (`0046dcd8`). `CellWalk_SetCallback` (`00471e24`) installs the callback with the grid as its value. The walks are the DBSIM copies of [`polygon-fill.md`](polygon-fill.md#walking-a-polygons-cells)'s, and both go far to near: the column walk always, and the row walk because the two flags it tests hold the values that select that branch in the image.
 
 With `(dx, dy)` a cell's offset from the viewer's cell, a row walk paints:
 

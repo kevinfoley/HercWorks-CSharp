@@ -87,7 +87,7 @@ public sealed class CockpitScreenLayout {
 	///
 	/// <para>One viewport because retail's three views are one image plane. A glance keeps the
 	/// forward view's camera and focal length, and its projection centre lands off the panel's inner
-	/// edge at the forward view's reticle — see docs/retail/formats/cockpit-views.md, "The side glances are
+	/// edge at the forward view's reticle — see docs/retail/simulation/cockpit-views.md, "The side glances are
 	/// one image plane". Cutting to the window is what keeps the side views from costing anything past
 	/// the pixels actually shown.</para>
 	/// </summary>

@@ -2,7 +2,7 @@
 
 How DBSIM routes a mouse click or a keystroke on the cockpit dashboard/HUD/HDD to a button's own click handler. Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addresses are DBSIM. Symbols are in `tools/ghidra_scripts/known_symbols_dbsim.json`; apply with `ES2ApplySymbolNames.java`.
 
-Widget geometry, frames and paint logic are covered by [`../formats/cockpit-views.md`](../formats/cockpit-views.md), [`../formats/cockpit-canopy-palette.md`](../formats/cockpit-canopy-palette.md), [`../formats/cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md), [`../formats/cockpit-gunsight-hud.md`](../formats/cockpit-gunsight-hud.md), [`../formats/mfd.md`](../formats/mfd.md) and [`../formats/heads-down-display.md`](../formats/heads-down-display.md) — this document is only the input path: how a mouse event or a key becomes a call into a specific widget's own handler. The keyboard path is in §7, from [Keyboard commands are scancodes](#keyboard-commands-are-scancodes) through [The press flash](#the-press-flash), and §8 follows one control through both.
+Widget geometry, frames and paint logic are covered by [`cockpit-views.md`](cockpit-views.md), [`../rendering/cockpit-canopy-palette.md`](../rendering/cockpit-canopy-palette.md), [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md), [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md), [`mfd.md`](mfd.md) and [`heads-down-display.md`](heads-down-display.md) — this document is only the input path: how a mouse event or a key becomes a call into a specific widget's own handler. The keyboard path is in §7, from [Keyboard commands are scancodes](#keyboard-commands-are-scancodes) through [The press flash](#the-press-flash), and §8 follows one control through both.
 
 ## Overview
 
@@ -22,7 +22,7 @@ Three separate things all matter for a click to land: the OS-message layer never
 
 ## 1. Win32 messages bypass MainWndProc's own switch
 
-`MainWndProc` (`@MainWndProc$qqspvuiuil`, `00465f30`) has no `WM_MOUSEMOVE`/`WM_LBUTTONDOWN`/etc. case at all. Before its own switch it tries up to 10 registered filter functions in order — `WndProcHook_Register`/`WndProcHook_Unregister` manage that table (`DAT_004d3bb4`) — and any hook returning nonzero short-circuits the rest of `MainWndProc` entirely. `Mouse_WndProcHook` (`004808ec`) is one of four hooks found registered. `sfxWndProc` (`00462294`) is another — see [`../formats/audio.md`](../formats/audio.md); the remaining two are movie-playback related.
+`MainWndProc` (`@MainWndProc$qqspvuiuil`, `00465f30`) has no `WM_MOUSEMOVE`/`WM_LBUTTONDOWN`/etc. case at all. Before its own switch it tries up to 10 registered filter functions in order — `WndProcHook_Register`/`WndProcHook_Unregister` manage that table (`DAT_004d3bb4`) — and any hook returning nonzero short-circuits the rest of `MainWndProc` entirely. `Mouse_WndProcHook` (`004808ec`) is one of four hooks found registered. `sfxWndProc` (`00462294`) is another — see [`audio.md`](audio.md); the remaining two are movie-playback related.
 
 `Mouse_WndProcHook` catches:
 
@@ -60,7 +60,7 @@ This `{enabled, eventMask, callback}` triple-array shape is not unique to mouse 
 - **Button-down edge** (bit set now, wasn't last record): calls `Widget_OnMouseDown`.
 - **Button-up edge** (bit clear now, was set): sets the double-click flag (below), then calls `Widget_OnMouseUp`, however long the button was held. If a drag was in progress instead, ends the capture and fires the captured widget's `GetValue`/`OnClick` pair directly rather than going through `Widget_OnMouseUp`.
 
-**The double-click flag.** `CockpitMouse_DoubleClick` (`0049dbe0`) is cleared at the top of every record and set on a release edge whose timestamp is less than `CockpitMouse_DoubleClickTicks` after that button's previous release — `0049dbe4` for the left button, `0049dbe8` for the right — which the release then replaces. The previous release can have landed anywhere, on another widget or none. It stands from that record until the next one drains, so it is still set for any press dispatched in between, a key's included. Three functions read it: `MfdFlashComm_HandleListClick` and `HddCommandScreen_QueueListClick` (`0044d3a4`), whose list shortcut to XMIT takes a double-click ([`../formats/mfd.md`](../formats/mfd.md#keyboard), [`../formats/heads-down-display.md`](../formats/heads-down-display.md#the-two-click-regions)), and `MfdButton_OnClick`, whose XMIT case returns without transmitting while it is set ([`../formats/mfd.md`](../formats/mfd.md#keyboard)).
+**The double-click flag.** `CockpitMouse_DoubleClick` (`0049dbe0`) is cleared at the top of every record and set on a release edge whose timestamp is less than `CockpitMouse_DoubleClickTicks` after that button's previous release — `0049dbe4` for the left button, `0049dbe8` for the right — which the release then replaces. The previous release can have landed anywhere, on another widget or none. It stands from that record until the next one drains, so it is still set for any press dispatched in between, a key's included. Three functions read it: `MfdFlashComm_HandleListClick` and `HddCommandScreen_QueueListClick` (`0044d3a4`), whose list shortcut to XMIT takes a double-click ([`mfd.md`](mfd.md#keyboard), [`heads-down-display.md`](heads-down-display.md#the-two-click-regions)), and `MfdButton_OnClick`, whose XMIT case returns without transmitting while it is set ([`mfd.md`](mfd.md#keyboard)).
 
 ## 5. One flat hit-test registry for the whole cockpit
 
@@ -75,7 +75,7 @@ First-hit-wins makes the order the list is built in the whole of the tie-break: 
 | # | Registered by | Widgets |
 |---|---|---|
 | 1 | `SystemButtons_Ctor` (`00434368`) | The two `SystemGadget`s below |
-| 2 | `ConsoleButtons_Ctor` (`00441dd0`) | Four `WeaponRangeSelectGadget`s from `.GAU` 484/500/516/532 — the chain selector, LINK, TRACK, and a fourth whose rect is zero in every retail file |
+| 2 | `ConsoleButtons_Ctor` (`00441dd0`) | Four `WeaponRangeSelectGadget`s from `.GAU` 484/500/516/532 — the chain selector, LINK, TRACK, and a fourth with no retail rect ([block map](../formats/gau-cockpit-layout.md#block-map)) |
 | 3 | `EnergyPoolGauge_Ctor` (`00444d5c`) | none — its LED bar is not clickable |
 | 4 | `ShieldsGauge_Ctor` (`004434fc`) | The two facings, front then rear (§8) |
 | 5 | `MfdDisplay_Ctor` (`00445218`) | Buttons 0-12 in index order, then the `MFDListGadget` over the screen area |
@@ -93,13 +93,13 @@ Five places, measured across all nine retail cockpits. First-hit-wins resolves e
 
 | Contested | Extent | Taken by |
 |---|---|---|
-| FLASH COMM row *n* against *n+1* | the shared bottom line, every herc | the upper row ([`../formats/mfd.md`](../formats/mfd.md#mfdflashcomm--mode-1)) |
+| FLASH COMM row *n* against *n+1* | the shared bottom line, every herc | the upper row ([`mfd.md`](mfd.md#mfdflashcomm--mode-1)) |
 | HDD `XMIT` against `CANCEL` | 2 `.GAU` units, every herc | `XMIT`, widget 13 |
-| HDD up/down arrow against left/right | a 3x3 device corner, the six hercs on arrow set 0 | the up/down arrow, widgets 2-3 ([`../formats/heads-down-display.md`](../formats/heads-down-display.md#widgets)) |
+| HDD up/down arrow against left/right | a 3x3 device corner, the six hercs on arrow set 0 | the up/down arrow, widgets 2-3 ([`heads-down-display.md`](heads-down-display.md#widgets)) |
 | The bottom edge strip against a console instrument | MAVERICK's `[F6]`, RAPTOR2's throttle, RAZOR's `TRACK` | the instrument (§10) |
 | An energy row's select gadget against its charge bar | the whole bar: the gadget's rect is the 55x6 hardpoint rect, which contains the bar's `x0+36..x0+53`, `y0+1..y0+5`, every row of every herc | the select gadget, so the bar never takes a press (§7) |
 
-MFD buttons 7 and 10 share a rect but never contest it: no mode shows both ([`../formats/mfd.md`](../formats/mfd.md#button-visibility)).
+MFD buttons 7 and 10 share a rect but never contest it: no mode shows both ([`mfd.md`](mfd.md#button-visibility)).
 
 ### The two system buttons
 
@@ -147,7 +147,7 @@ Widget state byte (`+0x1b`):
 | 0 | Axis-aligned rect, inclusive | `+0x0`/`+0x4`/`+0x8`/`+0xc` = x0,y0,x1,y1 |
 | nonzero | Circular/diamond | centre `+0x11`/`+0x13` (int16 cx,cy), radius `+0x15` (int16); test is Manhattan distance ≤ radius, not true Euclidean |
 
-**The point it is given is in cockpit-canvas space, not screen space.** `Widget_OnMouseDown` and `Widget_OnMouseUp` subtract the root widget's own rect origin from the event position first, and that origin is moved by the view-change delta on every view change, so the same widget rect answers a different part of the screen in each view — see §10, where it is the whole of how one edge strip serves two opposite edges. The two also add `DAT_004d25da`/`de` under a flag, but that path is dead: [`../formats/cockpit-views.md`](../formats/cockpit-views.md#video-modes) shows the mode byte that would write those globals can never be set, so the term is always zero.
+**The point it is given is in cockpit-canvas space, not screen space.** `Widget_OnMouseDown` and `Widget_OnMouseUp` subtract the root widget's own rect origin from the event position first, and that origin is moved by the view-change delta on every view change, so the same widget rect answers a different part of the screen in each view — see §10, where it is the whole of how one edge strip serves two opposite edges. The two also add `DAT_004d25da`/`de` under a flag, but that path is dead: [`cockpit-views.md`](cockpit-views.md#video-modes) shows the mode byte that would write those globals can never be set, so the term is always zero.
 
 **The cockpit's widgets all take the first form.** `Widget_CtorRect` (`00452478`) writes `+0x10 = 0`, and all sixteen leaf-widget constructors run it; `CTLWindow_Ctor` (`004526c4`, which `Gau_BuildCockpitWidgets` and `AlertPanel_CtorBase` use) writes 0 too. The setter of the second form is `Widget_SetHitShape` (`0045234c`): given 1, it writes the byte, a radius of half the rect's width and a centre of the rect's top-left plus that radius on both axes. `es2_xref.py` finds no caller of it ([Open](#open)).
 
@@ -187,7 +187,7 @@ Every widget in the clickable list carries its vtable at `+0x17` — the offset 
 **`OnClick` is therefore always `+8`**, for the throttle slider and the ordinary MFD/HDD leaf buttons as much as for `ConsoleButton` (`WeaponRangeSelectGadget_OnClick`, `00442dc8`) and `WeaponSelectGadget` (`WeaponSelectGadget_OnClick`, `00442458`). What varies is which implementation sits there:
 
 - Most leaves inherit `Widget_ForwardClickToOwner` (`00438e3c`) unchanged from the intermediate class at vtable `0049dee4` — gated on the left-button bit, it calls `owner->vtable[0](owner, self, buttonFlags)` through the owner pointer its constructor stored at `+0x24`. That is the same function the shield facings use (§8) and the same one the MFD's momentary button class gets; it is a base-class default, not a per-class handler.
-- The MFD's latching button class and `HddButton` override `+8` to flip their own `+0x40` lit flag first and refuse a second press while lit ([`../formats/mfd.md`](../formats/mfd.md#two-button-classes)).
+- The MFD's latching button class and `HddButton` override `+8` to flip their own `+0x40` lit flag first and refuse a second press while lit ([`mfd.md`](mfd.md#two-button-classes)).
 - The throttle slider overrides it with `ThrottleSlider_OnValue`, along with `+0x10`/`+0x14`/`+0x18`/`+0x1c` for the real slider value and drag.
 
 An **owning** display object is a different class altogether, with its own shorter vtable — stored at offset 0 rather than `+0x17`, and headed by the click handler, which is why a forwarded click lands at *its* slot 0. `ShieldsGauge`'s is `0049ca1d`, four slots of `{OnClick, Paint, Update, KeyDispatch}`, the last `PanelGauge_KeyDispatchNone` (`00452344`) unless the class overrides it; `MfdDisplay`'s is `0049cfa0`, the same four. Those objects are not in the clickable list and never see `Widget_Repaint`.
@@ -207,7 +207,7 @@ A concrete widget carries a **second** vtable pointer, because it has a second b
 
 The button family puts that subobject at `+0x20` — the `-0x20` its thunks subtract, and the `+0x20` §8 reaches the click sound through. **The slider family differs twice**: its subobject is at `+0x3e`, so its thunks subtract `0x3e`, and its sound slot holds `00439014`, an empty stub. That is `PanelSliderGadget`'s one and only change to what it inherits: the console click is declared once, in `PanelGadget`'s own table (`0049dec8`), and unsaid once, in `PanelSliderGadget`'s (`0049df4c`).
 
-The slot is called by a class's own `OnClick` — the base `Widget_ForwardClickToOwner`, and overrides such as `PanelButton_OnClick` that keep the click — so a class whose `OnClick` does not call it is silent with the slot in place, as `SystemGadget` is (§5). Beyond that, a control's sound is decided by which mixin it carries, and **a class that carries neither is silent for want of the base rather than for want of an override**: `ScrollTrigger`, `HDDisplayGadget`, `HDDMapGadget` and `HUDRovingGunsightGadget` have no second table at all, their blocks ending at the primary table's last slot. Fifteen tables hold `Widget_ClickSound` — `PanelGadget`'s and the fourteen button classes that inherit it — and `known_vtables.json` names the class each one belongs to ([`../formats/audio.md`](../formats/audio.md#sounds-a-cockpit-control-makes)).
+The slot is called by a class's own `OnClick` — the base `Widget_ForwardClickToOwner`, and overrides such as `PanelButton_OnClick` that keep the click — so a class whose `OnClick` does not call it is silent with the slot in place, as `SystemGadget` is (§5). Beyond that, a control's sound is decided by which mixin it carries, and **a class that carries neither is silent for want of the base rather than for want of an override**: `ScrollTrigger`, `HDDisplayGadget`, `HDDMapGadget` and `HUDRovingGunsightGadget` have no second table at all, their blocks ending at the primary table's last slot. Fifteen tables hold `Widget_ClickSound` — `PanelGadget`'s and the fourteen button classes that inherit it — and `known_vtables.json` names the class each one belongs to ([`audio.md`](audio.md#sounds-a-cockpit-control-makes)).
 
 Because every class record names its class and links to its vtable ([`../formats/borland-rtti.md`](../formats/borland-rtti.md)), the family is enumerable rather than discovered a control at a time, and `tools/ghidra_scripts/known_vtables.json` carries the result: `CockpitWidgetVtable`, `CockpitSliderWidgetVtable` and `PanelGadgetMixinVtable`, with all 51 tables named and typed by `ES2ApplyVtables.java`.
 
@@ -241,15 +241,15 @@ The four classes hanging straight off `CTLButtonControl` are the ones that take 
 | `WeaponSliderGadget` | `0x7e` | `PanelHSliderGadget` | `WeaponSliderGadget_Ctor` (`00442950`) | An energy weapon row's charge bar, from `EnergyWeaponGauge_Ctor`. Carries the drag flag, but its row's select gadget covers it (§7) |
 | `ShieldsSelectGadget` | `0x40` | `PanelSelectGadget` | `ShieldsGauge_FacingCtor` (`00444aec`) | A shield facing (§8) |
 | `MFDSelectGadget` | `0x40` | `PanelSelectGadget` | `MFDSelectGadget_Ctor` (`004472e4`) | An MFD momentary button |
-| `MFDStateGadget` | `0x41` | `PanelStateGadget` | `MFDStateGadget_Ctor` (`0044741c`) | An MFD latching button ([`../formats/mfd.md`](../formats/mfd.md#two-button-classes)) |
+| `MFDStateGadget` | `0x41` | `PanelStateGadget` | `MFDStateGadget_Ctor` (`0044741c`) | An MFD latching button ([`mfd.md`](mfd.md#two-button-classes)) |
 | `MFDListGadget` | `0x28` | `PanelListGadget` | `MFDListGadget_Ctor` (`004475d4`) | The MFD's screen-content click region |
 | `HDDSelectGadget` | `0x41` | `PanelStateGadget` | `HddButton_Ctor` (`0044baac`) | A Heads-Down Display button |
 | `HDDisplayGadget` | `0x24` | `CTLButtonControl` | `HDDisplayGadget_Ctor` (`0044be94`) | |
-| `HDDMapGadget` | `0x5b` | `HDDisplayGadget` | `HddMarker_Ctor` (`0044f130`) | The F7 map's clickable surface ([`../formats/heads-down-display.md`](../formats/heads-down-display.md)) |
+| `HDDMapGadget` | `0x5b` | `HDDisplayGadget` | `HddMarker_Ctor` (`0044f130`) | The F7 map's clickable surface ([`heads-down-display.md`](heads-down-display.md)) |
 | `HDDListGadget` | `0x2c` | `PanelListGadget` | `HDDListGadget_Ctor` (`0044f650`) | The command screen's two order lists |
 | `ThrottleVSliderGadget` | `0x86` | `PanelVSliderGadget` | `ThrottleSlider_CtorV` (`00447e24`) | The throttle slider all nine retail `.GAU`s use (§7) |
 | `ThrottleHSliderGadget` | `0x86` | `PanelHSliderGadget` | `ThrottleSlider_CtorFixed` (`004483c0`) | Its horizontal twin, never exercised by retail data |
-| `HUDRovingGunsightGadget` | `0x20` | `CTLButtonControl` | `Gunsight_ClickSurface_Ctor` (`0043c120`) | The click surface over the 3D view ([`../formats/hud-target-indicator.md`](../formats/hud-target-indicator.md)) |
+| `HUDRovingGunsightGadget` | `0x20` | `CTLButtonControl` | `Gunsight_ClickSurface_Ctor` (`0043c120`) | The click surface over the 3D view ([`hud-target-indicator.md`](hud-target-indicator.md)) |
 | `AlertSelectGadget` | `0x50` | `PanelSelectGadget` | `PanelButton_Ctor` (`00454f64`) | An alert-panel option row ([`preferences.md`](preferences.md)) |
 | `AlertSliderGadget` | `0x7e` | `PanelHSliderGadget` | `AlertSliderGadget_Ctor` (`004550b0`) | An alert-panel slider |
 
@@ -260,7 +260,7 @@ The four classes hanging straight off `CTLButtonControl` are the ones that take 
 | `+0x1f` | What slot `+0x0c` does |
 |---|---|
 | 2 | Calls slot 0 — the widget's own content refresh, re-resolving its caption and picking its frame and colour — then decrements |
-| 1 | Calls `Widget_DrawToCockpit` (`0043122c`), then decrements. That call copies the widget's rect to the other display page on the `-b` paged path and returns at once otherwise ([`../formats/cockpit-views.md`](../formats/cockpit-views.md#the--b-paged-path)), so on a retail launch stage 2 paints the widget and stage 1 does nothing |
+| 1 | Calls `Widget_DrawToCockpit` (`0043122c`), then decrements. That call copies the widget's rect to the other display page on the `-b` paged path and returns at once otherwise ([`cockpit-views.md`](cockpit-views.md#the--b-paged-path)), so on a retail launch stage 2 paints the widget and stage 1 does nothing |
 | 0 | Nothing |
 
 A class with no content to rebuild skips the first stage: `ShieldFacing_FlushDeferredPaint` (`00444b70`) decrements at 2 without calling slot 0, and blits at 1.
@@ -313,14 +313,14 @@ That same function records and replays both queues to a `.TAP` input tape — th
 
 `Widget_PressChild` (`00438d9c`) is how a key reaches a button. Unless the child is in state 2 it calls the child's `+8` with the flags it was given, then `WidgetRoot_FlashPress` (`00453078`) on the cockpit's root, which appends `{widget, Time_GetCoarseTicks() + 10}` to the root's list at `+0x356`: eight 8-byte entries, the count at `+0x396`, and no bound check. `WidgetRoot_ServicePressFlashes` (`004530b8`) walks the list near the end of `CockpitView_PerFrameUpdate`'s widget pass, which runs only with the widgets on and which no modal loop reaches. Before an entry's deadline it puts the widget in state 1, if it is not already, and invalidates it; at or after the deadline it puts state 0, invalidates it and drops the entry.
 
-So a button pressed for the player shows pressed for 10 coarse ticks, 160 ms, in the classes that paint from the state byte: the MFD's momentary buttons 7-10 and the FLASH COMM row plate under XMIT ([`../formats/mfd.md`](../formats/mfd.md#two-button-classes)), CHAIN and LINK ([`weapon-mounts.md`](weapon-mounts.md#arming-chaining-and-linking)), and the Heads-Down Display's arrows, magnifiers, XMIT and CANCEL, with the armed order's plate under XMIT ([`../formats/heads-down-display.md`](../formats/heads-down-display.md#the-order-list-and-its-state-machine)). The rest are flashed too and draw nothing from it: the latching MFD buttons (`MfdButton_Repaint`) and the HDD's page buttons and comm boxes (`HddButton_Paint`) paint from their `+0x40` flag, a weapon row (`WeaponSelectGadget_Paint`) from its gauge, and a shield facing's paint (`ShieldFacing_Paint`) only tests its visibility. A mouse click does not flash: `Widget_OnMouseUp` calls `+8` itself. Expiry writes 0 whatever wrote the 1, so a button the pointer is holding pops up when a flash on it ends, until `Widget_TrackPressedWidget` next finds the pointer on it.
+So a button pressed for the player shows pressed for 10 coarse ticks, 160 ms, in the classes that paint from the state byte: the MFD's momentary buttons 7-10 and the FLASH COMM row plate under XMIT ([`mfd.md`](mfd.md#two-button-classes)), CHAIN and LINK ([`weapon-mounts.md`](weapon-mounts.md#arming-chaining-and-linking)), and the Heads-Down Display's arrows, magnifiers, XMIT and CANCEL, with the armed order's plate under XMIT ([`heads-down-display.md`](heads-down-display.md#the-order-list-and-its-state-machine)). The rest are flashed too and draw nothing from it: the latching MFD buttons (`MfdButton_Repaint`) and the HDD's page buttons and comm boxes (`HddButton_Paint`) paint from their `+0x40` flag, a weapon row (`WeaponSelectGadget_Paint`) from its gauge, and a shield facing's paint (`ShieldFacing_Paint`) only tests its visibility. A mouse click does not flash: `Widget_OnMouseUp` calls `+8` itself. Expiry writes 0 whatever wrote the 1, so a button the pointer is holding pops up when a flash on it ends, until `Widget_TrackPressedWidget` next finds the pointer on it.
 
 The cockpit's presses:
 
 | Caller | Presses |
 |---|---|
 | `CockpitWidgets_HandleCommand` (`00432bc8`) | `1`-`0`: that row's select gadget, outside the heads-down view. `F1`-`F6`: MFD buttons 0-5. `F7`, `F8`: HDD buttons 0-1. `Enter`: TARGET (9) on the scanner, SELECT (7) on TARGET STATUS, outside the heads-down view |
-| `ConsoleButtons_HandleCommand` (`004421a0`) | `L` (`0x26`): LINK. `` ` `` (`0x29`): CHAIN. The keys reach it through the widget tree, so not in the heads-down view; the joystick's `LINK WEAPON` and `NEXT CHAIN` call it directly ([`../formats/joystick-input.md`](../formats/joystick-input.md#the-buttons)) |
+| `ConsoleButtons_HandleCommand` (`004421a0`) | `L` (`0x26`): LINK. `` ` `` (`0x29`): CHAIN. The keys reach it through the widget tree, so not in the heads-down view; the joystick's `LINK WEAPON` and `NEXT CHAIN` call it directly ([`joystick-input.md`](joystick-input.md#the-buttons)) |
 | `Mech_HandleCommand` (`004157c8`) | `[`, `]`: a shield facing (§8) |
 | `MfdDisplay_KeyDispatch` (`004469c0`) | `D`: SELECT. `X`: XMIT. `Alt+R`: RANGE. `Alt+T`: TARGET. Each only on a screen that shows it |
 | `HddDisplay_KeyDispatch` (`00449fcc`) | The arrows: buttons 2-5. `-` and keypad `-`: 6. `=` and keypad `+`: 7. `1`-`3`: the comm boxes 10-12 |
@@ -337,8 +337,8 @@ The alert panels have roots of their own, at panel `+0x285`, which each panel's 
 
 Traced end to end, as a concrete check of the whole pipeline above:
 
-1. `ShieldsGauge_Ctor` builds two facing children via `ShieldsGauge_FacingCtor` ([`../formats/cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md#shieldsgauge)), registers each with `Widget_RegisterClickable`, and stores each child's pointer plus a count into its own `+0x18`/`+0x68` array — the same shape `MfdDisplay_Ctor` uses for its 13 buttons.
-2. A click hits `Widget_ForwardClickToOwner` (`00438e3c`) — the facing's `+8` slot, and the base-class default the MFD and HDD leaf buttons share — via `Widget_OnMouseUp`. Gated on the left button bit; forwards to the owner (a pointer stashed at the facing's own `+0x24`, set to the parent `ShieldsGauge` at construction) as `owner->vtable[0](owner, self, buttonFlags)`. It then repaints itself and calls slot `+8` of its second vtable at `+0x20`, which is `Widget_ClickSound` in every class that carries a `PanelGadget` — so the rocker sounds `0x11` before anything has been decided by the click (see [`../formats/audio.md`](../formats/audio.md#sounds-a-cockpit-control-makes)).
+1. `ShieldsGauge_Ctor` builds two facing children via `ShieldsGauge_FacingCtor` ([`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#shieldsgauge)), registers each with `Widget_RegisterClickable`, and stores each child's pointer plus a count into its own `+0x18`/`+0x68` array — the same shape `MfdDisplay_Ctor` uses for its 13 buttons.
+2. A click hits `Widget_ForwardClickToOwner` (`00438e3c`) — the facing's `+8` slot, and the base-class default the MFD and HDD leaf buttons share — via `Widget_OnMouseUp`. Gated on the left button bit; forwards to the owner (a pointer stashed at the facing's own `+0x24`, set to the parent `ShieldsGauge` at construction) as `owner->vtable[0](owner, self, buttonFlags)`. It then repaints itself and calls slot `+8` of its second vtable at `+0x20`, which is `Widget_ClickSound` in every class that carries a `PanelGadget` — so the rocker sounds `0x11` before anything has been decided by the click (see [`audio.md`](audio.md#sounds-a-cockpit-control-makes)).
 3. `ShieldsGauge`'s vtable slot 0 is `ShieldsGauge_OnClick` (`0044380c`) — structurally identical to `MfdButton_OnClick`: searches its own `+0x18` table for the clicked child, then sets a state byte: index 0 (front) → `+0xc2=1`, index 1 (rear) → `+0xc3=1`.
 4. `Shield_BalanceInputRead` (`00413bc8`, called once per frame from `Player_PerFrameCockpitUpdate` — gameplay, not paint) reads those same two bytes (part of a 15-byte block starting at `+0xb5`, accessed via `ShieldsGauge_GetStateBlock`), calls `Shield_BalanceAdjust` (±102 of 1024, clamped) accordingly, clears the flags, recomputes each facing's charge as `(charge << 10) / baseMax` alongside the raw balance, and writes the block back via `ShieldsGauge_SetStateBlock` (`00443858`) — which also sets a dirty flag (`+0xb0=2`) if the values changed.
 5. `ShieldsGauge_Update` (`00443748`, the per-frame HUD-paint-pass slot, separate from the click pipeline) checks that dirty flag and, if set, refreshes the ring palette and readouts.
@@ -351,7 +351,7 @@ So the click sets a flag; a gameplay tick consumes the flag into real sim state 
 
 ## 9. Cursor rendering
 
-The position the click pipeline reads is the same one the player watches: `Cursor_SyncPosition` (`00486d70`) stores the position in one of two slots, chosen by `DAT_004a365e`, and when that byte is set brackets the store with `g_RasterRoutines` slots 31 and 30; driver 3, the only raster driver the image installs, fills both with empty stubs. `Screen_PresentFrame` (`00465524`) copies the back buffer's viewport window to the screen ([`../formats/cockpit-views.md`](../formats/cockpit-views.md#presentation)) — `StretchBlt` in windowed/GDI mode, a row copy into the locked DirectDraw surface in fullscreen — and in the fullscreen path also blits a cursor sprite at `GetCursorPos()`, clipped to the viewport and colour-keyed on byte value 1, when a software cursor bitmap (`Screen_SoftwareCursor`, `004d37a8`) is active. Its one writer, `Screen_SetSoftwareCursor` (`00465514`), is called once, by `Sim_InitMissionSession` with the `lo_curs` bitmap when the display is narrower than 640.
+The position the click pipeline reads is the same one the player watches: `Cursor_SyncPosition` (`00486d70`) stores the position in one of two slots, chosen by `DAT_004a365e`, and when that byte is set brackets the store with `g_RasterRoutines` slots 31 and 30; driver 3, the only raster driver the image installs, fills both with empty stubs. `Screen_PresentFrame` (`00465524`) copies the back buffer's viewport window to the screen ([`cockpit-views.md`](cockpit-views.md#presentation)) — `StretchBlt` in windowed/GDI mode, a row copy into the locked DirectDraw surface in fullscreen — and in the fullscreen path also blits a cursor sprite at `GetCursorPos()`, clipped to the viewport and colour-keyed on byte value 1, when a software cursor bitmap (`Screen_SoftwareCursor`, `004d37a8`) is active. Its one writer, `Screen_SetSoftwareCursor` (`00465514`), is called once, by `Sim_InitMissionSession` with the `lo_curs` bitmap when the display is narrower than 640.
 
 The cockpit also picks among the seven `.DCI` cursors ([`../formats/dfn-hfn-dci.md`](../formats/dfn-hfn-dci.md)), which `ColorSchemePanels_LoadAll` loads into `Cockpit_CursorImages` (`0049b08c`) in the order `CURSOR`, `PCURSOR`, `MCURSOR`, `NCURSOR`, `SCURSOR`, `ECURSOR`, `WCURSOR`. The view object keeps three slots and a pointer to the active one at `+0x226`:
 
@@ -402,7 +402,7 @@ Worked through for all four views, every strip ends up on the edge facing the vi
 
 A dash is a click that hits no strip at all. The heads-down view is the one place a strip is hit and does nothing: the two side strips stretch across that view, and `CockpitView_HandleEdgeTrigger` has no case for them from view 1.
 
-`ScrollTrigger_OnClick` (`00434df0`) is the whole of the class: `CockpitView_HandleEdgeTrigger(this->[0x20], this)`. The handler compares the widget pointer against the three fields and picks a view command by the current view ([`../formats/cockpit-views.md`](../formats/cockpit-views.md#view-switching) has what each command does):
+`ScrollTrigger_OnClick` (`00434df0`) is the whole of the class: `CockpitView_HandleEdgeTrigger(this->[0x20], this)`. The handler compares the widget pointer against the three fields and picks a view command by the current view ([`cockpit-views.md`](cockpit-views.md#view-switching) has what each command does):
 
 | Strip | From view 0 | From the view it leads to |
 |---|---|---|

@@ -2,7 +2,7 @@
 
 Living planning document for the Earthsiege 2 engine port: architecture decisions and their rationale. This is a working document, not a spec — update it as decisions change.
 
-Implementation history (what shipped, when, and why) is **not** kept here — it lives in git log and the per-topic docs under `docs/retail/simulation/` and `docs/retail/formats/`, which are the canonical reference for any given subsystem's reverse-engineering and porting detail.
+Implementation history (what shipped, when, and why) is **not** kept here — it lives in git log and the per-topic docs under `docs/retail/simulation/`, `docs/retail/rendering/` and `docs/retail/formats/`, which are the canonical reference for any given subsystem's reverse-engineering and porting detail.
 
 ## Context
 

@@ -116,7 +116,7 @@ The command array's throttle element is **zero on every call**: `Flyer_SteerAndF
 
 **The player's controls can slow every Cybrid flyer down.** `FlightModel_Step` (`00466a54`) has two ways of reading the throttle element ([`razor-flight.md`](razor-flight.md#throttle)). Normally it is a rate, a push that moves the setting up or down, and zero leaves the setting alone. When the player has a throttle lever bound for the RAZOR, the element is a lever position instead, and the setting becomes `axis << 3`. The model tests for the lever with two globals, not with anything on the aircraft it is flying:
 
-- the joystick has a throttle axis, or a second stick is present: the `+4` byte of the block `Input_QueryCapabilities` returns ([`joystick-input.md`](../formats/joystick-input.md#the-capability-block--input_querycapabilities-004777f8));
+- the joystick has a throttle axis, or a second stick is present: the `+4` byte of the block `Input_QueryCapabilities` returns ([`joystick-input.md`](joystick-input.md#the-capability-block--input_querycapabilities-004777f8));
 - the RAZOR CONTROLS panel's THROTTLE row is set to its third choice, `THROTTLE`: option 26, the byte at `004d1fd6`, holds 2 ([`preferences.md`](preferences.md#the-bindings-are-twelve-bytes-of-the-same-file)).
 
 The byte is a saved preference, so it is set in every mission, whether or not the player is flying a RAZOR in it. With both true, every Cybrid flyer's always-zero element reads as a lever at its centre: the setting is written to 0 on each step, halfway along the ±`0x400` scale, and a `SKIMMER` cruises at 750, the middle of its 500–1000 range.
@@ -159,7 +159,7 @@ For the length of that call the debris carrier global `004a96e4` points at the a
 
 ## Drawing
 
-A flyer's shape is textured from **`ENEMY.DBA`**, the Cybrid mechs' bank, for every flyer type —[`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md#the-flyers-bank)).
+A flyer's shape is textured from **`ENEMY.DBA`**, the Cybrid mechs' bank, for every flyer type —[`../rendering/dts-texture-binding.md`](../rendering/dts-texture-binding.md#the-flyers-bank)).
 
 An aircraft is drawn by **cell** rather than by node — it loses components like a machine but has nothing that animates — and with its full attitude, bank and pitch included, where a structure has only a heading.
 

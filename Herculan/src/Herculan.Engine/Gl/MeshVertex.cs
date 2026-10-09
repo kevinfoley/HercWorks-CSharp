@@ -9,7 +9,7 @@ namespace Herculan.Engine.Gl;
 ///
 /// <para><see cref="Textured"/> is per-vertex rather than per-draw because both meshes that carry
 /// textures are mixed: a mech mesh has a handful of texture polys whose frame index does not resolve
-/// (see docs/retail/formats/dts-texture-binding.md's fleet audit), and a terrain mesh can have cells whose
+/// (see docs/retail/rendering/dts-texture-binding.md's fleet audit), and a terrain mesh can have cells whose
 /// material selects a frame the theater's bank does not have. Those fall back to
 /// <see cref="Color"/> while their neighbours sample the atlas, which a single per-draw flag cannot
 /// express — it would either sample garbage UVs for the strays or drop the whole mesh's texturing.
@@ -136,7 +136,7 @@ public struct MeshVertex {
 	/// <para><c>TSPoly_FrontBackVisibilityTest</c> (<c>0048c620</c>) measures the eye against the
 	/// poly's stored centre (<c>poly+6</c>, a point index like the normal), not against a corner, and
 	/// the two differ because a stored centre need not lie on its poly's plane
-	/// (docs/retail/formats/dts-texture-binding.md, "<c>TSPoly_FrontBackVisibilityTest</c>"). It also makes
+	/// (docs/retail/rendering/dts-texture-binding.md, "<c>TSPoly_FrontBackVisibilityTest</c>"). It also makes
 	/// the answer the same at every corner of the poly, which <see cref="Side"/> relies on.</para>
 	///
 	/// <para>Defaults to <see cref="Position"/>, which leaves every surface that is not a shape poly —

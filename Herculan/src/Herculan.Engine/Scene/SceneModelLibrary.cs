@@ -67,7 +67,7 @@ public sealed record SceneModel(
 /// <list type="bullet">
 /// <item><b>Mechs</b> — every root of <c>dts\&lt;name&gt;.DTS</c>, which are LOD variants of the one
 /// chassis and are drawn one at a time (see <see cref="MechDetailRoots"/>), textured by the bank
-/// <c>HercSimDat.TextureGroup</c> selects (see docs/retail/formats/dts-texture-binding.md).</item>
+/// <c>HercSimDat.TextureGroup</c> selects (see docs/retail/rendering/dts-texture-binding.md).</item>
 /// <item><b>Flyers</b> — <c>dts\&lt;name&gt;.DTS</c> root 0, textured from <c>ENEMY.DBA</c>: the flyer
 /// type loader binds one fixed slot rather than choosing by chassis, and that slot is the Cybrid
 /// mechs' own (see <see cref="FlyerTextureGroup"/>).</item>
@@ -163,7 +163,7 @@ public sealed class SceneModelLibrary {
 	/// The same pair with the theater's <c>IMPACT&lt;n&gt;.DPL</c> in place of its ordinary palette —
 	/// what the whole scene is drawn through while the cockpit damage flash is up. Null when that
 	/// palette is missing, in which case the flash simply does not recolour anything. See
-	/// docs/retail/formats/cockpit-canopy-palette.md, "The damage shake".
+	/// docs/retail/rendering/cockpit-canopy-palette.md, "The damage shake".
 	/// </summary>
 	public SurfaceShading? ImpactShading => _impactShading;
 
@@ -326,7 +326,7 @@ public sealed class SceneModelLibrary {
 	/// body on a knee. Retail renumbers those roots onto root 0's nodes at load
 	/// (<c>MechType_RemapDetailRootTransforms</c>, <c>00420090</c>), which this engine does not yet
 	/// do; truncating here instead costs the crudest one to three roots of each chassis — see
-	/// docs/retail/formats/mech-shape-drawing.md, "The crude roots are renumbered at load".</para>
+	/// docs/retail/rendering/mech-shape-drawing.md, "The crude roots are renumbered at load".</para>
 	///
 	/// <para>A prefix rather than a filtered set, because <see cref="ShapeDetail.SelectRoot"/> walks
 	/// the chain by index and a hole in it would move every root past the hole. Retail data makes
@@ -383,7 +383,7 @@ public sealed class SceneModelLibrary {
 	/// type loader (<c>FlyerType_LoadResources</c>, <c>00422ed0</c>) writes a <i>literal</i>
 	/// slot address, <c>0x004a9e0e</c>. That is <c>g_MechTextureGroupSlots</c> (<c>004a9df6</c>) plus
 	/// <c>3 * 8</c>, so every flyer type shares one bank and it is the enemy one — which makes sense
-	/// of a roster that is entirely Cybrid. See docs/retail/formats/dts-texture-binding.md.</para>
+	/// of a roster that is entirely Cybrid. See docs/retail/rendering/dts-texture-binding.md.</para>
 	/// </summary>
 	public const short FlyerTextureGroup = 3;
 
@@ -854,14 +854,14 @@ public sealed class SceneModelLibrary {
 	/// <summary>
 	/// <paramref name="transparentIndex0"/> decodes palette index 0 to alpha 0 rather than to an
 	/// opaque colour. An explosion frame is a round puff on a field of index 0 and the original's
-	/// blit skips that index rather than writing it (docs/retail/formats/dts-billboards.md, "Brush mode 5
+	/// blit skips that index rather than writing it (docs/retail/rendering/dts-billboards.md, "Brush mode 5
 	/// skips palette index 0"), so every sprite bank asks for it.
 	///
 	/// <para>The <b>structure</b> banks are cutouts too: <c>BASETEX</c> frames 11, 36, 38, 39, 52, 53,
 	/// 60, 61, 63, 64 and 65 are 20-73% index 0 each, and they are the lattice girders on a
 	/// structure's support towers — drawn opaque they come out as black panels where the original
 	/// shows sky through the frame. The original's own switch is per frame rather than per bank: the
-	/// loader sets the frame descriptor's <c>+0x12</c> when any texel of the frame is index 0 (docs/retail/formats/dts-texture-binding.md,
+	/// loader sets the frame descriptor's <c>+0x12</c> when any texel of the frame is index 0 (docs/retail/rendering/dts-texture-binding.md,
 	/// "The frame descriptor table and the span routines (DBSIM)"). A frame with no index 0 in it
 	/// draws identically either way, so decoding the whole bank transparent reproduces the original
 	/// on this data.</para>

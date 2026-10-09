@@ -13,7 +13,7 @@ Two retail builds of Earthsiege 2 are in hand. They share the data formats every
 | `DBSIM.EXE` | 724,512 bytes | 724,512 (`VER95\`, different bytes), 727,584 (`VER31\`) |
 | Languages | English | English, French, German |
 
-All four of v1.10's `VSHELL.EXE` and `DBSIM.EXE` carry v1.0's language strings — the `-f`/`-g` usage lines, the `eng\`/`fre\`/`ger\` folders, the `.eng`/`.fre`/`.ger` extensions, `simvoice`, `data\language.cfg` and the manual folders — and both `VSHELL.EXE`s add two readers of the language, for `campaign.str` and the intro movies ([v1.10's shell](#v110s-shell-reads-the-language-twice-more)). Both `DBSIM.EXE`s choose and play the CD music as v1.0's does ([`formats/audio.md`](formats/audio.md#which-track-and-whether-there-is-one)). How else their code differs from v1.0's is [Open](#open).
+All four of v1.10's `VSHELL.EXE` and `DBSIM.EXE` carry v1.0's language strings — the `-f`/`-g` usage lines, the `eng\`/`fre\`/`ger\` folders, the `.eng`/`.fre`/`.ger` extensions, `simvoice`, `data\language.cfg` and the manual folders — and both `VSHELL.EXE`s add two readers of the language, for `campaign.str` and the intro movies ([v1.10's shell](#v110s-shell-reads-the-language-twice-more)). Both `DBSIM.EXE`s choose and play the CD music as v1.0's does ([`simulation/audio.md`](simulation/audio.md#which-track-and-whether-there-is-one)). How else their code differs from v1.0's is [Open](#open).
 
 The HiRez Studios image, `Earthsiege2_Freeware_HiRezStudios_1r0.iso`, is a v1.0 disc: volume `ES2`, mastered 1997-12-29, a single data track of 2,048-byte sectors with no audio and no Joliet tree. Its executables, archives, `SIERRA.INF`, `BATCH.EXE`, movies and instructor clips are byte for byte the install's, as are the 1997 `ES2TS.TXT` and the 1998 `README.WRI`, so the install came from the same pressing. It adds a `DEMOS\` folder of other products' demos. Its `FRENCH\` and `GERMAN\` folders hold English copies of the readme and `ES2TS.TXT` and translate only `ES2GUIDE.HLP` and `LANGUAGE.INF`.
 
@@ -46,7 +46,7 @@ The shell and the simulator each keep a language value, set only from their comm
 | Program | Switches | Selects |
 |---|---|---|
 | VSHELL | `-f`, `-g`, either case | the `LANG0.VOL` folder of every `.BIN` table, the extension of a mission's text (`.eng`, `.fre`, `.ger`), and in v1.10 the folders of `campaign.str` and the intro movies |
-| DBSIM | `-F`, `-G` (`-E` for Spanish) | the voice archive and its folder label, `SIMVOICE`/`SIMVOICF`/`SIMVOICG` ([`formats/audio.md`](formats/audio.md#speech-and-the-comm-portraits)), and the `st<letter>\` folder of its `.STR` tables |
+| DBSIM | `-F`, `-G` (`-E` for Spanish) | the voice archive and its folder label, `SIMVOICE`/`SIMVOICF`/`SIMVOICG` ([`simulation/audio.md`](simulation/audio.md#speech-and-the-comm-portraits)), and the `st<letter>\` folder of its `.STR` tables |
 
 The on-line manual is the exception: both programs open `<LANGUAGE>\es2guide.hlp` by `data\language.cfg` directly ([`formats/winhelp.md`](formats/winhelp.md)).
 
@@ -66,7 +66,7 @@ Both v1.10 `VSHELL.EXE`s read the shell's language, `0048235e` in each, at two p
 
 | Resource | v1.0 | v1.10 |
 |---|---|---|
-| `SIMVOICF.VOL`, `SIMVOICG.VOL` | in the install, byte copies of `SIMVOICE.VOL` with its `SIMVOICE\` label | under `SIMVOICF\` and `SIMVOICG\`: the cockpit computer in French and German, the squadmates in English ([`formats/audio.md`](formats/audio.md#file-naming)) |
+| `SIMVOICF.VOL`, `SIMVOICG.VOL` | in the install, byte copies of `SIMVOICE.VOL` with its `SIMVOICE\` label | under `SIMVOICF\` and `SIMVOICG\`: the cockpit computer in French and German, the squadmates in English ([`formats/sound-samples.md`](formats/sound-samples.md#voice-clips)) |
 | Training instructor's loose clips | `SIMVOICE\` only, in the install | `SIMVOICE\`, `SIMVOICF\`, `SIMVOICG\`, 65 each, all three the English recordings |
 | `LANG0.VOL` `FRE\`, `GER\` | copies of `ENG\` | translated, but for the pilot names and mission paths ([`formats/weapons-dat.md`](formats/weapons-dat.md#the-bin-string-tables)) |
 | `SIMALERT.VOL` `STF\`, `STG\` | French and German text for an earlier design of the panels ([`simulation/alert-panels.md`](simulation/alert-panels.md#what-the-family-shares)) | translations of the shipped panels |
@@ -80,7 +80,7 @@ Both v1.10 `VSHELL.EXE`s read the shell's language, `0048235e` in each, at two p
 
 Every archive v1.0 has is in v1.10 with the same entries, except for the translations above and these:
 
-**`SIMPATCH.VOL`** adds the two fonts above, a near-silent `battle1.wav` for the music catalog entries, and the low-memory bank's missing `explo5.wav` ([`formats/audio.md`](formats/audio.md#ids-0-9-are-music)).
+**`SIMPATCH.VOL`** adds the two fonts above, a near-silent `battle1.wav` for the music catalog entries, and the low-memory bank's missing `explo5.wav` ([`simulation/audio.md`](simulation/audio.md#ids-0-9-are-music)).
 
 **`ZONES.VOL`** changes twelve mission files:
 
@@ -101,7 +101,7 @@ Every archive v1.0 has is in v1.10 with the same entries, except for the transla
 
 The GoldGames image, `EarthSiege2_Freeware_GoldGames_1r11_withAudio.iso`, is one file of raw 2,352-byte sectors with no cue sheet, so no table of contents survives. Its data track is Mode 1: the ISO 9660 volume (`EARTHSIEGE2`, primary names only, no Joliet tree) spans 207,041 sectors, followed by 152 more that carry a sync pattern, 207,193 in all. Audio fills the remaining 72,795 sectors, to the end of the file at 279,988.
 
-The audio falls into six pieces between runs of exact digital silence: 150 sectors before the first, 453 to 458 between pieces, 151 after the last. From the start of one piece's music to the next, they run 12,390, 10,864, 12,387, 13,061, 13,001 and 10,941 sectors, the last to the end of the file. The v1.0 disc's tracks 2 to 7 run 10,865, 12,395, 12,393, 13,065, 13,005 and 11,019 ([`formats/audio.md`](formats/audio.md#the-disc)).
+The audio falls into six pieces between runs of exact digital silence: 150 sectors before the first, 453 to 458 between pieces, 151 after the last. From the start of one piece's music to the next, they run 12,390, 10,864, 12,387, 13,061, 13,001 and 10,941 sectors, the last to the end of the file. The v1.0 disc's tracks 2 to 7 run 10,865, 12,395, 12,393, 13,065, 13,005 and 11,019 ([`simulation/audio.md`](simulation/audio.md#the-disc)).
 
 The second piece is v1.0's track 2: a rip of that track from a v1.0 disc is the same recording as the image's audio there, 300 samples out of step. The other pieces match by length alone, which makes the fourth to sixth v1.0's tracks 5 to 7, and the first and third its tracks 3 and 4 in an order lengths cannot settle ([Open](#open)). Played from this image, v1.10's first mission would therefore not open with v1.0's track 2.
 

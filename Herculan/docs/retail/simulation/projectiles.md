@@ -66,7 +66,7 @@ Homing is a steer of the **euler angles**, not of a velocity: the bearing to the
 
 ## How a round is drawn
 
-`Bullet_Draw` (`0040a120`) is the vtable slot 0 of both projectile classes: it zeroes `DAT_004a5b1c` for the duration, installs the object's frame as the model transform, renders the shape instance at `+0x34`, and restores. The zeroing is what makes a textured poly fullbright — [`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md#tstexture4poly--frame-index-ramp-row-by-light-fullbright-on-demand). A round is faded from its own range like any other depth-sorted object — [`../formats/distance-fog-and-sky.md`](../formats/distance-fog-and-sky.md#a-projectile-is-faded-like-anything-else).
+`Bullet_Draw` (`0040a120`) is the vtable slot 0 of both projectile classes: it zeroes `DAT_004a5b1c` for the duration, installs the object's frame as the model transform, renders the shape instance at `+0x34`, and restores. The zeroing is what makes a textured poly fullbright — [`../rendering/dts-texture-binding.md`](../rendering/dts-texture-binding.md#tstexture4poly--frame-index-ramp-row-by-light-fullbright-on-demand). A round is faded from its own range like any other depth-sorted object — [`../rendering/distance-fog-and-sky.md`](../rendering/distance-fog-and-sky.md#a-projectile-is-faded-like-anything-else).
 
 The one textured shape is the plasma round's (`BULLETS.DTS` root 8). Its fullbright fill is a plain texture copy that never computes a shade row, and the depth bias is spent only while a mode 1 or mode 2 fill computes one, so **the plasma round does not fade with distance**. Every other round's shape is `TSSolidPoly` and fades normally.
 

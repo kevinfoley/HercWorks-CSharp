@@ -52,7 +52,7 @@ While `Avi_Playing` is set, the window procedure (`MainWndProc`, 00404a2c) drops
 
 ## Sound
 
-The shell has a sound manager of its own: a copy of the simulator's [`SFX` manager](../formats/audio.md#the-sfx-manager) at `ShellSound_Manager` (`004731f0`), four samples out of `SHLSOUND.VOL`, and the wrappers below. The archive holds one folder, `hmi\`, and five files, all 8-bit mono PCM:
+The shell has a sound manager of its own: a copy of the simulator's [`SFX` manager](../simulation/audio.md#the-sfx-manager) at `ShellSound_Manager` (`004731f0`), four samples out of `SHLSOUND.VOL`, and the wrappers below. The archive holds one folder, `hmi\`, and five files, all 8-bit mono PCM:
 
 | File | Rate | Length | Is |
 |---|---|---|---|

@@ -180,7 +180,7 @@ public sealed class ShellSurface {
 	/// </summary>
 	/// <param name="flags">
 	/// The blitter's flag word. 2 mirrors left to right, as DBSIM's glance view uses it
-	/// (docs/retail/formats/cockpit-views.md), and every left/right pair in <c>gam\rpr_*.dat</c> is one frame
+	/// (docs/retail/simulation/cockpit-views.md), and every left/right pair in <c>gam\rpr_*.dat</c> is one frame
 	/// placed twice with 0 and 2. 1 is taken as the top-to-bottom mirror, which no shell layout record
 	/// uses.
 	/// </param>

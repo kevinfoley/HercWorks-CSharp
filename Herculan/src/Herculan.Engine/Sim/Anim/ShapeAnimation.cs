@@ -420,13 +420,13 @@ public sealed class ShapeAnimation {
 	/// <para><b>Each root of a multi-root shape carries its own <c>ANAnimList</c>, and in the file a
 	/// node id is only meaningful inside the root that declares it.</b> The original poses every root
 	/// through root 0's pose array, after renumbering the crude roots onto root 0's nodes at load
-	/// (docs/retail/formats/mech-shape-drawing.md, "The pose array is root 0's" and "The crude roots
+	/// (docs/retail/rendering/mech-shape-drawing.md, "The pose array is root 0's" and "The crude roots
 	/// are renumbered at load"). Posing one root's geometry, as loaded, with another's transforms
 	/// lands a part on whatever joint happens to share its number.</para>
 	///
 	/// <para>This is the test a caller needs before drawing one root with another's pose: it is
 	/// satisfied when a root merely drops nodes (a dropped id is never reused), and fails when it
-	/// compacts the numbering to close the gap. See docs/retail/formats/mech-shape-drawing.md, "Each root
+	/// compacts the numbering to close the gap. See docs/retail/rendering/mech-shape-drawing.md, "Each root
 	/// numbers its own nodes".</para>
 	/// </summary>
 	public static bool SharesNodeNumbering(TSObject? root, TSObject? reference) {

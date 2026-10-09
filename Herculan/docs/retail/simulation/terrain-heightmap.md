@@ -1,6 +1,6 @@
-# Terrain heightmap — `HeightGrid`, zone loading, height query, byte-verified
+# Terrain heightmap — `HeightGrid`, zone loading, height query
 
-Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). Covers the heightmap/geometry side of terrain: struct layout, zone loading, height interpolation, the structure-footprint flattening pass, and the ray walk. See [`terrain-texturing.md`](terrain-texturing.md) for how cells get their texture, which is a separate pipeline over the same grid.
+Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). Covers the heightmap/geometry side of terrain: struct layout, what zone loading writes into it, height interpolation, the structure-footprint flattening pass, and the ray walk. The zone files themselves — header, heightmap bitmap and material table — and how each is located are in [`../formats/zone-terrain.md`](../formats/zone-terrain.md). See [`../rendering/terrain-texturing.md`](../rendering/terrain-texturing.md) for how cells get their texture, which is a separate pipeline over the same grid.
 
 ## The `HeightGrid` struct
 
@@ -13,18 +13,18 @@ Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). Cov
 | `+0x100` | `int` | Width shift — log2(grid width in cells) |
 | `+0x104` | `int` | Height shift — log2(grid height in cells) |
 | `+0x108` | `int` | Cell shift — log2(world-units per cell); also the shift used to convert world (x,y) → cell (x,y) |
-| `+0x10c` | `int` | **View radius in cells** (10 at retail detail settings). Its derivation, writer and consumers are in [`terrain-texturing.md`](terrain-texturing.md#grid0x10c--the-lod--draw-radius-field); `Terrain_DrawCellQuad` installs `+0x10c << +0x108` as the visibility range distance fog is measured against — see [`distance-fog-and-sky.md`](distance-fog-and-sky.md) |
+| `+0x10c` | `int` | **View radius in cells**: 6, 10 or 14, by detail setting. Its derivation, writer and consumers are in [`../rendering/terrain-texturing.md`](../rendering/terrain-texturing.md#grid0x10c--the-lod--draw-radius-field); `Terrain_DrawCellQuad` installs `+0x10c << +0x108` as the visibility range distance fog is measured against — see [`../rendering/distance-fog-and-sky.md`](../rendering/distance-fog-and-sky.md) |
 | `+0x110` | `int` | Height base — additive height offset (0 for real/binary zones; `MinHeight*8` for the ASCII debug format) |
 | `+0x118` | `int` | Height scale — multiplicative height scale applied to each cell's raw byte |
 | `+0x11d` | `int` | Material/detail-type record count (from `dat\mat0`) |
-| `+0x121` | `int*` | Pointer to the material/detail-type table, `count` × 8-byte records (`ZONES_MaterialTable`, from `dat\mat0`, confirmed against real `ES2/VOL/simvol0/dat/MAT0.DAT`) |
+| `+0x121` | `int*` | Pointer to the material/detail-type table (`ZONES_MaterialTable`, from `dat\mat0` — [layout](../formats/zone-terrain.md#datmat0--the-material-table)) |
 
 ## Per-cell record (16 bytes)
 
 - `+0x0` (byte): raw height value 0–255. World height = `rawByte * grid[0x118] + grid[0x110]` (height scale, height base).
 - `+0x1`..`+0x6` (3 shorts): the **near** face normal, scaled to length 0x800.
 - `+0x7`..`+0xc` (3 shorts): the **far** face normal, same scale. Which of the two a point belongs to is the diagonal selector's decision, exactly as in `Terrain_HeightQuery`.
-- `+0xd` (byte): the **near** triangle's baked shade byte; `+0xe` (byte): the **far** triangle's. Written by the surface build and read straight back by `Terrain_DrawCellQuad` as the ramp row — see [`terrain-lighting.md`](terrain-lighting.md).
+- `+0xd` (byte): the **near** triangle's baked shade byte; `+0xe` (byte): the **far** triangle's. Written by the surface build and read straight back by `Terrain_DrawCellQuad` as the ramp row — see [`../rendering/terrain-lighting.md`](../rendering/terrain-lighting.md).
 - `+0xf` (byte, bitfield): bits `[0:1]` = diagonal-split selector consumed by `Terrain_HeightQuery`'s barycentric interpolation (values `0`/`1`/`2` are produced; `3` is handled by the query but never written); bits `[2:7]` = material/detail-type index into `ZONES_MaterialTable`, assigned via a weighted random roll (~30.6% chance per type, first match wins) at an LOD-driven block stride so neighboring cells within a block share one roll.
 
 **The selector and both normals are written by the same function**, `Terrain_BuildCellSurface` (`0046bed8`), which `Terrain_BuildSurface` (`0046c1dc`) runs over the whole grid via `Terrain_BuildCellSurfaceAndShade` (`0046c2ec`) — at zone load, and again at the end of the [structure-footprint pass](#structure-footprints--the-flattening-pass). Choosing a cell's normals requires choosing its diagonal, so it derives the selector from the four corner heights and stores all three together:
@@ -37,17 +37,11 @@ Reverse-engineered from `DBSIM.EXE` disassembly (Ghidra project `ES2Recon`). Cov
 
 Normals are built in *raw height units*, not world units: the horizontal components are plain corner differences and the vertical one is `cellSize / heightScale`, which is a true cross product divided through by the height scale. All six components are doubled before `Math_NormalizeVec3ShortToLength` (`0046c138`) rescales them to 0x800, which changes nothing. The last row and column are skipped — no east/north neighbour to difference against — so they keep a flat `(0, 0, 0x800)` normal and selector 0.
 
-## Loading pipeline
+Neither zone loader ([`../formats/zone-terrain.md`](../formats/zone-terrain.md#loading-pipeline)) writes the selector — every `+0xf` write in `TerrainZone_PopulateFromBitmap` and its ASCII counterpart masks with `& 2` and sets only the material index, via `Math_RandomNext() & 0xfff < 0x4ce` (~30%) for material 1 vs. 0. (The bitmap path hardcodes a ceiling of two materials, unlike the ASCII fallback which loops the whole `mat0` table. The roll is sparse: only cells on a block boundary roll, block size `(1 << (0x15 - mat0[0].field4 - cellShift)) - 1` — 2×2 cells at cell shift 14, 4×4 at 13.) `Terrain_BuildCellSurface` runs afterwards and is what fills it in.
 
-Confirmed against real files in `ES2/VOL/ZONES.VOL`.
+## The height query
 
-1. `Terrain_LoadZone(zoneIndex)` builds the base name `zoneNNNN` and reads a **16-byte per-zone header** resource at `dat\zoneNNNN` (`ZONES.VOL\DAT\ZONE*.DAT`, always exactly 16 bytes): four LE `int32`s — `[0]` width shift and `[1]` height shift (redundant, re-derived from the bitmap itself later), `[2]` cell shift, `[3]` height scale. E.g. `ZONE504.DAT` = `07 00 00 00 07 00 00 00 0E 00 00 00 95 00 00 00` → width and height shift 7 (128×128 cells), cell shift 14, height scale 149.
-2. `TerrainZone_LoadHeightmap` (`0046c650`) loads the shared material table from `dat\mat0`, then opens `dba\zoneNNNN.dba`. Every real zone resolves to `.dba` and goes through the generic `ClassItem_LoadResource` polymorphic loader — the same registry-dispatch architecture as `.DFN`/`.HFN`/`.DCI` — into `TerrainZone_PopulateFromBitmap` (`0046c3c0`). Any other extension falls back to a plain `fopen`/`fscanf` ASCII format (`"%d %d %d %d"` header = width shift, height shift, maximum raw height, minimum raw height, then one `%d` per cell) — a level-design/debug path; no loose files of this kind exist in retail data.
-3. **`TerrainZone_PopulateFromBitmap`: a zone's heightmap is literally an ordinary Dynamix bitmap** — the same 8-bit-indexed container used for `.DBM`/`.DBA` textures elsewhere (see `dfn-hfn-dci.md`). Each pixel byte (minus a small bias) becomes one cell's raw height byte; the width and height shifts are re-derived from the bitmap's own dimensions rather than trusted from the zone header. **Verified byte-exact against every real file in `ES2/VOL/ZONES.VOL/DBA/`:** 128×128 zones are exactly 16418 bytes (`128*128 + 34`-byte bitmap header), 256×256 zones exactly 65570 bytes (`256*256 + 34`) — the zones that come out 256×256 are precisely the ones whose `.DAT` header declared width and height shift 8 (e.g. `ZONE123.DAT`).
-
-`Terrain_HeightQuery(HeightGrid*, {x,y})` (`0046e07c`) converts a world `(x, y)` into a grid cell via the cell shift, fetches the enclosing cell's 4 corner texels from the 16-byte-per-cell array, and — using each cell's `+0xf` diagonal-selector bits — does barycentric/bilinear interpolation across whichever triangle the query point falls in. Each grid quad can independently choose which way its diagonal split runs, chosen at terrain-authoring/compile time.
-
-Neither loader path writes the selector — every `+0xf` write in `TerrainZone_PopulateFromBitmap` and its ASCII counterpart masks with `& 2` and sets only the material index, via `Math_RandomNext() & 0xfff < 0x4ce` (~30%) for material 1 vs. 0. (The bitmap path hardcodes a ceiling of two materials, unlike the ASCII fallback which loops the whole `mat0` table. The roll is sparse: only cells on a block boundary roll, block size `(1 << (0x15 - mat0[0].field4 - cellShift)) - 1` — 2×2 cells at cell shift 14, 4×4 at 13.) `Terrain_BuildCellSurface` runs afterwards and is what fills it in.
+`Terrain_HeightQuery(HeightGrid*, {x,y})` (`0046e07c`) converts a world `(x, y)` into a grid cell via the cell shift, fetches the enclosing cell's 4 corner texels from the 16-byte-per-cell array, and — using each cell's `+0xf` diagonal-selector bits — does barycentric/bilinear interpolation across whichever triangle the query point falls in. Each grid quad can independently choose which way its diagonal split runs; `Terrain_BuildCellSurface` picks it from the corner heights ([Per-cell record](#per-cell-record-16-bytes)).
 
 ## Structure footprints — the flattening pass
 
@@ -57,7 +51,7 @@ The `+0xf0` scratch array gets marks from **two** sources before the pass runs.
 
 Each structure registers its own footprint as it is placed — `Terrain_MarkStructureFootprint` (`00470dc8`), called from `Base_AttachToGroup` (`00405c3c`) and from `DBSim_SpawnMissionObjects`' own base branch, in both cases immediately before that structure's height query. It sets bit 0 for the cell the structure stands in unconditionally, then for every cell corner within the structure's `SimObject_GetShapeRadius` of it — measured with the sim's sqrt-free magnitude approximation at the structure's own Z, so the test is planar — plus the three cells west, south and south-west of each such corner, covering all four quads that meet it.
 
-A base group additionally marks its whole pad: `Terrain_PaintFormationPad` (`00471260`) sets bit 0 for every cell its formation's layout map calls occupied, which is why a base levels as one connected region while a lone turret gets its own small mound — turret groups leave the paints-ground flag (block 11 `0x06`) at 0 and contribute nothing here. See [`terrain-texturing.md`](terrain-texturing.md#base-formation-pads), which owns that pass.
+A base group additionally marks its whole pad: `Terrain_PaintFormationPad` (`00471260`) sets bit 0 for every cell its formation's layout map calls occupied, which is why a base levels as one connected region while a lone turret gets its own small mound — turret groups leave the paints-ground flag (block 11 `0x06`) at 0 and contribute nothing here. See [`../rendering/terrain-texturing.md`](../rendering/terrain-texturing.md#base-formation-pads), which owns that pass.
 
 Once the whole roster is down, `Terrain_FlattenStructureFootprints` (`00471190`) walks the grid. At each cell still marked and not yet counted it flood-fills the connected region eight-way, summing raw heights and counting cells (`Terrain_AccumulateFootprint`, `00470edc`), writes `sum / count` back over that region (`Terrain_WriteFootprintHeight`, `0047101c`), and when the whole grid is done re-runs `Terrain_BuildSurface` so every normal, diagonal selector and baked shade matches the new ground.
 
@@ -79,8 +73,8 @@ The terrain module's largest function (5129 bytes). Takes two world points and w
 |---|---|---|
 | `Sim_RaycastTerrain` (`00428048`) | 0 | Weapon fire, clipping the ray to the ground |
 | `Terrain_RayHitDistance` (`004280f4`) | 0 | Range to the ground hit, for `Detection_LineOfSight` and `Ai_LineOfSightBlocked` |
-| `Mech_AiObstacleAvoidance` (`00416274`), twice | 1 | The AI's two ground-hugging obstacle probes — [`../simulation/ai-navigation.md`](../simulation/ai-navigation.md#the-two-probes) |
-| `Ai_LineOfSightBlocked` (`0041dc24`) | 1 | Whether the ground in the way is too steep to walk over — [`../simulation/ai-combat-states.md`](../simulation/ai-combat-states.md#line-of-sight--ai_lineofsightblocked-0041dc24) |
+| `Mech_AiObstacleAvoidance` (`00416274`), twice | 1 | The AI's two ground-hugging obstacle probes — [`ai-navigation.md`](ai-navigation.md#the-two-probes) |
+| `Ai_LineOfSightBlocked` (`0041dc24`) | 1 | Whether the ground in the way is too steep to walk over — [`ai-combat-states.md`](ai-combat-states.md#line-of-sight--ai_lineofsightblocked-0041dc24) |
 
 Setup: halve the segment delta until every component fits ±32000, take four Q16 slopes — `dy/dx`, `dz/dx`, `dx/dy`, `dz/dy`, each falling back to 1.0 on a zero denominator — and classify the ground-plane delta into an **octant** 0–7, which encodes the major axis and both step signs in one value. Ties make X the major axis.
 
@@ -109,15 +103,15 @@ When the plane solve finds nothing it still returns "hit" with its output buffer
 
 `Sim_RaycastTerrain` (`00428048`) is the weapon-fire caller: it builds the ray's far end as the muzzle frame's own `(0, distance, 0)`, walks, and measures the ground hit back to the muzzle with the fast-magnitude approximation.
 
-**The walk radius is dead in both modes.** The ray record's `+0x08` (a literal 200) arrives as `Terrain_RayWalk`'s fourth argument, and mode 0 does read it — at `0046fb35`, `0046fba7` and `0046fc1b`, the three sites that hand it to `Terrain_CellSurfaceIntersect` (`0047068c`). That is where it stops: the callee never reads that parameter, and those three are its only callers, so nothing downstream of the walk is a function of the radius. Every mode-1 caller passes 0. See [`../simulation/weapon-firing.md`](../simulation/weapon-firing.md).
+**The walk radius is dead in both modes.** The ray record's `+0x08` (a literal 200) arrives as `Terrain_RayWalk`'s fourth argument, and mode 0 does read it — at `0046fb35`, `0046fba7` and `0046fc1b`, the three sites that hand it to `Terrain_CellSurfaceIntersect` (`0047068c`). That is where it stops: the callee never reads that parameter, and those three are its only callers, so nothing downstream of the walk is a function of the radius. Every mode-1 caller passes 0. See [`weapon-firing.md`](weapon-firing.md).
 
 ### Mode 1 — the slope walk
 
-The same segment and the same walk, with a different question at each step: is the face being crossed one a machine could walk up? Nothing is swept; the segment has no width. A segment sliding along rolling ground reports nothing, and only a face too steep to walk stops it, which is why the AI's ground-hugging probes use this mode — see [`../simulation/ai-navigation.md`](../simulation/ai-navigation.md#the-two-probes).
+The same segment and the same walk, with a different question at each step: is the face being crossed one a machine could walk up? Nothing is swept; the segment has no width. A segment sliding along rolling ground reports nothing, and only a face too steep to walk stops it, which is why the AI's ground-hugging probes use this mode — see [`ai-navigation.md`](ai-navigation.md#the-two-probes).
 
 **The direction.** Setup packs the halved delta into three shorts and normalises it to length `0x800` with `Math_NormalizeVec3ShortToLength` (`0046c138`), the normaliser the face normals go through, so the two are in the same units.
 
-**The face test** is `Terrain_FaceBlocksMovement` (`0046fe40`), on the steepness of the face's normal alone; its threshold, and how it sits against the move's own slope refusal, are in [`../simulation/ai-navigation.md`](../simulation/ai-navigation.md#the-two-probes). On the threshold value exactly it falls through to the dot product of the normal and the direction, blocking under `-8000000`.
+**The face test** is `Terrain_FaceBlocksMovement` (`0046fe40`), on the steepness of the face's normal alone; its threshold, and how it sits against the move's own slope refusal, are in [`ai-navigation.md`](ai-navigation.md#the-two-probes). On the threshold value exactly it falls through to the dot product of the normal and the direction, blocking under `-8000000`.
 
 **Each step**, in order:
 
@@ -133,15 +127,16 @@ The same segment and the same walk, with a different question at each step: is t
 
 ## Consumers outside the terrain system
 
-- **Drop-pod landing** (`Meteor_Tick`, `00409d2c`) checks altitude against `Terrain_HeightQuery` every tick and detonates the instant the pod dips below ground — see [`../simulation/mission-deployment.md`](../simulation/mission-deployment.md) and [`../simulation/damage-system.md`](../simulation/damage-system.md#the-sweep--damage_explosiveblastsweep-00426a20).
-- **A flyer's airframe contact probes** (`Razor_MovementTick`, assumed `flyersys.cpp` ([Open](#open))). Six points on the airframe are each transformed into world space and tested against `Terrain_HeightQuery`, and all but one also raycast via `Sim_RaycastObjectList` (`00426528`, see [`../simulation/hit-detection.md`](../simulation/hit-detection.md#the-sweep--sim_raycastobjectlist-00426528)). A contact damages the component that touched and kicks the airframe away from it. This is the flyer's whole collision model, not an assist — see [`../simulation/razor-flight.md`](../simulation/razor-flight.md#contact-probes).
+- **Drop-pod landing** (`Meteor_Tick`, `00409d2c`) checks altitude against `Terrain_HeightQuery` every tick and detonates the instant the pod dips below ground — see [`mission-deployment.md`](mission-deployment.md) and [`damage-system.md`](damage-system.md#the-sweep--damage_explosiveblastsweep-00426a20).
+- **A flyer's airframe contact probes** (`Razor_MovementTick`, assumed `flyersys.cpp` ([Open](#open))). Six points on the airframe are each transformed into world space and tested against `Terrain_HeightQuery`, and all but one also raycast via `Sim_RaycastObjectList` (`00426528`, see [`hit-detection.md`](hit-detection.md#the-sweep--sim_raycastobjectlist-00426528)). A contact damages the component that touched and kicks the airframe away from it. This is the flyer's whole collision model, not an assist — see [`razor-flight.md`](razor-flight.md#contact-probes).
 
 ## Rejected readings
 
 | Reading | Why it is wrong |
 |---|---|
-| `Terrain_RayWalk`'s mode 1 is a machine's movement collision, sweeping its volume against the ground | The `FaceBlocks` names suggest it, but its callers are the AI's obstacle probes and its line-of-sight test ([table above](#ray-versus-terrain--terrain_raywalk-0046e87c)). A machine's move is refused by `Mech_CollisionTest`'s own slope test ([`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md#collision)), and mode 1 walks the same zero-width segment mode 0 does |
+| `Terrain_RayWalk`'s mode 1 is a machine's movement collision, sweeping its volume against the ground | The `FaceBlocks` names suggest it, but its callers are the AI's obstacle probes and its line-of-sight test ([table above](#ray-versus-terrain--terrain_raywalk-0046e87c)). A machine's move is refused by `Mech_CollisionTest`'s own slope test ([`mech-locomotion.md`](mech-locomotion.md#collision)), and mode 1 walks the same zero-width segment mode 0 does |
 
 ## Open
 
 - **Open:** confirm `Razor_MovementTick`'s source file — assumed `flyersys.cpp` by naming convention, but no assert string in the binary names it.
+- **Open:** the writer of `+0x114`, which the terrain draw ([`../rendering/terrain-drawing.md`](../rendering/terrain-drawing.md)) and the gunsight's altitude scale ([`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md)) read as the zone's highest height. The struct table above has no row for it.

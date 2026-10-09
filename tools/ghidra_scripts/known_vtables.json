@@ -315,7 +315,7 @@
         {
           "address": "0049c188",
           "label": "HUDRovingGunsightGadgetVtable",
-          "description": "The click surface over the 3D view, built by Gunsight_ClickSurface_Ctor (0043c120); see docs/retail/formats/hud-target-indicator.md. No PanelGadget subobject, so it is silent."
+          "description": "The click surface over the 3D view, built by Gunsight_ClickSurface_Ctor (0043c120); see docs/retail/simulation/hud-target-indicator.md. No PanelGadget subobject, so it is silent."
         },
         {
           "address": "0049c758",
@@ -345,7 +345,7 @@
         {
           "address": "0049cf20",
           "label": "MFDStateGadgetVtable",
-          "description": "An MFD latching button; MFDStateGadget_Ctor (0044741c). See docs/retail/formats/mfd.md."
+          "description": "An MFD latching button; MFDStateGadget_Ctor (0044741c). See docs/retail/simulation/mfd.md."
         },
         {
           "address": "0049cf60",
@@ -360,7 +360,7 @@
         {
           "address": "0049d60c",
           "label": "HDDSelectGadgetVtable",
-          "description": "A Heads-Down Display button; HddButton_Ctor (0044baac). See docs/retail/formats/heads-down-display.md."
+          "description": "A Heads-Down Display button; HddButton_Ctor (0044baac). See docs/retail/simulation/heads-down-display.md."
         },
         {
           "address": "0049d944",
@@ -448,7 +448,7 @@
       "slots": [
         { "offset": 0,   "name": "Paint",              "description": "Adjustor thunk onto the primary table's +0x00: ADD dword ptr [ESP+4], -<subobject offset>; JMP <primary implementation>. The two abstract mixin tables hold the 00496684 stub instead." },
         { "offset": 4,   "name": "FlushDeferredPaint", "description": "Adjustor thunk onto the primary table's +0x0c." },
-        { "offset": 8,   "name": "ClickSound",         "description": "Widget_ClickSound (00438e2c) in PanelGadget's table and in every class that derives from it -- push 0x11; call Sound_Play, ignoring the pointer it is handed. PanelSliderGadget replaces it with 00439014, an empty stub, and every slider inherits that. A widget therefore clicks or stays silent according to which of the two mixins it carries, and a class with no mixin at all makes no sound. See docs/retail/formats/audio.md." },
+        { "offset": 8,   "name": "ClickSound",         "description": "Widget_ClickSound (00438e2c) in PanelGadget's table and in every class that derives from it -- push 0x11; call Sound_Play, ignoring the pointer it is handed. PanelSliderGadget replaces it with 00439014, an empty stub, and every slider inherits that. A widget therefore clicks or stays silent according to which of the two mixins it carries, and a class with no mixin at all makes no sound. See docs/retail/simulation/audio.md." },
         { "offset": 12,  "name": "OnClick",            "description": "Adjustor thunk onto the primary table's +0x08." }
       ],
       "instances": [
@@ -671,7 +671,7 @@
         {"offset": 24, "name": "Dtor", "description": "(this, flags): the virtual destructor. Decrements the live-object counter at *005ddec0 once per class level, restores each level's vtable and frees what that level owns, then Mem_Delete when flags bit 0 is set. A container deletes its children through their own slot."},
         {"offset": 28, "name": "Render", "description": "As VshellTSBaseVtable's: TSPartList_Render draws the children in order, TSGroup_RenderPolys and TSBSPGroup_Render the polys, TSDetailPart_Render one level of detail, TSCellAnimPart_Render one cell, TSShape_Render the whole shape."},
         {"offset": 32, "name": "FindPart", "description": "(this, id): the part whose id (+6) is id, searching children (TSPartList_FindPart) or not (TSPartBase_FindPart)."},
-        {"offset": 36, "name": "FindPartSlot", "description": "(this, id): the address of the child-array entry holding the part whose id is id (TSPartList_FindPartSlot); a leaf answers 0. See docs/retail/formats/mech-shape-drawing.md."}
+        {"offset": 36, "name": "FindPartSlot", "description": "(this, id): the address of the child-array entry holding the part whose id is id (TSPartList_FindPartSlot); a leaf answers 0. See docs/retail/rendering/mech-shape-drawing.md."}
       ],
       "instances": [
         {"address": "0047f0f8", "label": "TSPartBaseVtable", "description": "RTTI TSPartBase: TSPartBase_GetClassTag, TSPartBase_GetStreamSize, TSPartBase_GetMemorySize, TSPartBase_ReadFromStream, TSPartBase_WriteToStream, TSPartBase_DebugPrint, TSPartBase_Dtor, TSBase_Render, TSPartBase_FindPart, TSPartBase_FindPartSlot."},

@@ -2,16 +2,16 @@
 
 The two-page console below the dashboard, reached by panning down from the forward view. Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project; addresses are DBSIM. Symbols are in `tools/ghidra_scripts/known_symbols_dbsim.json`, applied with `ES2ApplySymbolNames.java`.
 
-Surrounding cockpit and the pan itself: [`cockpit-views.md`](cockpit-views.md). Canopy art: [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md). Caption text: [`str-strings.md`](str-strings.md). Label placement and fonts: [`dfn-hfn-dci.md`](dfn-hfn-dci.md). Closest precedent for the widget vocabulary: [`mfd.md`](mfd.md).
+Surrounding cockpit and the pan itself: [`cockpit-views.md`](cockpit-views.md). Canopy art: [`../rendering/cockpit-canopy-palette.md`](../rendering/cockpit-canopy-palette.md). Caption text: [`../formats/str-strings.md`](../formats/str-strings.md). Label placement and fonts: [`../formats/dfn-hfn-dci.md`](../formats/dfn-hfn-dci.md). Closest precedent for the widget vocabulary: [`mfd.md`](mfd.md).
 
-How a click on one of the widgets below reaches its own click handler: [`../simulation/cockpit-input.md`](../simulation/cockpit-input.md).
+How a click on one of the widgets below reaches its own click handler: [`cockpit-input.md`](cockpit-input.md).
 
 ## Object model
 
 | Symbol | Address | Role |
 |---|---|---|
-| `Gau_PilotRosterWidget` | `00432634` | Builds the display from `.GAU` offset 1212. |
-| `HddGau_ApplyCoordShift` | `0044bed0` | Pre-shifts that block; biases its origin y by `+0x28`. |
+| `Gau_PilotRosterWidget` | `00432634` | Builds the display from `.GAU` offset 1212 ([layout](../formats/gau-cockpit-layout.md#gau-block-at-1212)). |
+| `HddGau_ApplyCoordShift` | `0044bed0` | Pre-shifts that block and biases its origin. |
 | `HddDisplay_Ctor` | `00448cc8` | Builds both pages, 15 widgets, 3 comm gauges, the title label. |
 | `HddDisplay_SetPage` | `0044a5e4` | Switches page; relights the page button; applies the visibility table. |
 | `HddDisplay_Repaint` | `00449a50` | Full repaint (order below). |
@@ -56,49 +56,11 @@ Page index = key - 7. `HddDisplay_Ctor` ends with `HddDisplay_SetPage(obj, 0)`.
 
 Page 0 is handed the screen rect and the order column; page 1 the screen rect and the damage column.
 
-## `.GAU` block at 1212
-
-**The whole display is authored per herc** — unlike the MFD, whose `.GAU` supplies one panel rect and nothing else. The block runs to 1588 and is read as `int32`s from its own start:
-
-| Index | Bytes | Contents |
-|---|---|---|
-| 0-1 | 1212 | Origin offset, added to every rect below |
-| 2-3 | 1220 | [Open](#open) |
-| 4-7 | 1228 | Screen rect |
-| 8-11 | 1244 | Order column rect |
-| 12-15 | 1260 | Damage column rect |
-| 16-19 | 1276 | Title indicator rect |
-| `0x14`+4i | 1292 | 15 widget rects |
-| `0x50`+4i | 1532 | 3 comm-box marker rects |
-| `0x5c` | 1580 | Arrow-button frame set, 0 or 1 |
-| `0x5d` | 1584 | [Open](#open) |
-| `0x5e` | 1588 | Comm-box highlight mode |
-
-All values are authored in the 320-wide space. `HddGau_ApplyCoordShift` adds `0x28` to the origin's y **before** shifting, then shifts every rect by `VideoMode_X/YCoordShift`; the constructor adds the shifted origin to each rect.
-
-**The `+0x28` bias is what puts the block on the art.** Every retail file authors the origin as `(0, 197)`, so the bias makes it `(0, 237)` — the canvas origin every retail `.VUE` gives view 1, i.e. the row `.HB1` is blitted at. Subtracting the `.VUE` origin back off yields art-local coordinates, and in retail data the two cancel exactly: art-local device = authored x 2.
-
-Screen rect is 459x201 device (230x101 authored inclusive) in every herc; only its position varies.
-
-| Herc | Screen rect (device, art-local) | Arrow set |
-|---|---|---|
-| APOCA | `92,12 – 550,212` | 0 |
-| COLOSSUS | `92,12 – 550,212` | 0 |
-| MAVERICK | `92,32 – 550,232` | 0 |
-| OGRE | `92,38 – 550,238` | 0 |
-| OUTLAW | `94,84 – 552,284` | 1 |
-| RAPTOR2 | `90,56 – 548,256` | 0 |
-| RAZOR | `90,84 – 548,284` | 1 |
-| SAMSON | `90,86 – 548,286` | 0 |
-| TOMAHAWK | `90,134 – 548,334` | 1 |
-
-Positions differ structurally, not just by offset: TOMAHAWK puts its comm boxes above the map, OUTLAW and RAZOR stack the two page buttons vertically, APOCA/COLOSSUS/MAVERICK put the button strip below the map rather than above it.
-
 ## Widgets
 
 15, in the constructor's index order. Frames are `hba\HDD.HBA`; the lit frame is always the one after the unlit.
 
-`HddDisplay_Ctor` builds both page objects *before* these fifteen, so the command display's two clickables are registered ahead of them and win any contested pixel ([`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#registration-order-is-precedence)). Within the fifteen, the same rule settles two rect overlaps retail ships with: `XMIT` (13) takes the two `.GAU` units it shares with `CANCEL` (14), and on the six hercs using arrow set 0 the up/down arrows (2-3) take the 3x3 device corner they share with the left/right pair (4-5). Set 1's four separate plates do not touch.
+`HddDisplay_Ctor` builds both page objects *before* these fifteen, so the command display's two clickables are registered ahead of them and win any contested pixel ([`cockpit-input.md`](cockpit-input.md#registration-order-is-precedence)). Within the fifteen, the same rule settles two rect overlaps retail ships with: `XMIT` (13) takes the two `.GAU` units it shares with `CANCEL` (14), and on the six hercs using arrow set 0 the up/down arrows (2-3) take the 3x3 device corner they share with the left/right pair (4-5). Set 1's four separate plates do not touch.
 
 | i | Role | Unlit frame | Caption |
 |---|---|---|---|
@@ -165,7 +127,7 @@ While the sensor array is damaged the display drops out for random spells, blank
 
 ## Colours
 
-Logical ids through `dat\COLORS.DAT` (see [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#datcolorsdat--logical-colour-ids)).
+Logical ids through `dat\COLORS.DAT` (see [`../formats/colors-dat.md`](../formats/colors-dat.md)).
 
 | Use | Id | Palette |
 |---|---|---|
@@ -243,7 +205,7 @@ Sixteen entries, 16-31 — the theater-owned half of the ramp, so the map re-col
 
 **Contour bands, not a gradient.** `Raster_FillContourTriangle` (`00486ddc`) interpolates the palette *index*. It cuts the triangle at every whole index between its highest and lowest corner and flat-fills each band with the band's upper index, so a point takes the ceiling of its interpolated index; a triangle whose corners agree is filled flat. That is the map's stepped look: flat terraces with straight, diagonal edges.
 
-**Placement.** `HddMap_DrawTerrain` projects the grown box's own corners — world units, not cell edges — and hands the bitmap to `Bitmap_BlitRotatedUnpacked` (`00481750`, see [`dts-billboards.md`](dts-billboards.md)), which stretches it between them through brush mode 5 — a palettized texture mapper, so nearest-sampled, that [skips palette index 0](dts-billboards.md#brush-mode-5-skips-palette-index-0). The off-grid corners and the undrawn last row and column therefore leave what is beneath showing. The map bitmap is built raw, packing type 0. Before the blit it turns the top-left corner about the map centre, `Math_Rotate2DPoint` in screen space, by its one argument, and passes the same angle on. The command display passes 0; the NAV MAP passes a heading.
+**Placement.** `HddMap_DrawTerrain` projects the grown box's own corners — world units, not cell edges — and hands the bitmap to `Bitmap_BlitRotatedUnpacked` (`00481750`, see [`../rendering/dts-billboards.md`](../rendering/dts-billboards.md)), which stretches it between them through brush mode 5 — a palettized texture mapper, so nearest-sampled, that [skips palette index 0](../rendering/dts-billboards.md#brush-mode-5-skips-palette-index-0). The off-grid corners and the undrawn last row and column therefore leave what is beneath showing. The map bitmap is built raw, packing type 0. Before the blit it turns the top-left corner about the map centre, `Math_Rotate2DPoint` in screen space, by its one argument, and passes the same angle on. The command display passes 0; the NAV MAP passes a heading.
 
 ### Grid and border
 
@@ -253,7 +215,7 @@ The border is the mission box drawn through fill brush mode 4, which `Raster_Fil
 
 ### Markers
 
-140 icon gadgets allocated up front. `HddCommandScreen_BuildMapMarkers` (`0044ded8`) fills them on the screen's first repaint — the player's route first, then one per object in the three global object lists, then one with icon `0x57`, one past the nine route icons, for the player's dropped nav marker — and releases the rest. `HddCommandScreen_Repaint` (`0044c894`) calls it only while the screen's `+0x109` byte is 0, and the builder sets that byte to 1 and appends from the gadget count at `+0x10a`; the constructor zeroes both, and no other store to either is found ([Open](#open)). So the set of markers is the one the first repaint saw: each object marker keeps its object's pointer at gadget `+0x38`, and `HddMarker_Paint` reads the heading and the destroyed flag (`+0x99`) through it on every paint, which is how a destroyed object's marker stays on the map, drawn in its group's base frame (**Rotation**, below). The nav marker's gadget is built whether or not a nav marker exists; `HddCommandScreen_DrawMap` positions and paints it only while `NavMarker_Position` returns one ([`../simulation/player-waypoints.md`](../simulation/player-waypoints.md)).
+140 icon gadgets allocated up front. `HddCommandScreen_BuildMapMarkers` (`0044ded8`) fills them on the screen's first repaint — the player's route first, then one per object in the three global object lists, then one with icon `0x57`, one past the nine route icons, for the player's dropped nav marker — and releases the rest. `HddCommandScreen_Repaint` (`0044c894`) calls it only while the screen's `+0x109` byte is 0, and the builder sets that byte to 1 and appends from the gadget count at `+0x10a`; the constructor zeroes both, and no other store to either is found ([Open](#open)). So the set of markers is the one the first repaint saw: each object marker keeps its object's pointer at gadget `+0x38`, and `HddMarker_Paint` reads the heading and the destroyed flag (`+0x99`) through it on every paint, which is how a destroyed object's marker stays on the map, drawn in its group's base frame (**Rotation**, below). The nav marker's gadget is built whether or not a nav marker exists; `HddCommandScreen_DrawMap` positions and paints it only while `NavMarker_Position` returns one ([`player-waypoints.md`](player-waypoints.md)).
 
 Route markers take icons `0x4e`+ and start at the route's **second** point: the loop bound is `count - 1` capped at 9 and it indexes `route[i + 1]`.
 
@@ -303,11 +265,11 @@ The page's only clickables are two `HDDListGadget`s, registered in this order an
 | `+0x35` | the order column, the constructor's `+0xe1` rect verbatim | one region over all nine rows, not one per row |
 | `+0x39` | the map viewport | the whole inset |
 
-Neither acts on the click itself. `HDDListGadget_OnClick` (`0044f6ac`) is left-button only and calls `HddCommandScreen_QueueListClick` (`0044d3a4`), which records which gadget and where, copies the [double-click flag](../simulation/cockpit-input.md#4-once-per-frame-the-real-clickpressdrag-logic) to `+0x15b`, and sets a pending flag at `+0x14d`; `HddCommandScreen_HandleListClick` (`0044d428`) drains it and branches on the gadget pointer. For the order column it walks the eight row rects itself — **exclusively** on all four edges, unlike `Widget_HitTest`'s inclusive test, so a row's own boundary lines are dead. A hit on any order but the one armed arms it. A hit on the armed order never re-arms it: with `+0x15b` set and the order ready (`+0x104`, [below](#the-order-list-and-its-state-machine)) it presses XMIT through `Widget_PressChild`, and otherwise it does nothing, so a single click there keeps the order and its pick. For the map viewport it stores the point as the map cursor.
+Neither acts on the click itself. `HDDListGadget_OnClick` (`0044f6ac`) is left-button only and calls `HddCommandScreen_QueueListClick` (`0044d3a4`), which records which gadget and where, copies the [double-click flag](cockpit-input.md#4-once-per-frame-the-real-clickpressdrag-logic) to `+0x15b`, and sets a pending flag at `+0x14d`; `HddCommandScreen_HandleListClick` (`0044d428`) drains it and branches on the gadget pointer. For the order column it walks the eight row rects itself — **exclusively** on all four edges, unlike `Widget_HitTest`'s inclusive test, so a row's own boundary lines are dead. A hit on any order but the one armed arms it. A hit on the armed order never re-arms it: with `+0x15b` set and the order ready (`+0x104`, [below](#the-order-list-and-its-state-machine)) it presses XMIT through `Widget_PressChild`, and otherwise it does nothing, so a single click there keeps the order and its pick. For the map viewport it stores the point as the map cursor.
 
 `HddCommandScreen_SynthesizeListClick` (`0044d598`) is the keyboard's way into the same queue: an order hotkey feeds it the row's own rect corner and Enter feeds it the pointer's position or a unit's projected one, so key and click converge before anything is decided. The hotkey of the armed order is therefore a click on it, and `+0x15b` takes whatever the double-click flag holds when the key arrives.
 
-**The map region is not hidden with its page.** `HddCommandScreen_Hide` (`0044cf28`) sets state 2 on the order column, `XMIT` and `CANCEL`, and `HddCommandScreen_Show` (`0044cee8`) clears the same three; the map gadget is not among them. Its pointer is kept at screen `+0x39`, whose readers — the constructor, `HddCommandScreen_KeyDispatch`, `HddCommandScreen_HandleListClick` and `HddCommandScreen_SynthesizeListClick` — compare or pass it and never write its state, and in the cockpit's shared clickable list, whose press handling writes only 1 and 0 ([`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#7-press-release-click-vs-drag)). It is registered at state 0 and stays hit-testable on the damage detail page, where nothing draws it ([Open](#open)). A click there is queued like any other, but `HddCommandScreen_HandleListClick` runs only from `HddCommandScreen_Update`, which `HddDisplay_PaintCurrentScreen` calls on the current page alone, so the point becomes the map cursor when F7 is next the page shown — see [`../../../KNOWN_ISSUES.md`](../../../KNOWN_ISSUES.md).
+**The map region is not hidden with its page.** `HddCommandScreen_Hide` (`0044cf28`) sets state 2 on the order column, `XMIT` and `CANCEL`, and `HddCommandScreen_Show` (`0044cee8`) clears the same three; the map gadget is not among them. Its pointer is kept at screen `+0x39`, whose readers — the constructor, `HddCommandScreen_KeyDispatch`, `HddCommandScreen_HandleListClick` and `HddCommandScreen_SynthesizeListClick` — compare or pass it and never write its state, and in the cockpit's shared clickable list, whose press handling writes only 1 and 0 ([`cockpit-input.md`](cockpit-input.md#7-press-release-click-vs-drag)). It is registered at state 0 and stays hit-testable on the damage detail page, where nothing draws it ([Open](#open)). A click there is queued like any other, but `HddCommandScreen_HandleListClick` runs only from `HddCommandScreen_Update`, which `HddDisplay_PaintCurrentScreen` calls on the current page alone, so the point becomes the map cursor when F7 is next the page shown — see [`../../../KNOWN_ISSUES.md`](../../../KNOWN_ISSUES.md).
 
 ### The order list and its state machine
 
@@ -403,7 +365,7 @@ The page inspects one of five machines, the display's `+0x534` array under the s
 
 ## Squad comm boxes
 
-Three, at widgets 10-12, backed by `0x14e`-byte gauges in a vector at `+0x12d`. Marker rects come from block offset `0x50`; every retail file sets the highlight mode to 1, the branch that fills the marker beside the box rather than the box itself.
+Three, at widgets 10-12, backed by `0x14e`-byte gauges in a vector at `+0x12d`. Marker rects come from block offset `0x50`; retail's highlight mode ([block offset `0x5e`](../formats/gau-cockpit-layout.md#gau-block-at-1212)) selects the branch that fills the marker beside the box rather than the box itself.
 
 ### Who is in it
 
@@ -411,7 +373,7 @@ The machine's own pilot index — the leading field of its `player.mec` record (
 
 ### Selecting a pilot
 
-A comm box is an `HDDSelectGadget`. Its `OnClick` (`HddButton_OnClick`, `0044be50`) flips the widget's selection flag `+0x40` before it forwards the click, then repaints the widget and sounds the click. `HddDisplay_HandleWidgetPress` (`0044a178`)'s cases 10-12, which the `1`-`3` keys reach by pressing the same widgets ([`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#the-press-flash)), switch to page 0 from the damage detail and call `HddDisplay_SelectPilot` only when the slot is not the one already selected, holds a machine, and that machine's `+0x99` is clear. A click on a squadmate's map marker selects through `HddCommandScreen_PickPilot` (`0044d804`), which has no same-slot test. `HddDisplay_SelectPilot` clears the previous box's flag and sets the new one's, records the previous slot at `+0x52b` and the new one at `+0x517`, has the new pilot say `0x22` `STANDING BY...` ([`cockpit-messages.md`](cockpit-messages.md#what-each-id-says)), and hands the slot to `HddCommandScreen_SelectPilot` (`0044da70`). XMIT and CANCEL select -1.
+A comm box is an `HDDSelectGadget`. Its `OnClick` (`HddButton_OnClick`, `0044be50`) flips the widget's selection flag `+0x40` before it forwards the click, then repaints the widget and sounds the click. `HddDisplay_HandleWidgetPress` (`0044a178`)'s cases 10-12, which the `1`-`3` keys reach by pressing the same widgets ([`cockpit-input.md`](cockpit-input.md#the-press-flash)), switch to page 0 from the damage detail and call `HddDisplay_SelectPilot` only when the slot is not the one already selected, holds a machine, and that machine's `+0x99` is clear. A click on a squadmate's map marker selects through `HddCommandScreen_PickPilot` (`0044d804`), which has no same-slot test. `HddDisplay_SelectPilot` clears the previous box's flag and sets the new one's, records the previous slot at `+0x52b` and the new one at `+0x517`, has the new pilot say `0x22` `STANDING BY...` ([`cockpit-messages.md`](cockpit-messages.md#what-each-id-says)), and hands the slot to `HddCommandScreen_SelectPilot` (`0044da70`). XMIT and CANCEL select -1.
 
 **A click on the selected box keeps the selection.** The same-slot test turns it away after the flip has happened, so the box's flag reads unselected while its pilot stays selected, until the next click on it flips it back or the next selection writes it. The box paints from that flag: `HddButton_Paint` (`0044bb38`), in highlight mode 1, fills the marker of the current slot (`+0x517`) in the selected colour while the flag is set, and the marker of the previous slot (`+0x52b`) in the deselected colour while it is clear ([Colours](#colours)). So the out-of-step box repaints the previous pilot's marker, already deselected, and not its own pilot's ([Open](#open)).
 
@@ -434,29 +396,11 @@ Rect offsets are device pixels. The name's per-slot background is `HudColorTable
 
 The loader sets the `+0x141` label's rect, its font and its background and does nothing more with it, and no other access to it is found; `HddGauge_PaintIdle` sets text on the other five, and the two video paints on the name alone. A label appears only when `Label_SetText` paints it, so with no text set the box's bottom-left corner stays the flood colour. Whether anything sets it, and what it was meant to hold, is [Open](#open).
 
-`ofs\PILOT<n>.OFS` has no header and no count: a flat array of three-`int32` entries — `{ frameIndex, x, y }` — of which the loader reads a fixed 27, copying each pair to `gauge + frameIndex * 8 + 0x3d`. The pair is signed and in the bank's own 320-wide space: it is the frame's position inside the box, added **raw** while the frame itself is blitted doubled, and it reaches the MFD's full-screen copy unchanged ([`mfd.md`](mfd.md#transmissions)). Every retail file holds entries 0-26 in order, and `PILOT9.OFS` alone a 28th, for frame 27, that the loader does not read. The first 24 entries are the talking-head frames and share one offset per pilot in all twelve files but `PILOT2`, whose entry 23 differs. Entries 24-26 place the three frames after them — wide strips in ten banks, 1x8 placeholders in `PILOT9` and `PILOT10` — which the portrait paint never selects: it blits the frame it is handed, a `.SNC` frame (0-23 in all 556 scripts) or the scream's `0x1b`. The bank's 28th frame, `0x1b`, is the [death scream](#the-death-scream)'s; no entry the loader reads places it, so its pair is read from the zero-allocated display object (`Mem_New(0x78a)`), and with no writer of it found it draws at (0, 0) ([Open](#open)).
+`HddGauge_LoadPilotFrames` copies each frame's offset pair out of [`ofs\PILOT<n>.OFS`](../formats/ofs-portrait-offsets.md). The pair is added **raw** while the frame itself is blitted doubled, and it reaches the MFD's full-screen copy unchanged ([`mfd.md`](mfd.md#transmissions)). The three frames after the 24 talking heads, which entries 24-26 place, the portrait paint never selects: it blits the frame it is handed, a [`.SNC`](../formats/snc-lip-sync.md) frame or the scream's `0x1b`. The bank's 28th frame, `0x1b`, is the [death scream](#the-death-scream)'s; no entry the loader reads places it, so its pair is read from the zero-allocated display object (`Mem_New(0x78a)`), and with no writer of it found it draws at (0, 0) ([Open](#open)).
 
-### `.SNC` — portrait lip-sync scripts
+### Lip-sync playback
 
-**`.SNC` is not an audio format.** It is the frame timeline that animates the talking pilot portrait in a comm box while the matching `.wav` plays.
-
-556 files in `snc\` (in both `SIMVOL0.VOL` and `SIMSOUND.VOL`): twelve speakers `PA`-`PL`, 47 message names, `PA`-`PH` carrying 46 of them and `PI`-`PL` all 47 (`_03001` is theirs alone). **Each speaker has its own scripts:** the twelve copies of a message hold between 6 and 12 distinct scripts, and the four of `_03001` hold 3.
-
-After the 9-byte `.VOL` entry prefix:
-
-```
-int32  length            -- bytes that follow
-length/2 x {
-    int8  frame          -- index into the pilot<n>.DBA portrait bank
-    int8  delta          -- coarse ticks until the NEXT event
-}
-```
-
-The `0xff` terminator is **not in the file** — `Snc_Load` (`00463270`) reads the declared length into the slot's 100-byte buffer and appends `0xff` itself. With no script at all the buffer is just `0xff`, and the voice plays with the portrait held.
-
-**Verified across all 556 files**: length always even, always `fileLength - 14`, never containing a `0xff` byte, 2-28 pairs (so at most 57 bytes, terminator included, in the 100-byte buffer). Frame values are 0-23 — matching the 24 talking-head frames at the head of a `pilot<n>.DBA` bank, described [above](#the-gauge) — and deltas 2-74 ticks.
-
-`Snc_Advance` (`004633ac`) reads pairs until the accumulated time passes now, publishes the frame at slot `+0x08`, and re-inserts the slot into a small global event queue (`004d2efa`, 8-byte `{ time, slot }` entries) that `Snc_ServiceQueue` (`004631c0`) drains. Reaching the `0xff` sets the frame to `-1`, which is what tells `HddGauge_PaintPilotFrame` the message is over.
+While a box talks, its portrait follows the speaker's [`.SNC` script](../formats/snc-lip-sync.md) for the message. `Snc_Advance` (`004633ac`) reads pairs until the accumulated time passes now, publishes the frame at slot `+0x08`, and re-inserts the slot into a small global event queue (`004d2efa`, 8-byte `{ time, slot }` entries) that `Snc_ServiceQueue` (`004631c0`) drains. Reaching the `0xff` sets the frame to `-1`, which is what tells `HddGauge_PaintPilotFrame` the message is over.
 
 ### The state machine — `HddDisplay_ServiceCommBoxes` (`0044b5f8`)
 
@@ -492,7 +436,7 @@ The comms-out latch is set in three places: there, at the end of a message whose
 | `HddGauge_PaintPilotFrame` `0044b120` | The same flood, then the `pilot<n>` frame at its `.OFS` offset |
 | `HddGauge_PaintStatic` `0044b3b4` | The `static` bank's 5 frames, cycled one per paint |
 
-`HddGauge_PaintPilotFrame`'s live branch also rolls `Math_RandomNext % 3 + 0x18` and reads that frame's offset pair into two locals nothing uses. The picture does not depend on it, but every portrait paint — the scream's face half included — advances the [presentation generator](../simulation/random-generator.md#the-presentation-generator) once, ahead of whatever the scream's flicker, the next sound or the next message variant draws from it.
+`HddGauge_PaintPilotFrame`'s live branch also rolls `Math_RandomNext % 3 + 0x18` and reads that frame's offset pair into two locals nothing uses. The picture does not depend on it, but every portrait paint — the scream's face half included — advances the [presentation generator](random-generator.md#the-presentation-generator) once, ahead of whatever the scream's flicker, the next sound or the next message variant draws from it.
 
 The two video paints refresh the name label and **nothing else**, so the plate stays and the four status lines under it are simply not drawn while a picture is up. Both clip to the video rect — `CommBox_PushVideoClip` (`0044b83c`) installs it and `CommBox_PopVideoClip` (`0044b8f8`) takes it back off — which is why a portrait taller than its box is cut off at the bezel.
 
@@ -500,9 +444,9 @@ The two video paints refresh the name label and **nothing else**, so the plate s
 
 An unoccupied slot is not painted by the gauge at all: `HddDisplay_Repaint` floods the box rect inset one device pixel with id 19 instead.
 
-The `OBJECTIVE:` line reports back through `Mech_SquadOrderLineIndex` (`0041bac8`), which indexes group 40 with the machine's behaviour descriptor `+0x3c` ([`../simulation/ai-dispatch.md`](../simulation/ai-dispatch.md)) and lets the standing order override it (1→`TRAVEL`, 2→`PATROL`, 3 or 6→`GUARD`) — but only for a machine that is neither immobilised nor destroyed, is not fleeing and is not committed to a fight, so a downed squadmate reads `DEAD` or `IMMOBILE` whatever it was ordered to do and one that has found a fight reads `ATTACK`.
+The `OBJECTIVE:` line reports back through `Mech_SquadOrderLineIndex` (`0041bac8`), which indexes group 40 with the machine's behaviour descriptor `+0x3c` ([`ai-dispatch.md`](ai-dispatch.md)) and lets the standing order override it (1→`TRAVEL`, 2→`PATROL`, 3 or 6→`GUARD`) — but only for a machine that is neither immobilised nor destroyed, is not fleeing and is not committed to a fight, so a downed squadmate reads `DEAD` or `IMMOBILE` whatever it was ordered to do and one that has found a fight reads `ATTACK`.
 
-The transmit path, and what the squadmate does with an order, is [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md)'s.
+The transmit path, and what the squadmate does with an order, is [`ai-squadmates.md`](ai-squadmates.md)'s.
 
 ## Rejected readings
 
@@ -513,7 +457,7 @@ The transmit path, and what the squadmate does with an order, is [`../simulation
 
 ## `hddclip`
 
-Loaded by `CockpitClipRegions_Load` from `edg\HDDCLIP.EDG` — the 320-wide clip file, shifted by `VideoMode_X/YCoordShift` at load, not an `hdg\` counterpart. Regions are then offset by the screen rect's own position minus the block origin. Same layout as the `.HD*`/`.ED*` files in [`cockpit-views.md`](cockpit-views.md#hd0-hd3--ed0-ed3--3d-viewport-clip-regions).
+Loaded by `CockpitClipRegions_Load` from `edg\HDDCLIP.EDG` — the 320-wide clip file, shifted by `VideoMode_X/YCoordShift` at load, not an `hdg\` counterpart. Regions are then offset by the screen rect's own position minus the block origin. Same layout as the `.HD*`/`.ED*` files in [`../formats/hd-ed-clip-regions.md`](../formats/hd-ed-clip-regions.md).
 
 ## Open
 
@@ -522,7 +466,6 @@ Loaded by `CockpitClipRegions_Load` from `edg\HDDCLIP.EDG` — the 320-wide clip
 - **Open:** what reaches `HddDamageScreen_PageDown` (`00450c18`) and `HddDamageScreen_PageUp` (`00450c38`). They page the damage row offset forward and back by 13, the first only while a row remains past the current window and the second never below 0, but `es2_xref.py` finds no branch, stored pointer or vtable slot holding either, while the two category steps beside them, `HddDamageScreen_NextView` and `_PrevView`, are reached from `HddDisplay_HandleWidgetPress`. Until something does, the offset stays 0.
 - **Open:** how retail's 640-wide mode finds `static`. `static` and `pilot<n>` ship in `dba\` only, at 320-wide sizes; `pilot<n>` names its folder outright, but `static` is loaded through the shared `dba`/`hba` folder global, which selects `hba` in that mode and would miss.
 - **Open:** what the `DAT_0049d1f6` lookup table is for. `gauge+0x133`, the frame-indirection flag `HddGauge_PaintPilotFrame` branches on, is set to 1 for every slot the loader builds, and `es2_fieldscan.py` over the display's code (`00448c00`-`0044c264`) finds no other writer, so no path found takes the table branch.
-- **Open:** `.GAU` block indices 2-3 (1220) and `0x5d` (1584). No constructor found reads them.
 - **Open:** what the comm box's [sixth label](#the-unfilled-sixth-label) was for. `es2_fieldscan.py` finds `+0x141` only in `HddGauge_LoadPilotFrames`, which builds it; its corner position, red font and yellow background would suit the slot number the manual's `[1]`-`[3]` keys select, but nothing in the image says so.
 - **Open:** what a comm box whose flag is [out of step with the selection](#selecting-a-pilot) shows. Its repaint leaves its own pilot's marker as last drawn; whether a later paint erases that marker, leaving no box lit while a pilot is selected, has not been traced or checked in retail.
 - **Open:** the comm-box highlight mode's 0 branch, which fills the box rect rather than the marker. Retail data never selects it.

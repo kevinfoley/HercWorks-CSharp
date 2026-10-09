@@ -5,6 +5,7 @@ Reimplementation of Earthsiege 2 (1996) in C#, reverse-engineered from the retai
 
 - `Herculan/docs/retail/formats/` — file formats
 - `Herculan/docs/retail/simulation/` — simulation behaviour (DBSIM)
+- `Herculan/docs/retail/rendering/` — rendering behaviour (DBSIM): terrain, shapes, lighting, fog and sky, polygon fill
 - `Herculan/docs/retail/shell/` — shell behaviour (VSHELL): campaign, career, armory, front end
 - `Herculan/docs/herculan/planning.md` — architecture decisions and their rationale
 - `Herculan/KNOWN_ISSUES.md` — retail bugs, and where this engine diverges from retail

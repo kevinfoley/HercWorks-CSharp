@@ -6,7 +6,7 @@ namespace Herculan.Engine.Render;
 /// One drawn instance of a <see cref="BspTree"/> — one object's copy of one <c>TSBSPPart</c> — and
 /// the <see cref="SceneItem"/>s that draw its children. <see cref="SceneRenderer"/> paints the children
 /// of a group in the tree's order for the eye, so that where two of them overlap on screen the one
-/// the walk reaches later is what shows, as in the original (docs/retail/formats/dts-texture-binding.md,
+/// the walk reaches later is what shows, as in the original (docs/retail/rendering/dts-texture-binding.md,
 /// "<c>TSBSPPart</c> child selection"). An item joins a group through <see cref="SceneItem.BspGroup"/>
 /// and <see cref="SceneItem.BspLeaf"/>.
 ///

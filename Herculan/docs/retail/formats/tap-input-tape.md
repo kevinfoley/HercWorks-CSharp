@@ -51,7 +51,7 @@ When a playback mission ends with `004d255a` still set — `-D` aborted, or the 
 
 ### The stream
 
-Immediately after the bundle, once, comes the eight-byte joystick capability block `Input_QueryCapabilities` returns ([`joystick-input.md`](joystick-input.md#the-capability-block--input_querycapabilities-004777f8)) — so a replay knows what device the recording was made on. All three retail tapes carry `01 00 04 00 00 01 10 00`: four buttons, a rudder, a hat and no throttle. Playback reads the block into `Input_QueryCapabilities`' own buffer, which that function rebuilds from the live device on its next call.
+Immediately after the bundle, once, comes the eight-byte joystick capability block `Input_QueryCapabilities` returns ([`../simulation/joystick-input.md`](../simulation/joystick-input.md#the-capability-block--input_querycapabilities-004777f8)) — so a replay knows what device the recording was made on. All three retail tapes carry `01 00 04 00 00 01 10 00`: four buttons, a rudder, a hat and no throttle. Playback reads the block into `Input_QueryCapabilities`' own buffer, which that function rebuilds from the live device on its next call.
 
 Then one 24-byte header per frame, plus its variable tail:
 
@@ -69,7 +69,7 @@ Then one 24-byte header per frame, plus its variable tail:
 | `+0x18` | 14 x n | The mouse events, in `CockpitMouseQueue_Push`'s own record layout ([`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#3-the-cockpits-one-listener-queues-it-doesnt-act)) |
 | — | int16 x n | The command codes, in the layout of the queue at `004d2148` ([`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#how-a-keystroke-becomes-one-of-those-codes)) |
 
-**Buttons 5-8 are not recorded.** Only `004d2360`-`004d2363` reach the header, and playback's `memset` of the input block leaves the other four zero. The four bits are written after the press-once latch has masked the build ([`joystick-input.md`](joystick-input.md#the-buttons)), so each is set on the one frame its action fires, and the trigger's own button is zero because the trigger is extracted from it. The hat bytes are zero under HAT = 2, which writes the hat onto the turret axes and clears them before they are recorded.
+**Buttons 5-8 are not recorded.** Only `004d2360`-`004d2363` reach the header, and playback's `memset` of the input block leaves the other four zero. The four bits are written after the press-once latch has masked the build ([`../simulation/joystick-input.md`](../simulation/joystick-input.md#the-buttons)), so each is set on the one frame its action fires, and the trigger's own button is zero because the trigger is extracted from it. The hat bytes are zero under HAT = 2, which writes the hat onto the turret axes and clears them before they are recorded.
 
 The raw bank at `+0x0d` is read back into locals that only the recording branch reads. In the retail tapes its bit 0, the stick's trigger button, is set on 180, 116 and 185 frames, every one of them a frame whose trigger bit is set; the trigger bit is set on 180, 200 and 204.
 

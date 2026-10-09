@@ -1,6 +1,6 @@
 # Terrain lighting (DBSIM.EXE)
 
-Terrain is lit **at zone load**, and the result is stored in the height grid. Nothing about it is recomputed per frame; the only relight is the second `Terrain_BuildSurface` at the end of the structure-footprint pass, which levels the ground under each structure and so has to rebuild the normals it was lit from — see [`terrain-heightmap.md`](terrain-heightmap.md#structure-footprints--the-flattening-pass).
+Terrain is lit **at zone load**, and the result is stored in the height grid. Nothing about it is recomputed per frame; the only relight is the second `Terrain_BuildSurface` at the end of the structure-footprint pass, which levels the ground under each structure and so has to rebuild the normals it was lit from — see [`../simulation/terrain-heightmap.md`](../simulation/terrain-heightmap.md#structure-footprints--the-flattening-pass).
 
 ```
 Terrain_BuildSurface (0046c1dc)              per zone load, and after footprint flattening

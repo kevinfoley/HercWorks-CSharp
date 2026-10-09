@@ -90,7 +90,7 @@ public static partial class DtsMeshBuilder {
 	/// <summary>
 	/// One end of an edge or a point. A poly whose stored normal does not resolve goes up with a
 	/// zero face normal, which the shader's front/back test answers "back" — the original's answer
-	/// for a zero normal (docs/retail/formats/dts-texture-binding.md, "<c>TSPoly_FrontBackVisibilityTest</c>").
+	/// for a zero normal (docs/retail/rendering/dts-texture-binding.md, "<c>TSPoly_FrontBackVisibilityTest</c>").
 	///
 	/// <para>A shaded poly's outline is lit as its fill is, by the face normal, and goes up with both
 	/// ramps — see <see cref="MeshVertex.OutlineFillRamp"/>.</para>

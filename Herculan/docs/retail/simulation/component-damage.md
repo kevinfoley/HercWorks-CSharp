@@ -55,7 +55,7 @@ The names of the slots are [the file's](../formats/dmg-damage-file.md#the-two-in
 
 ### What the endpoint announces
 
-`Mech_ComponentDamageWrite` is also where the cockpit computer's damage warnings are posted, and **every one of them is gated on `obj+0xa3`** — the machine being the one the player is flying — so an AI machine losing a leg says nothing. The ids are `SYSTEM.STR`'s and the port they go to is [`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#the-port)'s.
+`Mech_ComponentDamageWrite` is also where the cockpit computer's damage warnings are posted, and **every one of them is gated on `obj+0xa3`** — the machine being the one the player is flying — so an AI machine losing a leg says nothing. The ids are `SYSTEM.STR`'s and the port they go to is [`cockpit-messages.md`](cockpit-messages.md#the-port)'s.
 
 | id | line | guard |
 |---|---|---|
@@ -70,7 +70,7 @@ The names of the slots are [the file's](../formats/dmg-damage-file.md#the-two-in
 
 `0x15` `SHIELDS CRITICAL` belongs to the same family from one function further out: `Mech_DirectFireHitTest` posts it where it sets `mech+0xb0` (`00418dc7`), on the first shot to land on the player's own machine with under 500 points of charge left across both facings.
 
-**Four of the five latch bytes are one-shots that are never cleared** — `+0xa8`/`+0xa9`/`+0xaa`/`+0xab`, each written `1` exactly once, in `Mech_ComponentDamageWrite`. They are why a machine that keeps taking hits in the same band does not repeat itself, and they are separate from `MessagePort_Show`'s own 4.8 s swallow of a repeated id ([`../formats/cockpit-messages.md`](../formats/cockpit-messages.md)), which would not be enough on its own. All four are load-bearing elsewhere as well: `+0xa8`/`+0xa9` are the two speed penalties ([`mech-locomotion.md`](mech-locomotion.md)) and `+0xaa`/`+0xab` the reactor's grades, which cut speed too; the reactor output they also grade is fixed before either can be set ([`reactor-energy-pool.md`](reactor-energy-pool.md#reactor-output-rate--mech_computereactorrate-00417d08)).
+**Four of the five latch bytes are one-shots that are never cleared** — `+0xa8`/`+0xa9`/`+0xaa`/`+0xab`, each written `1` exactly once, in `Mech_ComponentDamageWrite`. They are why a machine that keeps taking hits in the same band does not repeat itself, and they are separate from `MessagePort_Show`'s own 4.8 s swallow of a repeated id ([`cockpit-messages.md`](cockpit-messages.md)), which would not be enough on its own. All four are load-bearing elsewhere as well: `+0xa8`/`+0xa9` are the two speed penalties ([`mech-locomotion.md`](mech-locomotion.md)) and `+0xaa`/`+0xab` the reactor's grades, which cut speed too; the reactor output they also grade is fixed before either can be set ([`reactor-energy-pool.md`](reactor-energy-pool.md#reactor-output-rate--mech_computereactorrate-00417d08)).
 
 **`+0xb0` is the exception: it re-arms.** `Mech_PerTickSystemsUpdate` clears it (`0041ab25`) on the player's own machine every tick that `front + rear` exceeds `0x5dc` (1500), so `SHIELDS CRITICAL` is hysteretic — it fires under 500 and can fire again once the array has rebuilt past 1500, with the band between the two thresholds leaving the latch as it was. The same byte is what the MFD status screen reads for its `SHIELDS DN` condition, so that indicator clears itself on the same threshold.
 
@@ -123,7 +123,7 @@ Mech vtable `+0x60`, called on the machine that put the victim out of the fight,
 - the attacker's tally at `mech+0x2a4` for the victim's target class goes up one, which is [what the debrief reports](mission-objectives.md#what-the-mission-leaves-the-shell--mission_writeresults-0042412c), and `mech+0xa6` is latched — a byte nothing live reads ([`mission-objectives.md`](mission-objectives.md#the-group-report-and-why-nothing-shows-it));
 - when the attacker is a squadmate of the player's, it also calls out `0x02`, the kill line.
 
-Either way, when the victim is a squadmate of the player's, it cries out — `0x25` if destroyed, `0x04` if only stopped, the image's one squad post that is forced past a destroyed machine ([`../formats/cockpit-messages.md`](../formats/cockpit-messages.md)) — and, if the player was the attacker, [mission counter](mission-deployment.md#the-mission-counters--dat_004a9ef4) 10 goes up one.
+Either way, when the victim is a squadmate of the player's, it cries out — `0x25` if destroyed, `0x04` if only stopped, the image's one squad post that is forced past a destroyed machine ([`cockpit-messages.md`](cockpit-messages.md)) — and, if the player was the attacker, [mission counter](mission-deployment.md#the-mission-counters--dat_004a9ef4) 10 goes up one.
 
 ### Spread impact damage — `Mech_SpreadImpactDamage` (`00417a04`)
 

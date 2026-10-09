@@ -601,7 +601,7 @@ public sealed partial class MechObject {
 	/// <para>This seeds and reads the locomotion thread throughout. The original seeds the shape's
 	/// first thread (<c>ShapeInst_SeedRootTransform</c>, <c>00478a70</c>) and reads the first one
 	/// after <c>AnimThread_StepAll</c>'s priority re-sort, which is the twist thread while
-	/// locomotion plays a stop/step-off sequence — see docs/retail/formats/dts-node-posing.md, "Several
+	/// locomotion plays a stop/step-off sequence — see docs/retail/rendering/dts-node-posing.md, "Several
 	/// threads on one shape".</para>
 	/// </summary>
 	private void IntegrateMotion() {

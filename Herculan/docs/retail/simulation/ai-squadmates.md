@@ -2,7 +2,7 @@
 
 What the player's own three machines do when told something. A standing squad order sits **above** the mission group's order array: in a group whose first member is the player's machine, a nonzero `mech+0x23e` takes its own path through `Mech_AiSelectBehaviour`, which then installs a state without reading the group's verb, and `Ai_NavigationStep` drives at the order's point instead of following the route. That is how the player steers a squadmate off its group's route. Everything else about a player squadmate — formation, acquisition, combat — is the same machinery every AI machine runs, and belongs to [`ai-navigation.md`](ai-navigation.md), [`ai-targeting.md`](ai-targeting.md) and [`ai-combat-states.md`](ai-combat-states.md).
 
-The screens that issue orders are [`heads-down-display.md`](../formats/heads-down-display.md) and [`mfd.md`](../formats/mfd.md); the order text is `STRINGS0.STR` group 0, [`str-strings.md`](../formats/str-strings.md).
+The screens that issue orders are [`heads-down-display.md`](heads-down-display.md) and [`mfd.md`](mfd.md); the order text is `STRINGS0.STR` group 0, [`str-strings.md`](../formats/str-strings.md).
 
 ## The two ways an order leaves the cockpit
 
@@ -15,7 +15,7 @@ Both end at the same per-machine handler. What differs is who hears it.
 
 `Squad_SendOrderToSlot` skips an empty slot, the player's own machine and a destroyed pilot, and withdraws message `0x22` from the pilot-and-squad port either way. It sends with no prior reply, so the one recipient always answers.
 
-`Squad_BroadcastOrder` sends to the whole group, best-suited machine first, skipping the issuer and any destroyed member. Each pass scores every member not yet told, keeps the highest score, breaks ties on range to the issuer, and sends to that one — then carries the answer into the next send, so **only the first recipient, or the first to accept, says anything on the radio**. Verbs 0 and 2, the two that name a single target, stop at the first acceptance; the rest go round until everyone has been told. It returns whether anyone accepted, which is what makes a FLASH COMM row toggle ([`mfd.md`](../formats/mfd.md#mfdflashcomm--mode-1)).
+`Squad_BroadcastOrder` sends to the whole group, best-suited machine first, skipping the issuer and any destroyed member. Each pass scores every member not yet told, keeps the highest score, breaks ties on range to the issuer, and sends to that one — then carries the answer into the next send, so **only the first recipient, or the first to accept, says anything on the radio**. Verbs 0 and 2, the two that name a single target, stop at the first acceptance; the rest go round until everyone has been told. It returns whether anyone accepted, which is what makes a FLASH COMM row toggle ([`mfd.md`](mfd.md#mfdflashcomm--mode-1)).
 
 The score is a switch over eight verbs:
 
@@ -45,7 +45,7 @@ One instance exists: the global at `DAT_004d0458`, which both screens write in p
 
 ## The verbs
 
-All eighteen of `STRINGS0` group 0. Entries 0-8 are the MFD's FLASH COMM page, 10-17 the [F7] command display's own list; the two overlap in meaning but not in code, and `Mech_ReceiveSquadOrder` gives each pair its own case only where they differ. Each entry's one attribute byte is the index of its hotkey character ([`heads-down-display.md`](../formats/heads-down-display.md#the-order-list-and-its-state-machine)).
+All eighteen of `STRINGS0` group 0. Entries 0-8 are the MFD's FLASH COMM page, 10-17 the [F7] command display's own list; the two overlap in meaning but not in code, and `Mech_ReceiveSquadOrder` gives each pair its own case only where they differ. Each entry's one attribute byte is the index of its hotkey character ([`heads-down-display.md`](heads-down-display.md#the-order-list-and-its-state-machine)).
 
 | # | Text | Case | Effect |
 |---|---|---|---|
@@ -68,11 +68,11 @@ All eighteen of `STRINGS0` group 0. Entries 0-8 are the MFD's FLASH COMM page, 1
 | 16 | `SCAN FOR HOSTILES` | with 4 | As verb 4 |
 | 17 | `EMCON` | with 7 | As verb 7 |
 
-Which of these the FLASH COMM page can send is that page's rule, in [`mfd.md`](../formats/mfd.md#mfdflashcomm--mode-1): verbs 0-5, 7 and 8. Neither screen can send 6 or 9.
+Which of these the FLASH COMM page can send is that page's rule, in [`mfd.md`](mfd.md#mfdflashcomm--mode-1): verbs 0-5, 7 and 8. Neither screen can send 6 or 9.
 
 ## Receiving one — `Mech_ReceiveSquadOrder` (`00420ad4`, mech vtable `+0x28`)
 
-`short __cdecl(mech, order, priorReply)`. Returns 1 when the order was taken. Twelve arms of the jump table cover sixteen verbs; each arm picks a reply id, and posts it through `Ai_PostSquadMessage` only when `priorReply` is 0, or is 1 with an order this machine accepted. The ids index the speaker's own `PILOT<n>.STR` set and the lines they read are [`cockpit-messages.md`](../formats/cockpit-messages.md#what-each-id-says)'s catalog; the reply each arm picks is in parentheses below. "Out of action" is `+0xa5` no weapons left, immobilised or destroyed.
+`short __cdecl(mech, order, priorReply)`. Returns 1 when the order was taken. Twelve arms of the jump table cover sixteen verbs; each arm picks a reply id, and posts it through `Ai_PostSquadMessage` only when `priorReply` is 0, or is 1 with an order this machine accepted. The ids index the speaker's own `PILOT<n>.STR` set and the lines they read are [`cockpit-messages.md`](cockpit-messages.md#what-each-id-says)'s catalog; the reply each arm picks is in parentheses below. "Out of action" is `+0xa5` no weapons left, immobilised or destroyed.
 
 | Verb | Refused when (reply) | Otherwise (reply) |
 |---|---|---|
@@ -91,7 +91,7 @@ Which of these the FLASH COMM page can send is that page's rule, in [`mfd.md`](.
 
 Verbs 0xc, 0xd and 0xe write `+0x240` — and 0xc also `+0x24c` — **whether or not the order was taken**, so a refused re-order still moves the post. Verb 0xc's "same thing" is the same subject object, or — with neither the old order nor the new one naming a subject — the stored point within 1000 of the new one, on the ground plane.
 
-`0x1e` reads `AFFIRMATIVE!` whichever arm posts it. Two arms pick it, and one of them is a refusal: verb 1 from a machine that is out of action. No arm picks the generic no, `0x1f` ([`cockpit-messages.md`](../formats/cockpit-messages.md#what-each-id-says)). A verb with no case leaves the reply id at `0xffff`, and posts that; neither screen can send one.
+`0x1e` reads `AFFIRMATIVE!` whichever arm posts it. Two arms pick it, and one of them is a refusal: verb 1 from a machine that is out of action. No arm picks the generic no, `0x1f` ([`cockpit-messages.md`](cockpit-messages.md#what-each-id-says)). A verb with no case leaves the reply id at `0xffff`, and posts that; neither screen can send one.
 
 Verbs 0, 2, 0xb and the three `JOIN ON ME` forms clear the damage accumulator at `+0x281` ([`ai-targeting.md`](ai-targeting.md)) when they are taken, and verb 8 always does.
 
@@ -110,7 +110,7 @@ The writers of `mech+0x23e` store five values: 1 move, 2 patrol, 4 engage, 6 gua
 | `Mech_BehaviourPatrolThink` (`0041d7d0`), `Mech_BehaviourGuardThink` (`0041e224`) | A nonzero verb opens the leader gate; 2 and 4 change what is acquired. [`ai-navigation.md`](ai-navigation.md) |
 | `Ai_ShouldAbandonTarget` (`0041c4a8`), `Ai_ClearSquadEngageOrder` (`0041c478`) | 4 is satisfied only past `+0x250`, and clears when its target is let go. [`ai-combat-states.md`](ai-combat-states.md) |
 | `Mech_BehaviourAttackBaseThink` (`0041c86c`) | 4 with a target makes the structure being attacked count as finished only once destroyed, as one the group's order names does. [`ai-combat-states.md`](ai-combat-states.md#attacking-base-6--mech_behaviourattackbasethink-0041c86c) |
-| `Mech_SquadOrderLineIndex` (`0041bac8`) | 1, 2, 3 and 6 override the `OBJECTIVE:` line. [`heads-down-display.md`](../formats/heads-down-display.md) |
+| `Mech_SquadOrderLineIndex` (`0041bac8`) | 1, 2, 3 and 6 override the `OBJECTIVE:` line. [`heads-down-display.md`](heads-down-display.md) |
 
 ## The three latches
 

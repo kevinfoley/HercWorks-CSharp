@@ -20,35 +20,15 @@ world<N> descriptor file  ──(a string field in the data)──▶  dba\<name
                                               Terrain_ResolveCellTexture (0046bcf4)
 ```
 
-**Terrain bank selection:** `Terrain_BindTextureBank` loads a DBA by name read from the `world<N>` descriptor file. Bank names (`ice`, `bsnow`, `volcan`, `moon`, `urban`) are data-driven, not hardcoded.
+**Terrain bank selection:** `Terrain_BindTextureBank` loads a DBA by name read from the `world<N>` descriptor file ([layout and per-theater banks](../formats/wld-world.md#the-worldn-descriptor--layout)). Bank names (`ice`, `bsnow`, `volcan`, `moon`, `urban`) are data-driven, not hardcoded.
+
+Alongside the terrain bank, `World_LoadTheater` loads the theater palette `dpl\world<N>.dpl`, one per theater, which mech and structure shading resolves through too.
 
 **Descriptor table:** 20-byte stride (frame descriptors); first 16 bytes are the `int32` UV-rect corners `F0..F3` (documented in `dts-texture-binding.md`). Terrain and mechs share one texturing substrate.
 
-### The `world<N>` descriptor — layout
-
-`wld\WORLD0.WLD` … `WORLD9.WLD`, 310–313 bytes each. `maybe_World_LoadTheater` reads them field-by-field in this order:
-
-| | |
-|---|---|
-| 8 x `int16` | the sky backdrop's `hzline` — see [`distance-fog-and-sky.md`](distance-fog-and-sky.md#the-object) |
-| 6 x `int16` | ditto; two land in `DAT_004cfd76`/`DAT_004cfd78`. The second of the six, the file's tenth `int16` (byte 18), is `World_FlatSetSelector` (`0049aeea`), which picks the theater's ground-shape set ([`../simulation/ground-shapes.md`](../simulation/ground-shapes.md#the-shape-set--flatobj_loadresources-004097a8)); 1 in all ten retail files |
-| `int32` count + count x `int32` | `WorldShades_BandsTagged` (`004cfd84`), the distance thresholds of the [colour bands](distance-fog-and-sky.md#distance-colour-bands--worldshades_applyforobject-0042e8e8) for an object with a type tag: 16 entries, 4400 apart from 60000 — from 30000 in `WORLD4` |
-| `int32` count + count x `int32` | `WorldShades_BandsTag0` (`004cfd88`), the same for tag 0: 16 entries, 4400 apart from 60000, in every retail file |
-| `int16` rows, `int16` cols | sizes the pair of ramp tables that follow; 16 and 11 in every retail file |
-| cols x `int32`, `int16`, cols x `int32` | expanded by `Palette_InterpolateIndexRanges` (`00430d08`) into `WorldShades_LevelRanges` (`004cfd7c`), one index range per column and band |
-| 4 bytes, 4 bytes | a second, 1-wide ramp through the same expander, into `WorldShades_BlendRanges` (`004cfd80`) |
-| `int16`, `int16`, `int32`, `int32` | the two `int32`s are `WorldShades_DistanceOffsets` (`004cfd6c`), the offsets a tag-5 object's distance takes |
-| 5 NUL-terminated strings | `world24`, `clouds2`, `impact<N>`, **terrain bank**, `tex` |
-
-| descriptor | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
-|---|---|---|---|---|---|---|---|---|---|---|
-| bank | urban | urban | bsnow | bsnow | volcan | volcan | ice | ice | moon | moon |
-
-Five theaters, two variants each. The variant is **time of day**: the practice missions screen's `Day` / `Night` row writes it straight into the header field, and the ten retail files all carry `Day`. See [`../shell/main-menu.md`](../shell/main-menu.md#the-parameters). Which theater, variant and zone a mission runs is the `script.dat` header's — see [`script-dat.md`](script-dat.md#header-format).
-
-Alongside the terrain bank, `maybe_World_LoadTheater` loads the theater palette `dpl\world<N>.dpl`, one per theater, which mech and structure shading resolves through too.
-
 ### `mat0`'s two fields
+
+The table's record layout and retail values are in [`../formats/zone-terrain.md`](../formats/zone-terrain.md#datmat0--the-material-table).
 
 Field 0 is **a DBA frame index** — `_DAT_006b4fc4[index * 0x14]`.
 
@@ -82,7 +62,7 @@ So `u` rises with `cellX` and, because of the negation, `v` **falls** with `cell
 
 ### Retail numbers
 
-`MAT0.DAT` holds 13 records: `{0,6}`, `{1,6}`, `{2,5}`, … — field 0 ascending (frame index), field 1 per-material tiling shift. Materials 0 and 1 give `shift = cellShift - 7`: **128 texels per cell at `cellShift` 14, repeating every 2 cells; 64 at 13, repeating every 4.** Either way a texel spans 128 world units, the cell size cancelling out.
+Materials 0 and 1's block shift ([`MAT0.DAT`](../formats/zone-terrain.md#datmat0--the-material-table)) gives `shift = cellShift - 7`: **128 texels per cell at `cellShift` 14, repeating every 2 cells; 64 at 13, repeating every 4.** Either way a texel spans 128 world units, the cell size cancelling out.
 
 Materials **0 and 1 are the only ones a zone rolls**: `TerrainZone_PopulateFromBitmap`'s roll bound is the hard literal 2 (`CMP EBX,0x2` at `0046c5ca`), not the `mat0` count, and every shipped zone is a `.dba` that comes through it. Frame 0 is the plain tiling ground, frame 1 its variant.
 
@@ -92,7 +72,7 @@ Materials **2–12 are the eleven base-formation pads** — see [Base formation 
 
 ## `grid+0x10c` — the LOD / draw-radius field
 
-This section is the canonical account of `+0x10c`; [`terrain-heightmap.md`](terrain-heightmap.md) and [`distance-fog-and-sky.md`](distance-fog-and-sky.md) reference it rather than re-deriving it.
+This section is the canonical account of `+0x10c`; [`../simulation/terrain-heightmap.md`](../simulation/terrain-heightmap.md) and [`distance-fog-and-sky.md`](distance-fog-and-sky.md) reference it rather than re-deriving it.
 
 One function **writes** the field; four read it:
 
@@ -119,7 +99,7 @@ The byte holds two fields: the low two bits are the diagonal-split selector, bit
 
 | Writer | Writes | When |
 |---|---|---|
-| `Terrain_BuildCellSurface` (`0046bed8`) | selector only | at zone load and after each flattening, alongside the two face normals it needs a diagonal to build — see [`terrain-heightmap.md`](terrain-heightmap.md) for the four-corner rule |
+| `Terrain_BuildCellSurface` (`0046bed8`) | selector only | at zone load and after each flattening, alongside the two face normals it needs a diagonal to build — see [`../simulation/terrain-heightmap.md`](../simulation/terrain-heightmap.md) for the four-corner rule |
 | `TerrainZone_PopulateFromBitmap` (`0046c3c0`) | material | the `.dba` roll, capped at material 1 |
 | `TerrainZone_LoadHeightmap` (`0046c650`) | material | the ASCII fallback's roll, bounded by the `mat0` count; no retail zone takes this path |
 | `Terrain_PaintFormationPad` (`00471260`) | material | per base group at mission spawn — see below |
@@ -128,7 +108,7 @@ The byte holds two fields: the low two bits are the diagonal-split selector, bit
 
 A base group whose `script.dat` block-11 record sets its paints-ground flag (`0x06`) repaints the ground it stands on with its formation's own material, which is what puts a retail base on a marked concrete pad instead of open terrain. `DBSim_SpawnMissionObjects` (`004253d8`) calls `Base_ApplyFormationTerrain` (`00405db0`) for each such group, passing the group's first-attached member; that reads the group's `BFORMS.DAT` record and calls `Terrain_PaintFormationPad`.
 
-The record supplies the material index and a square `dim`×`dim` map of `0`/`1` bytes — see [`script-dat.md`](script-dat.md#the-per-formation-trailer), which owns the file layout, how many formations carry one, and the anchor placement that goes with it. A formation whose material index is `-1` paints nothing.
+The record supplies the material index and a square `dim`×`dim` map of `0`/`1` bytes — see [`../formats/script-dat.md`](../formats/script-dat.md#the-per-formation-trailer), which owns the file layout, how many formations carry one, and the anchor placement that goes with it. A formation whose material index is `-1` paints nothing.
 
 ```
 tile      = 1 << (0x15 - mat0[material].blockShift)     world units square, cellShift-independent
@@ -138,7 +118,7 @@ per cell  = 1 << (cellShift - 13)                       map entries along each a
 
 Two things fall out of that. The tile is the same 65,536 or 131,072 world units whatever the zone's cell size, the map simply resolving finer or coarser against it; and `dim` is not free data — it is `2 ^ (8 - blockShift)` at cell shift 13, which holds for all eleven retail formations with no exceptions.
 
-**The map is a levelling mask, not the pad's shape.** Every cell of the tile takes the material unconditionally; only cells whose map byte is nonzero also get `Terrain_SetCellScratch(1)`, feeding the flattening pass in [`terrain-heightmap.md`](terrain-heightmap.md#structure-footprints--the-flattening-pass) as its second input. The pad's outline is drawn into the frame art itself — overlay a formation's map on its frame and the marked entries land on that frame's concrete and nowhere else. **Map row 0 indexes the tile's high-y edge and counts down**, the same inversion the anchor placement uses.
+**The map is a levelling mask, not the pad's shape.** Every cell of the tile takes the material unconditionally; only cells whose map byte is nonzero also get `Terrain_SetCellScratch(1)`, feeding the flattening pass in [`../simulation/terrain-heightmap.md`](../simulation/terrain-heightmap.md#structure-footprints--the-flattening-pass) as its second input. The pad's outline is drawn into the frame art itself — overlay a formation's map on its frame and the marked entries land on that frame's concrete and nowhere else. **Map row 0 indexes the tile's high-y edge and counts down**, the same inversion the anchor placement uses.
 
 The material write, but not the levelling mark, is skipped when `CockpitArt_LoadOnDemand` is set — the low-memory mode (`-l`, or under 12 MB physical). Such a machine gets flat ground with no pad painted on it.
 

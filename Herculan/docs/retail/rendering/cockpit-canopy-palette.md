@@ -1,24 +1,10 @@
-# Canopy art, blitting, and the cockpit palette
+# Canopy blitting and the cockpit palette
 
 Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addresses are DBSIM unless noted. Symbols are in `tools/ghidra_scripts/known_symbols_dbsim.json`; apply with `ES2ApplySymbolNames.java`.
 
-Verified against retail data in `ES2/VOL/simvol0/{hb0,hb1,hb2,hba,dpl}/`.
+Verified against retail data in `ES2/VOL/simvol0/dpl/`.
 
-The view manager that loads this art per view, and the `.HD`/`.ED` viewport cutout it is blitted under: [`cockpit-views.md`](cockpit-views.md). The console and HUD widgets painted over it: [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md).
-
-## Canopy art — `.HB0`/`.HB1`/`.HB2` and `.DB0`/`.DB1`/`.DB2`
-
-`CockpitCanopy_LoadViewBitmap` (`00429c2c`, `MECHVIEW.CPP:0x12e`).
-
-No literal `"hb0"`/`"db0"` string exists anywhere in `DBSIM.EXE`. The folder name is built at runtime: the global folder literal `"dba"` (or `"hba"` when `VideoMode_PanelMode == 3`) is copied to a stack buffer and index 2 overwritten with an ASCII digit via `_itoa`, giving `db0`/`db1`/`db2` or `hb0`/`hb1`/`hb2`. Then `ResourcePath_BuildFolderName(hercName, buf)` → `ClassItem_LoadResource`. The same trick produces `ed<i>`/`hd<i>` from `"edg"`/`"hdg"` — see [`cockpit-views.md`](cockpit-views.md#hd0-hd3--ed0-ed3--3d-viewport-clip-regions).
-
-Files are Dynamix bitmap arrays ([`dfn-hfn-dci.md`](dfn-hfn-dci.md)) with one frame: `.DB*` 320x240 (76834 bytes), `.HB*` 640x480 (307234). The nine player hercs each have one per view, 27 of each; the extracted copies under `ES2/VOL/simvol0/` are 10 bytes longer for the VOL entry framing.
-
-`CockpitCanopy_FreeViewBitmap` (`00429de4`) releases one view's handle, also nulling slot 3 when freeing view 2. Used only when `CockpitArt_LoadOnDemand` (`004d2704`) is set — a low-memory mode that loads and frees per view switch rather than keeping all four resident.
-
-### Known defect in the retail code
-
-The `maybe_CockpitLayoutMode == 1` branch increments byte 2 of the **shared global** `"dba"` literal (`MOV ECX,[0x4a0a28]; INC byte ptr [ECX+2]` at `00429d3e`) rather than its local buffer. The follow-on load still uses the unmodified local buffer, so that branch loads `db0` twice and corrupts the global folder name for every later user. `004d25bc` is byte `+0x7c` of the video-mode block, which `Main_StaticInit` zeroes, and no write of 1 to it has been found ([Open](#open)) — see [`cockpit-views.md`](cockpit-views.md#video-modes).
+The canopy art's files and their loader: [`../formats/canopy-art-hb-db.md`](../formats/canopy-art-hb-db.md). The view manager that loads this art per view, and the `.HD`/`.ED` viewport cutout it is blitted under: [`../simulation/cockpit-views.md`](../simulation/cockpit-views.md). The console and HUD widgets painted over it: [`../simulation/cockpit-hud-widgets.md`](../simulation/cockpit-hud-widgets.md).
 
 ## Blitting
 
@@ -43,7 +29,7 @@ Confirmed at the reticle corner-bracket draw (`0044401d`–`0044403a`), which bl
 Palette_InstallRange(0x2a, 0x18, COCKPIT.DPL.entries + (schemeIndex*0x18 + 0x20)*4)
 ```
 
-Live slots **42-65** ← `COCKPIT.DPL` entries `[32 + 24*schemeIndex, +24)`. No other site installs `COCKPIT.DPL`; its remaining 232 entries are never read.
+Live slots **42-65** ← `COCKPIT.DPL` entries `[32 + 24*schemeIndex, +24)` ([file layout](../formats/dpl-palette.md)). No other site installs `COCKPIT.DPL`; its remaining 232 entries are never read.
 
 `schemeIndex` is the mech type record's `+0x52`, i.e. **offset 80 of `dat\<MECH>.DAT`** ([`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md#mech-type-record)). Retail values are a 0-8 permutation over the nine player hercs, so the nine schemes tile `COCKPIT.DPL` entries 32-247 exactly:
 
@@ -58,8 +44,6 @@ Live slots **42-65** ← `COCKPIT.DPL` entries `[32 + 24*schemeIndex, +24)`. No 
 | RAPTOR2 | 6 | 176-199 |
 | RAZOR | 7 | 200-223 |
 | TOMAHAWK | 8 | 224-247 |
-
-`COCKPIT.DPL` is a 256-entry palette (1050 bytes: 9-byte prefix, `0F 00 28 00`, size `0x408`, start index 0, count 256, 256 x 4 bytes). Entry layout is `[R][G][B][flag=1]`, 6-bit channels scaled x4 — entries 1-7 are the textbook VGA blue, green, cyan, red, magenta, brown and light grey at `0x2a`.
 
 Canopy art indices are used **as authored**; there is no shift, and the live palette is not assembled from two `.DPL` files.
 
@@ -123,7 +107,7 @@ if (nextToggleTick == 0) {
 
 **Which limit that is flips at the band's middle**, so the walk reverses every time it crosses the centre and can never settle — and, after the first step off the limit it starts on, **it never reaches either limit again**. Moving outward requires being on the near side of the middle, so the furthest reachable offset is the largest sub-middle offset plus the largest step. With the band of `5 << VideoMode_YCoordShift` the arm passes — ten device pixels in the 640-wide modes — and steps of 0-4, the offset starts at the limit and thereafter ranges over 1 to 8. **The band is wider than the excursion it produces**, which is the trap in reading the amplitude as the travel.
 
-The flash is a whole-palette swap rather than a fade: `Palette_ActivateImpact` (`0042ea44`) makes the secondary palette `ImpactPaletteObject` (`0049aef8`) active and saves the previous one, `Palette_ToggleImpact` (`0042ea70`) alternates the two, and `Palette_RestoreFromImpact` (`0042ea94`) puts the original back. That object is loaded twice over: `World_LoadTheater` (`0042e010`) builds it from the theater's own `IMPACT<n>.DPL` — `wld\WORLD<n>.WLD`'s third trailing string — and step 6 of the cockpit load sequence ([`cockpit-views.md`](cockpit-views.md#cockpitviewmanager_loadviews-sequence)) then overwrites its 24 cockpit indices from `IMPACTCP.DPL`. So a flash recolours the world and the cockpit together, each from its own source.
+The flash is a whole-palette swap rather than a fade: `Palette_ActivateImpact` (`0042ea44`) makes the secondary palette `ImpactPaletteObject` (`0049aef8`) active and saves the previous one, `Palette_ToggleImpact` (`0042ea70`) alternates the two, and `Palette_RestoreFromImpact` (`0042ea94`) puts the original back. That object is loaded twice over: `World_LoadTheater` (`0042e010`) builds it from the theater's own `IMPACT<n>.DPL`, named in `wld\WORLD<n>.WLD` ([`../formats/wld-world.md`](../formats/wld-world.md#the-worldn-descriptor--layout)), and step 6 of the cockpit load sequence ([`../simulation/cockpit-views.md`](../simulation/cockpit-views.md#cockpitviewmanager_loadviews-sequence)) then overwrites its 24 cockpit indices from `IMPACTCP.DPL`. So a flash recolours the world and the cockpit together, each from its own source.
 
 Its two triggers are both damage: a direct-fire hit on either of the player's own **cockpit** components while that component still reads under `0x64` damaged ([`../simulation/damage-system.md`](../simulation/damage-system.md#direct-fire-damage-armor-then-part-deterministic-shield-gated)), and the landing at the bottom of a long slide ([`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md#the-landing)). The first is gated and sits inside that function's band-change branch, so a shot that only scuffs the cockpit's armour is not felt; the second is ungated.
 
@@ -148,6 +132,5 @@ Each footfall of the player's own machine bobs the view through the projection c
 ## Open
 
 - **Open:** what reaches the death flash, `Sim_DeathFlash`. `es2_xref.py` finds no branch, stored pointer or vtable slot holding it, and the `death1` and `death2` palettes it loads are not in the shipped data.
-- **Open:** whether `maybe_CockpitLayoutMode` (`004d25bc`) is ever non-zero. `es2_xref.py` finds 23 absolute occurrences, all `MOVSX` reads, and `es2_fieldscan.py 7c` over the holders of the block base `004d2540` finds `Main_StaticInit`'s store of 0 and one read; no other write found.
 - **Open:** no writer of `HitShakeEndTick` (`0049b0fc`) or `HitShakeNextToggleTick` (`0049b100`) found outside `Cockpit_StartHitShake` and `Cockpit_HitShakeTick`. `es2_xref.py` finds 7 and 6 absolute references, all in those two functions, and none of the `0049b0xx`-`0049b12x` addresses the image loads as a base reaches either.
 - **Open:** what the shield meter's rings show through a retail flash — whether a reading change lands while the impact palette is active often enough to keep them steady, or they drop to the impact palette's slots 66-71.

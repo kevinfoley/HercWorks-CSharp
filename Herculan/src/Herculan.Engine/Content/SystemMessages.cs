@@ -4,7 +4,7 @@ namespace Herculan.Engine.Content;
 
 /// <summary>
 /// <c>str\SYSTEM.STR</c> — the cockpit computer's own message set: every line it says, and for each
-/// one the recorded clip that says it. See docs/retail/formats/cockpit-messages.md, "The computer's
+/// one the recorded clip that says it. See docs/retail/simulation/cockpit-messages.md, "The computer's
 /// messages".
 ///
 /// <para>The file is an ordinary <c>.STR</c> string table (see docs/retail/formats/str-strings.md) of two

@@ -225,7 +225,7 @@ public sealed class TransientDrawItems(MissionScene scene, SceneUploads uploads,
 	//
 	// A gun is drawn with the machine it hangs off, and culled with it: Mech_Draw (004174c8) splices each
 	// fitted weapon's shape into the machine's own before drawing it, so the guns are parts of the one
-	// object the draw table files (docs/retail/formats/mech-shape-drawing.md). That includes the skip for the
+	// object the draw table files (docs/retail/rendering/mech-shape-drawing.md). That includes the skip for the
 	// object the camera rides, so from inside the cockpit the player's own guns are not drawn either.
 	//
 	// The mount's draw slot (WeaponMount_RenderWithDetailBias (0040ded8)) pushes HERC DETAIL's TSDetailPart bias around the render.

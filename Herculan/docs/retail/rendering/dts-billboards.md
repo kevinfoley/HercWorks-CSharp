@@ -24,7 +24,7 @@ child->vtable[+0x1c]();
 
 **One child per frame, not a container.** `cellFrames` is the drawing shape instance's own per-sequence `ushort` array, published to the global `DAT_006b7bf0` by whatever installs the instance for drawing. Walking every child the way a `TSPartList` is walked stacks the whole animation on top of itself.
 
-**Children need not be bitmaps.** `BULLETS.DTS` root 8 (plasma) is a two-cell animation over real `TSGroup` geometry, and both `ROCKETS.DTS` roots animate their exhaust flame the same way — that file holds no `TSBitmapPart` at all (see [`rockets-dat.md`](rockets-dat.md#dtsrocketsdts)). `animSequence` (`part+0x16`, the label `TSCellAnimPart_DebugPrint` prints it under) picks which entry of `cellFrames` the part reads; a projectile's own tick names the same sequence in its type record and mods the counter by `TSShape.SequenceList[seq]`, the shape's per-sequence frame count at `shape+0x20`.
+**Children need not be bitmaps.** `BULLETS.DTS` root 8 (plasma) is a two-cell animation over real `TSGroup` geometry, and both `ROCKETS.DTS` roots animate their exhaust flame the same way — that file holds no `TSBitmapPart` at all (see [`../formats/rockets-dat.md`](../formats/rockets-dat.md#dtsrocketsdts)). `animSequence` (`part+0x16`, the label `TSCellAnimPart_DebugPrint` prints it under) picks which entry of `cellFrames` the part reads; a projectile's own tick names the same sequence in its type record and mods the counter by `TSShape.SequenceList[seq]`, the shape's per-sequence frame count at `shape+0x20`.
 
 ## `TSBitmapPart_Render` (`004762e8`)
 
@@ -77,6 +77,6 @@ All twenty `EXPLOS.DTS` roots carry an offset near half their frame's size — s
 
 ## Open
 
-- **Open:** the byte formats of the two packings. `Bitmap_UnpackToScratch` builds a decoder per type — type 1 an `RLERStream` (`RLERStream_CtorOnSource`, `0047b430`), type 3 an `LZHRStream` (`LZHRStream_CtorOnSource`, `0047b764`), the filter streams behind `.VOL` compression types 7 and 9 ([vol-archive.md](vol-archive.md#the-per-entry-prefix--fixed-9-bytes)) — over a stream of the data past its leading unpacked-size dword, and calls vtable `+0x18` to decode.
+- **Open:** the byte formats of the two packings. `Bitmap_UnpackToScratch` builds a decoder per type — type 1 an `RLERStream` (`RLERStream_CtorOnSource`, `0047b430`), type 3 an `LZHRStream` (`LZHRStream_CtorOnSource`, `0047b764`), the filter streams behind `.VOL` compression types 7 and 9 ([vol-archive.md](../formats/vol-archive.md#the-per-entry-prefix--fixed-9-bytes)) — over a stream of the data past its leading unpacked-size dword, and calls vtable `+0x18` to decode.
 - **Open:** which files carry packed bitmaps.
 - **Open:** bitmap object `+8` (8 in the map raster) and `+9` (a flags byte in which the raster builder sets bit `0x10`).

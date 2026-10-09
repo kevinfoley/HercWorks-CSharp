@@ -1941,8 +1941,8 @@
       "type": "function",
       "confidence": "high",
       "name": "TSBase_LoadDba",
-      "description": "Prefixes the install-root path onto the given relative .dba path, loads it through VshellClassItem_LoadItem (the same generic Dynamix ClassItem-registry resource loader used for .DFN/.DCI, see project_es2_exe_recon memory). Returns the loaded DBA handle later bound into a TSShapeInstance's +0x26 field or read via array[frame] by TSBitmapPart_Render. See docs/retail/formats/dts-texture-binding.md.",
-      "source": "docs/retail/formats/dts-texture-binding.md"
+      "description": "Prefixes the install-root path onto the given relative .dba path, loads it through VshellClassItem_LoadItem (the same generic Dynamix ClassItem-registry resource loader used for .DFN/.DCI, see project_es2_exe_recon memory). Returns the loaded DBA handle later bound into a TSShapeInstance's +0x26 field or read via array[frame] by TSBitmapPart_Render. See docs/retail/rendering/dts-texture-binding.md.",
+      "source": "docs/retail/rendering/dts-texture-binding.md"
     },
     {
       "address": "00408605",
@@ -2577,8 +2577,8 @@
       "type": "function",
       "confidence": "high",
       "name": "ESGrid_SetPart",
-      "description": "Contains the 'ESGrid::setPart out of range' assert (src/esgrid.cpp). Writes a resolved GLBitmap* plus placement fields into one of up to 29 named part slots (0x38-byte stride) on an ESGrid Herc-display widget -- the 2D icon/portrait-painting layer built on top of the base bitmap-tag mechanism, matching the same 29-part hit-zone indexing used by the mech damage formula. Not needed for base .DTS/.DBA texture rendering, only for VSHELL's per-poly paint-job overlay UI. See docs/retail/formats/dts-texture-binding.md.",
-      "source": "docs/retail/formats/dts-texture-binding.md"
+      "description": "Contains the 'ESGrid::setPart out of range' assert (src/esgrid.cpp). Writes a resolved GLBitmap* plus placement fields into one of up to 29 named part slots (0x38-byte stride) on an ESGrid Herc-display widget -- the 2D icon/portrait-painting layer built on top of the base bitmap-tag mechanism, matching the same 29-part hit-zone indexing used by the mech damage formula. Not needed for base .DTS/.DBA texture rendering, only for VSHELL's per-poly paint-job overlay UI. See docs/retail/rendering/dts-texture-binding.md.",
+      "source": "docs/retail/rendering/dts-texture-binding.md"
     },
     {
       "address": "0040b97c",
@@ -6657,7 +6657,7 @@
       "confidence": "high",
       "name": "TSTexture4Poly_RasterizeA",
       "description": "(positions, uvCorners, count, atlasPage, shadePtr, mode, preTransformed): VSHELL's affine textured-polygon fill, one function doing what DBSIM splits into Raster_SetupTexturedSpan and Raster_DrawPolygon. Per vertex: model-to-view unless preTransformed, project, u and v << 8, the view depth into +8 when maybe_g_DepthBufferEnabled is set, and in mode 2 a ramp row from shadePtr[i]; near-plane clip; Raster_ClipPolygonX, Raster_ClipPolygonY and Raster_BuildEdgeTables with flags 1 (|4 in mode 2, |8 with the depth buffer). Then per row u and v are stepped linearly across the span by the span routine the mode selects: 0 Raster_SpanTextured, 1 Raster_SpanTexturedShaded (with *shadePtr turned into one ramp row in place), 2 Raster_SpanTexturedGouraud, or their ...Clipped twins when the clip-span table DAT_0047e92c is set and the context clip mode is 2 or the depth buffer is on. TSTexture4Poly_Render dispatches between it and TSTexture4Poly_RasterizeB on g_TexturedPolyPerspective.",
-      "source": "docs/retail/formats/dts-texture-binding.md"
+      "source": "docs/retail/rendering/dts-texture-binding.md"
     },
     {
       "address": "00420900",
@@ -6666,7 +6666,7 @@
       "confidence": "high",
       "name": "TSTexture4Poly_RasterizeB",
       "description": "(positions, uvCorners, count, atlasPage, shadePtr, mode, preTransformed): the perspective-correct twin of TSTexture4Poly_RasterizeA, and VSHELL's copy of DBSIM's Raster_DrawTexturedPolyNear. Per vertex it stores 1/z (1 << DAT_005d7fd4 over the view depth) at +0x14, u and v << 16 times 1/z, and the view depth at +8; clips and builds edges with flags 0xb (0xf in mode 2). Each row is drawn in runs of 2^k pixels: k = 10 when the row's ends have equal 1/z, else 4, 5, 6 or 7 as |delta 1/z| >> 12 is over DAT_00471980, over DAT_00471984, over DAT_00471988 or none. At each run's end u and v are recovered with Int64Pair_Q16Divide (per-run steps from Raster_ScaleRunStep) and the run is filled affinely by Raster_SpanTexturedShaded, or Raster_SpanTexturedShadedClipped under RasterizeA's conditions. With g_PerspectiveUseQuadraticFit set, the row's start and its last partial run's end take Raster_BuildEdgeTables' quadratic fit instead of a divide. Every mode draws with the shaded span: mode 1 sets its ramp row from *shadePtr, and mode 2 interpolates a per-vertex row along the edges that no span reads.",
-      "source": "docs/retail/formats/dts-texture-binding.md"
+      "source": "docs/retail/rendering/dts-texture-binding.md"
     },
     {
       "address": "00421292",
@@ -6782,8 +6782,8 @@
       "type": "function",
       "confidence": "high",
       "name": "TSBitmapPart_Render",
-      "description": "Contains the 'TSBase::getBitmapPtr() : index out of range' assert. Reads poly+0x10 (the part's bitmap tag) as a frame index, bounds-checks against g_ActiveBitmapArray's count, looks up g_ActiveBitmapArray.Frames[frameIndex], and if non-null draws a textured quad using poly+0x12/+0x13 (the x and y offset bytes) for placement. This is the bitmap-tag-to-bitmap resolution path. See docs/retail/formats/dts-texture-binding.md.",
-      "source": "docs/retail/formats/dts-texture-binding.md"
+      "description": "Contains the 'TSBase::getBitmapPtr() : index out of range' assert. Reads poly+0x10 (the part's bitmap tag) as a frame index, bounds-checks against g_ActiveBitmapArray's count, looks up g_ActiveBitmapArray.Frames[frameIndex], and if non-null draws a textured quad using poly+0x12/+0x13 (the x and y offset bytes) for placement. This is the bitmap-tag-to-bitmap resolution path. See docs/retail/rendering/dts-texture-binding.md.",
+      "source": "docs/retail/rendering/dts-texture-binding.md"
     },
     {
       "address": "00421f48",
@@ -6827,7 +6827,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSPartList_FindPartSlot",
-      "description": "TSPartList vtable 00471ab8 slot +0x24 (list, id): returns the address of the entry of the child array +0x12 (count +0x10) whose part's id (+6) is id; when no direct child matches, asks each child through its own slot +0x24 and returns the first non-null answer. The address of the slot, not the part, is what lets a caller replace the part; see docs/retail/formats/mech-shape-drawing.md. DBSIM's copy is 00476784.",
+      "description": "TSPartList vtable 00471ab8 slot +0x24 (list, id): returns the address of the entry of the child array +0x12 (count +0x10) whose part's id (+6) is id; when no direct child matches, asks each child through its own slot +0x24 and returns the first non-null answer. The address of the slot, not the part, is what lets a caller replace the part; see docs/retail/rendering/mech-shape-drawing.md. DBSIM's copy is 00476784.",
       "source": "VSHELL disassembly of 004220c0; vtable 00471ab8 (RTTI TSPartList)"
     },
     {
@@ -7011,7 +7011,7 @@
       "confidence": "high",
       "name": "TSSolidPoly_Render",
       "description": "TSSolidPoly's real vtable-slot-0x1c render method (see g_TSSolidPolyVtable). Resolves the surface record via (surfaceField*4 + g_ActiveSurfaceRecords) -- the same *4 stride as TSTexture4Poly_Render, consistent with the poly's surface field holding surfaceIndex*4. Runs TSPoly_FrontBackVisibilityTest against poly+4/+6 (normal/centre point indices, each *6 into the three-short point array) to pick front (piVar3[0]/[1] = Front/FrontLine) or back (piVar3[2]/[3] = Back/BackLine) color pair -- confirms the surface entry's 4-slot Front/FrontLine/Back/BackLine layout applies to flat polys too, not just textured ones. Skips drawing if both resolved color dwords have top byte 0x18-shift == 0x14 (looks like an uninitialized/sentinel guard, not chased further). Otherwise projects and clips via Poly_ProjectShapeVertices/Poly_ClipRingToNearPlane and fills via PolyFill_FillThenOutline -- the chain TSTexture4Poly_Render's g_TexturedPolyUseBitmapBrush branch also uses, there with a bitmap brush installed in place of the default colour brush. No dithering/lighting-ramp math visible anywhere in this chain -- VSHELL (a shell/viewer app) passes the front/back colours straight through to the fill routines, unlike DBSIM's in-mission renderer.",
-      "source": "flat-shaded lighting RE, docs/retail/formats/dts-texture-binding.md"
+      "source": "flat-shaded lighting RE, docs/retail/rendering/dts-texture-binding.md"
     },
     {
       "address": "00422af5",
@@ -7019,8 +7019,8 @@
       "type": "function",
       "confidence": "high",
       "name": "TSTexture4Poly_Render",
-      "description": "TSTexture4Poly's vtable-slot-0x1c render method (see g_TSTexture4PolyVtable). Reads poly+0xc (the surface field) as MOVZX (unsigned short), SHL 2 (x4) to a byte offset into g_ActiveSurfaceRecords (g_ActiveSurfaceRecords), then reads front=*(int32*)(base+offset) and back=*(int32*)(base+offset+8), i.e. two int32 slots on -- read from ES2DumpAsm raw disassembly, not just the decompiler. A TSGroup's on-disk surface count is stored as surfaceCount*4 and each surface entry is four slots (Front, FrontLine, Back, BackLine), so the surface field holds surfaceIndex*4: the front value is surface[field/4].Front and the back value surface[field/4].Back. Front/back is chosen by TSPoly_FrontBackVisibilityTest against poly+4/+6; when the ramp row count DAT_0047e9ac is non-zero the face's shade comes from Light_ComputeShadeForFace, with the normal negated for a back face. g_TexturedPolyUseBitmapBrush (00471890) chooses between two textured fills: this descriptor-and-rasterizer path (flag == 0) and a 2D bitmap-brush fill of the frame's bitmap (flag != 0; see the flag's entry). Only the flag == 0 path reaches TSTexture4Poly_RasterizeA/B. In that path the resolved frame index indexes the 20-byte-stride per-frame descriptor table at g_ActiveBitmapArray[1] (a pointer distinct from the DBA object itself): int32 fields F0..F3 (bytes 0-15) and F4 at byte 16, passed to the rasterizer as param_4 (a pixel-data handle). The quad's UV corners are [V0=(F0,F1), V1=(F2,F1), V2=(F2,F3), V3=(F0,F3)] (decompiled assignment sequence _DAT_0048a190.._0048a1ac = F0,F1,F2,F1,F2,F3,F0,F3): an axis-aligned rect, top-left, top-right, bottom-right, bottom-left, with F0/F1 the frame's texture-space left/top and F2/F3 its right/bottom. The function that builds that descriptor table, which decides whether F0/F1 can be nonzero, is open. See docs/retail/formats/dts-texture-binding.md.",
-      "source": "docs/retail/formats/dts-texture-binding.md"
+      "description": "TSTexture4Poly's vtable-slot-0x1c render method (see g_TSTexture4PolyVtable). Reads poly+0xc (the surface field) as MOVZX (unsigned short), SHL 2 (x4) to a byte offset into g_ActiveSurfaceRecords (g_ActiveSurfaceRecords), then reads front=*(int32*)(base+offset) and back=*(int32*)(base+offset+8), i.e. two int32 slots on -- read from ES2DumpAsm raw disassembly, not just the decompiler. A TSGroup's on-disk surface count is stored as surfaceCount*4 and each surface entry is four slots (Front, FrontLine, Back, BackLine), so the surface field holds surfaceIndex*4: the front value is surface[field/4].Front and the back value surface[field/4].Back. Front/back is chosen by TSPoly_FrontBackVisibilityTest against poly+4/+6; when the ramp row count DAT_0047e9ac is non-zero the face's shade comes from Light_ComputeShadeForFace, with the normal negated for a back face. g_TexturedPolyUseBitmapBrush (00471890) chooses between two textured fills: this descriptor-and-rasterizer path (flag == 0) and a 2D bitmap-brush fill of the frame's bitmap (flag != 0; see the flag's entry). Only the flag == 0 path reaches TSTexture4Poly_RasterizeA/B. In that path the resolved frame index indexes the 20-byte-stride per-frame descriptor table at g_ActiveBitmapArray[1] (a pointer distinct from the DBA object itself): int32 fields F0..F3 (bytes 0-15) and F4 at byte 16, passed to the rasterizer as param_4 (a pixel-data handle). The quad's UV corners are [V0=(F0,F1), V1=(F2,F1), V2=(F2,F3), V3=(F0,F3)] (decompiled assignment sequence _DAT_0048a190.._0048a1ac = F0,F1,F2,F1,F2,F3,F0,F3): an axis-aligned rect, top-left, top-right, bottom-right, bottom-left, with F0/F1 the frame's texture-space left/top and F2/F3 its right/bottom. The function that builds that descriptor table, which decides whether F0/F1 can be nonzero, is open. See docs/retail/rendering/dts-texture-binding.md.",
+      "source": "docs/retail/rendering/dts-texture-binding.md"
     },
     {
       "address": "00423024",
@@ -7064,7 +7064,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSGroup_RenderPolys",
-      "description": "TSGroup's render method: slot +0x1c of the vtable at 00471bf4, whose RTTI names TSGroup (0x28 bytes). Calls TSGroup_BindNodeTransform into a local transform, saves the render context's (0048e184) +0x228, +0x22c and +0x20c, installs the default brushes PolyFill_LineBrush and PolyFill_FillBrush at +0x228 and +0x22c and clears +0x20c. Publishes the group's colour list (+0x18) as g_ActiveSurfaceRecords, its points (+0x14, three int16 each) at 005d8894 and its indexes (+0x10, or Poly_SequentialIndices when null) at Poly_RingIndices. Copies the point count +0x22 to 005d889c, asserts it is at most 1000 (severity 4, ts_base.h line 0x2e7) and zeroes that many bytes of the per-point scratch at Poly_VertexState. Then draws the +0x26 items of the +0x1c pointer array in order, each through its own vtable slot +0x1c, restores the three context fields and calls TSRender_NoOp. TSBSPGroup_Render is the TSBSPGroup counterpart, drawing the polys in BSP order instead. Field names from TSGroup_DebugPrint; see docs/retail/formats/dts-texture-binding.md.",
+      "description": "TSGroup's render method: slot +0x1c of the vtable at 00471bf4, whose RTTI names TSGroup (0x28 bytes). Calls TSGroup_BindNodeTransform into a local transform, saves the render context's (0048e184) +0x228, +0x22c and +0x20c, installs the default brushes PolyFill_LineBrush and PolyFill_FillBrush at +0x228 and +0x22c and clears +0x20c. Publishes the group's colour list (+0x18) as g_ActiveSurfaceRecords, its points (+0x14, three int16 each) at 005d8894 and its indexes (+0x10, or Poly_SequentialIndices when null) at Poly_RingIndices. Copies the point count +0x22 to 005d889c, asserts it is at most 1000 (severity 4, ts_base.h line 0x2e7) and zeroes that many bytes of the per-point scratch at Poly_VertexState. Then draws the +0x26 items of the +0x1c pointer array in order, each through its own vtable slot +0x1c, restores the three context fields and calls TSRender_NoOp. TSBSPGroup_Render is the TSBSPGroup counterpart, drawing the polys in BSP order instead. Field names from TSGroup_DebugPrint; see docs/retail/rendering/dts-texture-binding.md.",
       "source": "VSHELL disassembly at 00423497; tools/scripts/es2_naming.py rtti VSHELL 00471bf4; VSHELL_vtables_full.txt"
     },
     {
@@ -7100,7 +7100,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSBSPGroup_Render",
-      "description": "TSBSPGroup's render method: slot +0x1c of the vtable at 00471bc0, whose RTTI names TSBSPGroup (0x2e bytes). Sets up like TSGroup's render: TSGroup_BindNodeTransform, the default brushes PolyFill_LineBrush and PolyFill_FillBrush installed at the context's +0x228 and +0x22c with +0x20c cleared, the group's surfaces (+0x18), points (+0x14) and indexes (+0x10, defaulted when null), and a zeroed scratch of +0x22 bytes, asserting that count is at most 1000. Then draws the polys by the group's BSP tree through TSBSPGroup_RenderNode from node 0 rather than in order, and restores the three context fields. See docs/retail/formats/dts-texture-binding.md.",
+      "description": "TSBSPGroup's render method: slot +0x1c of the vtable at 00471bc0, whose RTTI names TSBSPGroup (0x2e bytes). Sets up like TSGroup's render: TSGroup_BindNodeTransform, the default brushes PolyFill_LineBrush and PolyFill_FillBrush installed at the context's +0x228 and +0x22c with +0x20c cleared, the group's surfaces (+0x18), points (+0x14) and indexes (+0x10, defaulted when null), and a zeroed scratch of +0x22 bytes, asserting that count is at most 1000. Then draws the polys by the group's BSP tree through TSBSPGroup_RenderNode from node 0 rather than in order, and restores the three context fields. See docs/retail/rendering/dts-texture-binding.md.",
       "source": "VSHELL decompile at 00423709; tools/scripts/es2_naming.py rtti VSHELL 00471bc0; VSHELL_vtables_full.txt"
     },
     {
@@ -7823,7 +7823,7 @@
       "type": "function",
       "confidence": "high",
       "name": "HGrid_RenderAround",
-      "description": "(grid, position): hgrid.cpp's cell renderer, while grid +0x118 is set. Clears the model transform, installs a mode-0 brush at the context's +0x22c for the walk, takes the cell of position (+4, +8, shifted down by grid +0x104) and its byte +0x17, and walks the polygon at grid +0xc8 around it with CellWalk_Polygon, callback 00429dac. When that byte was set it calls HGrid_InvokeCellHook(grid, cellX, cellY) after the walk. Restores the brush. See docs/retail/polygon-fill.md.",
+      "description": "(grid, position): hgrid.cpp's cell renderer, while grid +0x118 is set. Clears the model transform, installs a mode-0 brush at the context's +0x22c for the walk, takes the cell of position (+4, +8, shifted down by grid +0x104) and its byte +0x17, and walks the polygon at grid +0xc8 around it with CellWalk_Polygon, callback 00429dac. When that byte was set it calls HGrid_InvokeCellHook(grid, cellX, cellY) after the walk. Restores the brush. See docs/retail/rendering/polygon-fill.md.",
       "source": "VSHELL decompile at 00429b4a"
     },
     {
@@ -8361,7 +8361,7 @@
       "confidence": "high",
       "name": "Sfx_PlayMusicTrack",
       "description": "SFX-level thunk to Music_PlayTrack (0042dcef), the copy of DBSIM's. No reference found by es2_xref.",
-      "source": "docs/retail/formats/audio.md#open"
+      "source": "docs/retail/simulation/audio.md#open"
     },
     {
       "address": "0042d5ec",
@@ -8808,7 +8808,7 @@
       "confidence": "high",
       "name": "Music_PlayTrack",
       "description": "The copy of DBSIM's Music_PlayTrack: plays one Red Book CD track through MCI (cdaudio, TMSF, MCI_PLAY with MCI_NOTIFY). Reached only through Sfx_PlayMusicTrack.",
-      "source": "docs/retail/formats/audio.md"
+      "source": "docs/retail/simulation/audio.md"
     },
     {
       "address": "0042ddf4",
@@ -9153,7 +9153,7 @@
       "confidence": "high",
       "name": "CellWalk_SetCallback",
       "description": "(ctx, callback, value): stores the cell walk's callback at ctx+0x14 and its value at ctx+0x18.",
-      "source": "docs/retail/polygon-fill.md#walking-a-polygons-cells"
+      "source": "docs/retail/rendering/polygon-fill.md#walking-a-polygons-cells"
     },
     {
       "address": "0042f3c4",
@@ -9162,7 +9162,7 @@
       "confidence": "high",
       "name": "CellWalk_Polygon",
       "description": "(ctx, centre, polygon): cuts the polygon into four quadrants around the centre cell with Poly_ClipToHalfPlane, scan-converts each with Poly_BuildSpanList, and calls ctx's callback(ctx, row, xFrom, xTo) per row run, far to near when maybe_g_DepthBufferEnabled == 0 && DAT_00471884 != 0 (the image values) and near to far otherwise. hgrid.cpp's cell renderer 00429b4a calls it.",
-      "source": "docs/retail/polygon-fill.md#walking-a-polygons-cells"
+      "source": "docs/retail/rendering/polygon-fill.md#walking-a-polygons-cells"
     },
     {
       "address": "0042f968",
@@ -9171,7 +9171,7 @@
       "confidence": "high",
       "name": "Point_RotateQuarterAbout",
       "description": "(&x, &y, centre): x' = cx + (y - cy), y' = cy - (x - cx), in place. CellWalk_PolygonByColumn turns its polygon with it.",
-      "source": "docs/retail/polygon-fill.md#walking-a-polygons-cells"
+      "source": "docs/retail/rendering/polygon-fill.md#walking-a-polygons-cells"
     },
     {
       "address": "0042f990",
@@ -9180,7 +9180,7 @@
       "confidence": "high",
       "name": "Point_UnrotateQuarterAbout",
       "description": "(&x, &y, centre): the inverse of Point_RotateQuarterAbout, x = cx - (y' - cy), y = cy + (x' - cx), in place.",
-      "source": "docs/retail/polygon-fill.md#walking-a-polygons-cells"
+      "source": "docs/retail/rendering/polygon-fill.md#walking-a-polygons-cells"
     },
     {
       "address": "0042f9b8",
@@ -9189,7 +9189,7 @@
       "confidence": "high",
       "name": "CellWalk_PolygonByColumn",
       "description": "(ctx, centre, polygon): CellWalk_Polygon's far-to-near walk by column: turns the points a quarter turn about the centre (Point_RotateQuarterAbout), walks, turns each run's end cells back (Point_UnrotateQuarterAbout) and calls callback(ctx, column, yFrom, yTo), then turns the points back. Ghidra's decompile misreads its context as Rtl_VectorNew's return; it is the first argument, held in EDI.",
-      "source": "docs/retail/polygon-fill.md#walking-a-polygons-cells"
+      "source": "docs/retail/rendering/polygon-fill.md#walking-a-polygons-cells"
     },
     {
       "address": "0042fe5a",
@@ -9198,7 +9198,7 @@
       "confidence": "high",
       "name": "CellWalk_Rect",
       "description": "(ctx, centre, rect{x0, y0, x1, y1}): the far-to-near cell walk over a rectangle, no scan conversion, each half running its first quadrant's rows before its second's.",
-      "source": "docs/retail/polygon-fill.md#walking-a-polygons-cells"
+      "source": "docs/retail/rendering/polygon-fill.md#walking-a-polygons-cells"
     },
     {
       "address": "0043000d",
@@ -9216,7 +9216,7 @@
       "confidence": "high",
       "name": "Poly_ClipToHalfPlane",
       "description": "(keepHigh, alongX, value, in, out): one Sutherland-Hodgman pass keeping the part of polygon in ({count, points*}) with x (alongX) or y at >= value (keepHigh) or <= value, points on the line kept, into out (whose point pointer the caller sets); crossings computed from the previous point, truncating. Returns the count's low byte. The case bodies sit behind a jump table Ghidra left undisassembled.",
-      "source": "docs/retail/polygon-fill.md#walking-a-polygons-cells"
+      "source": "docs/retail/rendering/polygon-fill.md#walking-a-polygons-cells"
     },
     {
       "address": "00430378",
@@ -16657,7 +16657,7 @@
       "confidence": "high",
       "name": "Gfx_FillPolygonReversed",
       "description": "(count, points): for more than two points copies them in reverse order (20-point stack buffer, no bounds check) and calls Gfx_FillPolygon; when the fill at context +0x228 is type 5 it also reverses the fill's per-vertex list at +8 for the call, then restores the pointer.",
-      "source": "docs/retail/polygon-fill.md#filling-a-polygon"
+      "source": "docs/retail/rendering/polygon-fill.md#filling-a-polygon"
     },
     {
       "address": "00455b9b",
@@ -16666,7 +16666,7 @@
       "confidence": "high",
       "name": "Gfx_FillPolygonEitherWinding",
       "description": "(count, points): sums the shoelace cross products in 64 bits; zero or less goes to Gfx_FillPolygonReversed, otherwise (and for one or two points) to Gfx_FillPolygon. Does nothing for count 0.",
-      "source": "docs/retail/polygon-fill.md#filling-a-polygon"
+      "source": "docs/retail/rendering/polygon-fill.md#filling-a-polygon"
     },
     {
       "address": "00455c18",
@@ -16675,7 +16675,7 @@
       "confidence": "high",
       "name": "Poly_ClipToRect",
       "description": "(count, points, out, rect{x0, y0, x1, y1}): Sutherland-Hodgman clip against an inclusive rect, x pass then y pass, crossings computed from the outside endpoint with truncating 64-bit division; returns the new count. Gfx_FillPolygon's clip modes 1 and 2 use it.",
-      "source": "docs/retail/polygon-fill.md#clipping-to-a-rectangle"
+      "source": "docs/retail/rendering/polygon-fill.md#clipping-to-a-rectangle"
     },
     {
       "address": "00456000",
@@ -16684,7 +16684,7 @@
       "confidence": "high",
       "name": "Poly_ScanConvertToSpanRegion",
       "description": "(count, points, out): scan-converts a convex, clockwise outline of int32 {x, y} points into an int16 span region {top, rows, {x0, x1} per row} by Bresenham chains. Gfx_FillPolygon's span fills go through it. Span rules in the doc.",
-      "source": "docs/retail/polygon-fill.md#scan-conversion"
+      "source": "docs/retail/rendering/polygon-fill.md#scan-conversion"
     },
     {
       "address": "00457364",
@@ -18478,7 +18478,7 @@
       "confidence": "high",
       "name": "TSPoly_FrontBackVisibilityTest",
       "description": "(normal, centre), both three-short points: with the focal shift 005d7fd4 at 0, rotates the normal into view space through g_ModelToView and returns 1 when its depth component is negative; otherwise returns dot(normal, g_EyeInModelSpace - centre). Seven call sites in the poly renderers (TSSolidPoly_Render, TSTexture4Poly_Render and five more), each treating a positive result as front-facing. The same code as DBSIM's TSPoly_FrontBackVisibilityTest (0048c620).",
-      "source": "VSHELL decompile at 0045e480; docs/retail/formats/dts-texture-binding.md"
+      "source": "VSHELL decompile at 0045e480; docs/retail/rendering/dts-texture-binding.md"
     },
     {
       "address": "0045e590",
@@ -18553,7 +18553,7 @@
       "confidence": "high",
       "name": "Poly_ClipRingToNearPlaneWithShade",
       "description": "(shadeIn, shadeOut): Poly_ClipRingToNearPlane carrying a per-vertex uint16 shade along. Walks the current ring (Poly_RingCount indices from Poly_RingIndices + Poly_RingFirst * 2) by Poly_VertexState: an edge with both ends projected (2) emits the end's cached screen point and copies its shade; an edge with one projected end emits the crossing with the near plane (005d7fd8), interpolated in view-space depth from Poly_ViewCache and offset to the viewport centre, with the shade interpolated by the same fraction, then the end itself when it is the projected one. Rebuilds Poly_ScreenPoints and Poly_ScreenPointCount. TSGouraudPoly_Render, TSAliasGouraudPoly_Render and Terrain_FillCellUntextured call it. The VSHELL copy of DBSIM's 0048d280.",
-      "source": "docs/retail/polygon-fill.md"
+      "source": "docs/retail/rendering/polygon-fill.md"
     },
     {
       "address": "0045f300",
@@ -18562,7 +18562,7 @@
       "confidence": "high",
       "name": "PolyFill_Fill",
       "description": "Fills the screen polygon Poly_ScreenPoints (Poly_ScreenPointCount points) with GL_FillPolygonEitherWinding on GL_GetGlobal7's display, then when PolyFill_LineColour differs from PolyFill_FillColour copies it into the fill colour, sets PolyFill_FillBrush's mode to 4 and fills the same polygon again -- the outline pass, without PolyFill_FillThenOutline's mode-5 guard. Terrain_FillCellUntextured and PolyFill_FillThenOutline call it. The VSHELL copy of DBSIM's PolyFill_Fill (0048d4b4).",
-      "source": "docs/retail/polygon-fill.md"
+      "source": "docs/retail/rendering/polygon-fill.md"
     },
     {
       "address": "0045f364",
@@ -19230,7 +19230,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSTexture4Poly_Construct",
-      "description": "The class-item load function g_TSObjectTypeRegistry registers for tag 0x14000f 'TSTexture4Poly': (stream, mode) Arena_Alloc's 0xe bytes from the arena ArenaStack_Current and stamps the vtables of each level of its inheritance chain in turn, as each inlined constructor runs (ClassItem 0047f834, TSBase 0047f858, TSGroupItem 0047ee64, TSPoly 0047ee90, TSSolidPoly g_TSSolidPolyVtable, TSTexture4Poly g_TSTexture4PolyVtable), then calls the object's vtable +0xc read with (stream, mode) and returns it. See docs/retail/formats/dts-texture-binding.md.",
+      "description": "The class-item load function g_TSObjectTypeRegistry registers for tag 0x14000f 'TSTexture4Poly': (stream, mode) Arena_Alloc's 0xe bytes from the arena ArenaStack_Current and stamps the vtables of each level of its inheritance chain in turn, as each inlined constructor runs (ClassItem 0047f834, TSBase 0047f858, TSGroupItem 0047ee64, TSPoly 0047ee90, TSSolidPoly g_TSSolidPolyVtable, TSTexture4Poly g_TSTexture4PolyVtable), then calls the object's vtable +0xc read with (stream, mode) and returns it. See docs/retail/rendering/dts-texture-binding.md.",
       "source": "VSHELL decompile of 0045ffe0; registry entry 0047f2f4"
     },
     {
@@ -20058,7 +20058,7 @@
       "type": "function",
       "confidence": "high",
       "name": "TSShape_Render",
-      "description": "TSShape vtable 0047f1c1 slot +0x1c (shape): binds the shape's own per-sequence frames (+0x1c, ShapeRender_BindCellFrames) and transform array (+0x18, ShapeRender_BindNodeTransforms); when 0047f188 is set, TSBounds_ScreenVisibility culls (0) or, for 2 while the context's +0x208 is 1, clears +0x208 around the draw; then swaps g_ActiveBitmapArray for the shape's bound DBA (TSShape_GetBoundBitmapArray, +0x26), draws the children with TSPartList_Render and restores the global. The class is TSShape by the vtable's RTTI; see docs/retail/formats/dts-texture-binding.md.",
+      "description": "TSShape vtable 0047f1c1 slot +0x1c (shape): binds the shape's own per-sequence frames (+0x1c, ShapeRender_BindCellFrames) and transform array (+0x18, ShapeRender_BindNodeTransforms); when 0047f188 is set, TSBounds_ScreenVisibility culls (0) or, for 2 while the context's +0x208 is 1, clears +0x208 around the draw; then swaps g_ActiveBitmapArray for the shape's bound DBA (TSShape_GetBoundBitmapArray, +0x26), draws the children with TSPartList_Render and restores the global. The class is TSShape by the vtable's RTTI; see docs/retail/rendering/dts-texture-binding.md.",
       "source": "VSHELL decompile of 00462730; vtable 0047f1c1 (RTTI TSShape)"
     },
     {
@@ -20112,8 +20112,8 @@
       "type": "function",
       "confidence": "high",
       "name": "TSBase_GetActiveBitmapArray",
-      "description": "return g_ActiveBitmapArray (g_ActiveBitmapArray). Paired with TSBase_SetActiveBitmapArray as the only two accessors of that global (confirmed via full xref list). See docs/retail/formats/dts-texture-binding.md.",
-      "source": "docs/retail/formats/dts-texture-binding.md"
+      "description": "return g_ActiveBitmapArray (g_ActiveBitmapArray). Paired with TSBase_SetActiveBitmapArray as the only two accessors of that global (confirmed via full xref list). See docs/retail/rendering/dts-texture-binding.md.",
+      "source": "docs/retail/rendering/dts-texture-binding.md"
     },
     {
       "address": "0046296d",
@@ -20121,8 +20121,8 @@
       "type": "function",
       "confidence": "high",
       "name": "TSShape_GetBoundBitmapArray",
-      "description": "(shape): returns the DBA bound to the shape at +0x26. A TSShape field (the object is 0x2a bytes; a TSShapeInstance is 0xc), set at run time rather than stored in the .DTS. See docs/retail/formats/dts-texture-binding.md.",
-      "source": "docs/retail/formats/dts-texture-binding.md"
+      "description": "(shape): returns the DBA bound to the shape at +0x26. A TSShape field (the object is 0x2a bytes; a TSShapeInstance is 0xc), set at run time rather than stored in the .DTS. See docs/retail/rendering/dts-texture-binding.md.",
+      "source": "docs/retail/rendering/dts-texture-binding.md"
     },
     {
       "address": "00462978",
@@ -20130,8 +20130,8 @@
       "type": "function",
       "confidence": "high",
       "name": "TSBase_SetActiveBitmapArray",
-      "description": "g_ActiveBitmapArray = param_1. The only write site for g_ActiveBitmapArray in the whole binary (confirmed via ES2FindAddressRefs on the global's address). See docs/retail/formats/dts-texture-binding.md.",
-      "source": "docs/retail/formats/dts-texture-binding.md"
+      "description": "g_ActiveBitmapArray = param_1. The only write site for g_ActiveBitmapArray in the whole binary (confirmed via ES2FindAddressRefs on the global's address). See docs/retail/rendering/dts-texture-binding.md.",
+      "source": "docs/retail/rendering/dts-texture-binding.md"
     },
     {
       "address": "00462988",
@@ -21393,7 +21393,7 @@
       "type": "function",
       "confidence": "high",
       "name": "Poly_ScanConvert",
-      "description": "(count, points, out): the int32 twin of Poly_ScanConvertToSpanRegion: scan-converts a convex, clockwise outline into {top, rows, then an int32 {x0, x1} pair per row} by the same rules (docs/retail/polygon-fill.md#scan-conversion). Called only through Poly_ScanConvertEitherWinding and Poly_ScanConvertReversed.",
+      "description": "(count, points, out): the int32 twin of Poly_ScanConvertToSpanRegion: scan-converts a convex, clockwise outline into {top, rows, then an int32 {x0, x1} pair per row} by the same rules (docs/retail/rendering/polygon-fill.md#scan-conversion). Called only through Poly_ScanConvertEitherWinding and Poly_ScanConvertReversed.",
       "source": "VSHELL decompile of 00465e0a and its two entry wrappers; DBSIM copies matched by byte comparison"
     },
     {
@@ -24532,7 +24532,7 @@
       "confidence": "medium",
       "name": "maybe_g_DepthBufferEnabled",
       "description": "The VSHELL counterpart of DBSIM's maybe_g_DepthBufferEnabled (0049f270). When non-zero, both textured rasterizers run Raster_DepthTestSpan per row and, when the clip-span table DAT_0047e92c is set, draw its runs through the ...Clipped spans (TSTexture4Poly_RasterizeA also stores the view depth in vertex +8 and adds edge flag 8, which TSTexture4Poly_RasterizeB always does), and CellWalk_Polygon walks near to far. 0 in the image; every absolute-address operand found is a read.",
-      "source": "VSHELL decompile of TSTexture4Poly_RasterizeA/B and CellWalk_Polygon; docs/retail/polygon-fill.md"
+      "source": "VSHELL decompile of TSTexture4Poly_RasterizeA/B and CellWalk_Polygon; docs/retail/rendering/polygon-fill.md"
     },
     {
       "address": "0047188c",
@@ -25062,8 +25062,8 @@
       "type": "data",
       "confidence": "high",
       "name": "g_TSTexture4PolyVtable",
-      "description": "TSTexture4Poly's vtable (RTTI 'TSTexture4Poly'), the one TSTexture4Poly_Construct stamps last. Slot +0x1c, TSTexture4Poly_Render, is what TSGroup_RenderPolys's per-item dispatch calls for a TSTexture4Poly; a TSBitmapPart draws through its own TSBitmapPart_Render, so the two do not share one render mechanism. See docs/retail/formats/dts-texture-binding.md.",
-      "source": "docs/retail/formats/dts-texture-binding.md"
+      "description": "TSTexture4Poly's vtable (RTTI 'TSTexture4Poly'), the one TSTexture4Poly_Construct stamps last. Slot +0x1c, TSTexture4Poly_Render, is what TSGroup_RenderPolys's per-item dispatch calls for a TSTexture4Poly; a TSBitmapPart draws through its own TSBitmapPart_Render, so the two do not share one render mechanism. See docs/retail/rendering/dts-texture-binding.md.",
+      "source": "docs/retail/rendering/dts-texture-binding.md"
     },
     {
       "address": "0047ee38",
@@ -25080,8 +25080,8 @@
       "type": "data",
       "confidence": "high",
       "name": "g_TSObjectTypeRegistry",
-      "description": "18-entry, 12-byte-stride table: {tag:uint32 matching a DTS chunk header's on-disk [subtype:u16][supertype:u16] bytes, constructorFnPtr, nameStringPtr}. Every tag matches a known DTS chunk tag (e.g. 0x0014000f = TSTexture4Poly) and sits beside its name string (\"TSPoly\", \"TSGroup\", etc.). This is the DTS-tree node factory VSHELL's and DBSIM's shared ThreeSpace engine uses to construct the right C++ class per on-disk chunk tag -- the reliable way to find any TS*/AN* class's real constructor (and from there its real vtable) when RTTI type-name strings have zero code references, as they often do in this binary (also seen for .BND's MECH string). Tag 0x0e is registered here but has no known retail .DTS chunk. See docs/retail/formats/dts-texture-binding.md.",
-      "source": "docs/retail/formats/dts-texture-binding.md"
+      "description": "18-entry, 12-byte-stride table: {tag:uint32 matching a DTS chunk header's on-disk [subtype:u16][supertype:u16] bytes, constructorFnPtr, nameStringPtr}. Every tag matches a known DTS chunk tag (e.g. 0x0014000f = TSTexture4Poly) and sits beside its name string (\"TSPoly\", \"TSGroup\", etc.). This is the DTS-tree node factory VSHELL's and DBSIM's shared ThreeSpace engine uses to construct the right C++ class per on-disk chunk tag -- the reliable way to find any TS*/AN* class's real constructor (and from there its real vtable) when RTTI type-name strings have zero code references, as they often do in this binary (also seen for .BND's MECH string). Tag 0x0e is registered here but has no known retail .DTS chunk. See docs/retail/rendering/dts-texture-binding.md.",
+      "source": "docs/retail/rendering/dts-texture-binding.md"
     },
     {
       "address": "0047f8a4",
@@ -26860,8 +26860,8 @@
       "type": "data",
       "confidence": "high",
       "name": "g_ActiveBitmapArray",
-      "description": "Process-wide 'currently active DBA bitmap-array' context. TSShape_Render and TSShapeInstance_Render swap it to the shape's bound DBA (TSShape_GetBoundBitmapArray, shape+0x26) for the duration of the draw, then restore it. TSBitmapPart_Render indexes into this global by the part's bitmap tag, not anything owned by the poly's shape. It is a two-field context, not a bare DBA pointer: *g_ActiveBitmapArray (offset +0 of what it points to) is the DBA object (its +4 = frame count, +8 = frame pointer table, per TSBase::getBitmapPtr's assert), while g_ActiveBitmapArray[1] (offset +4 of the global's own stored value, NOT of the nested DBA object) points at a separate 20-byte-stride per-frame UV/texture-descriptor table -- see TSTexture4Poly_Render (00422af5). The builder of that second table is open. See docs/retail/formats/dts-texture-binding.md.",
-      "source": "docs/retail/formats/dts-texture-binding.md"
+      "description": "Process-wide 'currently active DBA bitmap-array' context. TSShape_Render and TSShapeInstance_Render swap it to the shape's bound DBA (TSShape_GetBoundBitmapArray, shape+0x26) for the duration of the draw, then restore it. TSBitmapPart_Render indexes into this global by the part's bitmap tag, not anything owned by the poly's shape. It is a two-field context, not a bare DBA pointer: *g_ActiveBitmapArray (offset +0 of what it points to) is the DBA object (its +4 = frame count, +8 = frame pointer table, per TSBase::getBitmapPtr's assert), while g_ActiveBitmapArray[1] (offset +4 of the global's own stored value, NOT of the nested DBA object) points at a separate 20-byte-stride per-frame UV/texture-descriptor table -- see TSTexture4Poly_Render (00422af5). The builder of that second table is open. See docs/retail/rendering/dts-texture-binding.md.",
+      "source": "docs/retail/rendering/dts-texture-binding.md"
     },
     {
       "address": "005d8014",
@@ -26932,8 +26932,8 @@
       "type": "data",
       "confidence": "high",
       "name": "g_ActiveSurfaceRecords",
-      "description": "Global pointer, set from the active TSGroup's own +0x18 field by TSGroup_RenderPolys and TSBSPGroup_Render for the duration of one group's poly walk (save/swap/restore, the same shape as g_ActiveBitmapArray). Points at a flat int32[] where surface index k occupies 4 consecutive int32 slots (Front, FrontLine, Back, BackLine) -- a TSGroup surface entry's 8-short, 16-byte on-disk layout, which is why the file stores a group's surface count as surfaceCount*4. TSTexture4Poly_Render indexes it at byte offset field*4 (front) and field*4+8 (back) with the poly's surface field, which lands on one surface's Front/Back slots because that field holds surfaceIndex*4. See docs/retail/formats/dts-texture-binding.md.",
-      "source": "docs/retail/formats/dts-texture-binding.md"
+      "description": "Global pointer, set from the active TSGroup's own +0x18 field by TSGroup_RenderPolys and TSBSPGroup_Render for the duration of one group's poly walk (save/swap/restore, the same shape as g_ActiveBitmapArray). Points at a flat int32[] where surface index k occupies 4 consecutive int32 slots (Front, FrontLine, Back, BackLine) -- a TSGroup surface entry's 8-short, 16-byte on-disk layout, which is why the file stores a group's surface count as surfaceCount*4. TSTexture4Poly_Render indexes it at byte offset field*4 (front) and field*4+8 (back) with the poly's surface field, which lands on one surface's Front/Back slots because that field holds surfaceIndex*4. See docs/retail/rendering/dts-texture-binding.md.",
+      "source": "docs/retail/rendering/dts-texture-binding.md"
     },
     {
       "address": "005d88a6",

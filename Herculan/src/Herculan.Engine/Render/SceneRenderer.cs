@@ -333,7 +333,7 @@ public sealed class SceneRenderer : IDisposable {
 	///
 	/// <para>Deliberately <b>not</b> <see cref="FogColor"/> — the sky and the
 	/// colour distant terrain fades into are separate things in the original, which match in seven
-	/// theaters of ten (docs/retail/formats/distance-fog-and-sky.md, "Where the two meet").</para>
+	/// theaters of ten (docs/retail/rendering/distance-fog-and-sky.md, "Where the two meet").</para>
 	/// </summary>
 	public Vector3 SkyColor { get; set; } = new(0.55f, 0.60f, 0.68f);
 
@@ -348,7 +348,7 @@ public sealed class SceneRenderer : IDisposable {
 
 	/// <summary>
 	/// The zone's cell size in render units, which is the grain the terrain's fog is measured at.
-	/// Retail fogs a whole cell from its nearest corner (docs/retail/formats/distance-fog-and-sky.md); the
+	/// Retail fogs a whole cell from its nearest corner (docs/retail/rendering/distance-fog-and-sky.md); the
 	/// renderer spends that rule as its mean instead. Over a cell's four corners the minimum of
 	/// <c>i*a + j*b</c> is <c>min(0,a) + min(0,b)</c> and the centre is <c>(a+b)/2</c>, so centre to
 	/// nearest corner is exactly <c>(|a| + |b|)/2</c>, with <c>a</c> and <c>b</c> the depth one cell

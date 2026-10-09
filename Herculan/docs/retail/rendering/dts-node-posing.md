@@ -32,20 +32,7 @@ A negative transform id composes nothing. When a node's state is installed it re
 
 `TSBasePart.Transform` at offset `+4` is the same field `Cockpit_TargetAnglesFromCameraBone` (`0041ef14`) and the cockpit eye resolve the mech type record's camera node (`typeRec+0x0c`) through — one field, one meaning, geometry and named nodes alike.
 
-## The shape's own node transforms
-
-A `TSShape` chunk ends, after its part list, with two counts and two arrays, which `TSShape_ReadFromStream` (`00490d5c`) reads in this order:
-
-```
-int16  nodeTransformCount
-int16  sequenceCount
-int16  sequenceFrameCounts[sequenceCount]          // see dts-billboards.md
-byte   nodeTransforms[nodeTransformCount][0x20]
-```
-
-Each node transform is the 32-byte transform record `Transform_Concat` composes ([`sim-object-layout.md`](../simulation/sim-object-layout.md#the-objects-frame-is-a-transform-and-its-position-is-that-transforms-translation)). The loader builds the array with `Transform_Ctor` and reads the bytes straight over it, so the file holds each record exactly as memory does. `TSShapeInstance_Render` (`00490b10`) binds the shape's array as `_DAT_006b7bec` through `ShapeInst_BindNodeTransformArray` (`00475fd8`) before drawing, so a plain shape instance, which has no per-node array of its own, draws its groups through the shape's transforms where an animated instance uses its `+0x16` world array.
-
-**No retail shape has any.** All 479 shape roots in the 55 retail `.DTS` files carry a count of 0.
+A `TSShape` carries node transforms of its own ([`../formats/dts-shape.md`](../formats/dts-shape.md#the-shapes-own-node-transforms)). `TSShapeInstance_Render` (`00490b10`) binds the shape's array as `_DAT_006b7bec` through `ShapeInst_BindNodeTransformArray` (`00475fd8`) before drawing, so a plain shape instance, which has no per-node array of its own, draws its groups through the shape's transforms where an animated instance uses its `+0x16` world array.
 
 ## Keyframe interpolation
 

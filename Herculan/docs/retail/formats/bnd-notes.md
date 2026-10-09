@@ -51,7 +51,7 @@ Offset 3 (49 = ASCII `'1'`) appears at the same offset in `CAM`, `MECH` and `MEC
 
 ## Build-time-only source format — values compiled into DBSIM.EXE, never read at runtime
 
-Hardcoded instruction immediates in `dbsim-physics-notes.md` (rocket steering) and the weapon rows' sensor-dropout ranges ([`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#sensor-dropout)) found in the disassembly match byte-exact values in their corresponding `.BND` files:
+Hardcoded instruction immediates in `dbsim-physics-notes.md` (rocket steering) and the weapon rows' sensor-dropout ranges ([`../simulation/cockpit-hud-widgets.md`](../simulation/cockpit-hud-widgets.md#sensor-dropout)) found in the disassembly match byte-exact values in their corresponding `.BND` files:
 - `ROCKET.BND` at content offsets 6-7, 8-9, 14-15: `1280`, `3072`, `40000`
 - `PWEAPONS.BND` at content offsets 58-65: `120, 360, 180, 1800` (contiguous), `WeaponGauge_Ctor`'s dark and shown ranges
 

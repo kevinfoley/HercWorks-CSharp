@@ -51,7 +51,7 @@ Offsets are absolute in-memory (tail-relative = absolute − 0x22).
 | `0x46` | lateral muzzle offset, for a side-mounted hardpoint | `WeaponMountTemplate_SideMuzzleOffset` |
 | `0x4a` | vertical muzzle offset, for a top- or bottom-mounted one | `WeaponMountTemplate_SideMuzzleOffset` |
 | `0x4c` | refire delay, in sim timer units | `WeaponMount_PrepareShot` |
-| `0x50` | **damage-detail icon**, the `WEAPONS` bank frame before the `.PDG` hardpoint's offset; -1 draws none. 0 the ELFs, 1 laser, 2 autocannon, 3 EMP, 4 particle beam, 5 missile, 6-11 LAEW, ENERGY, ECM, TARG, SHIELD, TURBO, 12 MINE, 13 PLAS and MAGN | `PaperDoll_BuildWeaponIcons` — [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#weapon-icons) |
+| `0x50` | **damage-detail icon**, the `WEAPONS` bank frame before the `.PDG` hardpoint's offset; -1 draws none. 0 the ELFs, 1 laser, 2 autocannon, 3 EMP, 4 particle beam, 5 missile, 6-11 LAEW, ENERGY, ECM, TARG, SHIELD, TURBO, 12 MINE, 13 PLAS and MAGN | `PaperDoll_BuildWeaponIcons` — [`../simulation/cockpit-hud-widgets.md`](../simulation/cockpit-hud-widgets.md#weapon-icons) |
 | `0x22`–`0x28` | **weapon model**, four `MECHWPNS.DTS` shape indices, one per `.GL +6` mounting code | `WeaponMount_ShapeForMountingCode` (`0040fab0`) |
 
 `0x22`–`0x28` are read as `template[0x22 + code * 2]`, where `code` is the hardpoint's mounting byte: the same gun modelled for the four ways it can hang off a chassis, so `ATC20` reads four different shapes and a shoulder launcher reads one shape four times. Mounting code 4 is the invisible hardpoint and has no entry — nothing is drawn for it. **The shape's cell animation is the muzzle flash**; see [`../simulation/weapon-mounts.md`](../simulation/weapon-mounts.md#the-muzzle-flash).

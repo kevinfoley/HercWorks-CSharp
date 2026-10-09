@@ -10,7 +10,7 @@ namespace HercWorks.UI;
 /// <c>.RMP</c> ramp, and the one mission sun. A port of the engine's <c>Render.MissionSun</c>,
 /// <c>Content.ShadeRamp</c> and <c>Render.SurfaceShading</c> — the toolkit does not reference the
 /// engine (docs/herculan/planning.md), so the few pure functions it needs are repeated here. The
-/// mechanisms and their RE are docs/retail/formats/dts-texture-binding.md's "Poly types and their colour
+/// mechanisms and their RE are docs/retail/rendering/dts-texture-binding.md's "Poly types and their colour
 /// mechanisms".
 ///
 /// <para>Every method returns null when what it needs is not loaded, and the caller falls back to

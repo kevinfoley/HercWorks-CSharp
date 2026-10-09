@@ -129,7 +129,7 @@ RateLimitedMoveToward(speed, desired, typeRec[0x08])
 
 It matters because it is what gates the throttle clamp. At 0 — keyboard and plain stick — the range is the full ±0x400, so holding the axis against its stop runs the setting from full forward through a one-tick pause at zero and on into full reverse. That one-tick pause is the sign-crossing guard, and it is the manual's "Centered is stopped". Non-zero also switches the handler's first block on, which reads the axis as an absolute lever position (`|axis − 0x100| × 2`, deadbanded below 100) instead of as a rate.
 
-The throttle is two-way bound to the cockpit throttle gauge, arbitrated by the `mech+0x93` dirty flag — see [`cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md).
+The throttle is two-way bound to the cockpit throttle gauge, arbitrated by the `mech+0x93` dirty flag — see [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md).
 
 Turn rate — a symmetric tent over speed, `T` the max turn rate (`typeRec+0x02`):
 
@@ -231,7 +231,7 @@ Application is a matched set around the fraction `thread+0x1c / thread+0x1e` (in
 | `00478e60` | frame exit: commits full `G` into `stored` |
 | `00478ee8` | inverse of `00478e60`, for backward playback |
 
-Seeding the root to identity then reading back yields `scale(G, frac_after) ∘ scale(G, frac_before)⁻¹` — the exact delta for that tick. Over one full frame the Herc advances by exactly `G`, ramped linearly. The node poses are blended by the same fraction — [Keyframe interpolation](../formats/dts-node-posing.md#keyframe-interpolation).
+Seeding the root to identity then reading back yields `scale(G, frac_after) ∘ scale(G, frac_before)⁻¹` — the exact delta for that tick. Over one full frame the Herc advances by exactly `G`, ramped linearly. The node poses are blended by the same fraction — [Keyframe interpolation](../rendering/dts-node-posing.md#keyframe-interpolation).
 
 **Axes:** +Y is forward in model space (matches `Mech_ApplyTerrainSlopeToSpeed`, which builds the forward vector as `(0, speed, 0)`); root rotation Z is yaw.
 
@@ -310,7 +310,7 @@ Two things happen before the gait machine is even reached:
 | Running it | Rate `0x78` |
 | Running it, and `frame == nextFrame` | It has played out: latch `mech+0xb4` **collapsed**, take the landing damage, sound `0x29` |
 
-The end-of-sequence test works only because the death sequence is the chassis' one **non-cyclic** sequence — see [`../formats/dts-node-posing.md`](../formats/dts-node-posing.md#cyclic-and-one-shot-sequences).
+The end-of-sequence test works only because the death sequence is the chassis' one **non-cyclic** sequence — see [`../rendering/dts-node-posing.md`](../rendering/dts-node-posing.md#cyclic-and-one-shot-sequences).
 
 `mech+0xb4` is a third condition distinct from destroyed and immobilised, and the one that takes a machine off the AI's books completely: [`ai-targeting.md`](ai-targeting.md)'s targetability test and the mission group's condition test both reject a collapsed candidate, while one still falling is still a target.
 
@@ -322,7 +322,7 @@ The landing calls `Mech_SpreadImpactDamage` (`00417a04`) with `(150, 120)` — s
 
 No dedicated bob code, and none is needed. `typeRec+0x0c`, the camera node, is a shape **part** id. `Cockpit_TargetAnglesFromCameraBone` (`0041ef14`) resolves it through the shape's find-by-id, takes that part's `TSBasePart.Transform` as a transform id, and indexes the shape instance's per-node transform array at `shapeInst+0x16` (`0x20` bytes per entry) — the same array `SimObject_PushTransform` (`00402628`) memcpy's `count << 5` bytes of when saving state for a blocked step. The eye rides a node the walk cycle animates, so the bob falls out of correct root motion.
 
-Resolution is uniform across the fleet. Every ground HERC lands on the same chain shape, and the parent links come from the `ANAnimList` relation pairs, the same table that places geometry ([`dts-node-posing.md`](../formats/dts-node-posing.md)):
+Resolution is uniform across the fleet. Every ground HERC lands on the same chain shape, and the parent links come from the `ANAnimList` relation pairs, the same table that places geometry ([`dts-node-posing.md`](../rendering/dts-node-posing.md)):
 
 | | camera part | transform | chain to root |
 |---|---|---|---|
@@ -349,7 +349,7 @@ A block against another **machine** also hurts both of them, through the explosi
 
 ### The structure a machine stands in
 
-Separately from the block test, `Mech_CollisionTest` clears `mech+0x2b0` on entry and, for each candidate whose target class (`obj+0x1a8`) is 1 (a structure) and whose body radius (vtable `+0x5c`) contains the machine's position, stores that structure there (`00418fb2`, `00419016`). The test sits in the object loop ahead of the gap test, so it sees a static structure with no collision radius as well, skips one still waiting on its mission action, and ends with the loop at the first object that blocks; the field holds the last match. It is a render-side hand-off, not an aim or lock-on aid. `Scene_SubmitFrameObjects` reads it every frame (`00428519`) and, when it is set, files the machine with `Scene_SubmitObjectAtCell` (`004283b4`) under the structure's cached draw cell (`structure+0x1e8`, stored by the structure walk earlier in the same pass) instead of with `Scene_SubmitObjectWithRadius` (`0042837c`) under the cell its own position and body radius pick. A machine inside a building's radius is therefore painted with the building's cell, in the same farthest-first sort as the building, and goes undrawn when the walk skips that cell ([`terrain-drawing.md`](../formats/terrain-drawing.md#objects-in-the-walk)).
+Separately from the block test, `Mech_CollisionTest` clears `mech+0x2b0` on entry and, for each candidate whose target class (`obj+0x1a8`) is 1 (a structure) and whose body radius (vtable `+0x5c`) contains the machine's position, stores that structure there (`00418fb2`, `00419016`). The test sits in the object loop ahead of the gap test, so it sees a static structure with no collision radius as well, skips one still waiting on its mission action, and ends with the loop at the first object that blocks; the field holds the last match. It is a render-side hand-off, not an aim or lock-on aid. `Scene_SubmitFrameObjects` reads it every frame (`00428519`) and, when it is set, files the machine with `Scene_SubmitObjectAtCell` (`004283b4`) under the structure's cached draw cell (`structure+0x1e8`, stored by the structure walk earlier in the same pass) instead of with `Scene_SubmitObjectWithRadius` (`0042837c`) under the cell its own position and body radius pick. A machine inside a building's radius is therefore painted with the building's cell, in the same farthest-first sort as the building, and goes undrawn when the walk skips that cell ([`terrain-drawing.md`](../rendering/terrain-drawing.md#objects-in-the-walk)).
 
 ### The landing
 
@@ -364,7 +364,7 @@ for component in 7..12:                                          // upper legs, 
 
 Every component is rolled separately over a window three times the base wide, so the six readings scatter rather than moving together. The write is the ordinary damage endpoint, so the landing cascades, can cripple or immobilise, and is stopped by the invulnerability setting like anything else ([`difficulty.md`](difficulty.md#the-two-sibling-cheats)). It carries no attacker, so nothing is credited if it kills.
 
-It then calls `Cockpit_StartHitShake` (`00434010`), the same view shake and palette flash a hit on the cockpit raises ([`../formats/cockpit-canopy-palette.md`](../formats/cockpit-canopy-palette.md#the-damage-shake)), and `Sound_Play(0x29)`, the collision thump. This is the shake's ungated trigger: the direct-fire one tests who is flying and how far gone the cockpit is, and this one fires on any landing that got past the distance threshold.
+It then calls `Cockpit_StartHitShake` (`00434010`), the same view shake and palette flash a hit on the cockpit raises ([`../rendering/cockpit-canopy-palette.md`](../rendering/cockpit-canopy-palette.md#the-damage-shake)), and `Sound_Play(0x29)`, the collision thump. This is the shake's ungated trigger: the direct-fire one tests who is flying and how far gone the cockpit is, and this one fires on any landing that got past the distance threshold.
 
 ## Open
 

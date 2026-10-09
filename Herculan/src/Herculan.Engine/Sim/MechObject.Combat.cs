@@ -124,7 +124,7 @@ public sealed partial class MechObject {
 	/// <para>Both halves reach the cockpit through <c>CockpitView_SetTargetBlock</c>: the flag lands
 	/// at <c>+0x27c</c> and drops the target box to its bare pip, and the component id lands at
 	/// <c>+0x27e</c> and highlights that region of the MFD's paper doll. See
-	/// docs/retail/formats/hud-target-indicator.md and docs/retail/formats/mfd.md.</para>
+	/// docs/retail/simulation/hud-target-indicator.md and docs/retail/simulation/mfd.md.</para>
 	/// </summary>
 	/// <returns>Where to aim, whether a component was singled out, and which.</returns>
 	public (Vec3i Point, bool ComponentTargeted, short Component) ResolveTargetAimPoint() {

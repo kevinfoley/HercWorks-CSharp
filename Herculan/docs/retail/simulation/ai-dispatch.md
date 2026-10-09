@@ -69,7 +69,7 @@ Notes the table makes visible:
 | `+0x18` | triple | **Think** — `{func, thisDelta, vtableIndex}` |
 | `+0x24` | triple | **Move** |
 | `+0x30` | triple | **Reassess** |
-| `+0x3c` | short | The string index the F7 comm box prints on a squadmate's `OBJECTIVE:` line — `STRINGS0` group 40, `ATTACK`/`TRAVEL`/`PATROL`/`FORM UP`/`GUARD`/`FLEE`/`DEAD`/`IMMOBILE`. Read only by `Mech_SquadOrderLineIndex` (`0041bac8`); see [`../formats/heads-down-display.md`](../formats/heads-down-display.md) |
+| `+0x3c` | short | The string index the F7 comm box prints on a squadmate's `OBJECTIVE:` line — `STRINGS0` group 40, `ATTACK`/`TRAVEL`/`PATROL`/`FORM UP`/`GUARD`/`FLEE`/`DEAD`/`IMMOBILE`. Read only by `Mech_SquadOrderLineIndex` (`0041bac8`); see [`heads-down-display.md`](heads-down-display.md) |
 
 ### The flag bits
 

@@ -4,26 +4,13 @@ Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addres
 
 Verified against retail data in `ES2/VOL/simvol0/{hba,gau,dat}/`.
 
-Everything drawn over the live 3D view, rather than on the console, belongs to one widget: `Gau_RovingGunsightWidget` (`0043c7d8`), built from `.GAU` offset **1088**. The console and console-mounted gauges are a separate widget tree: [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md). The view manager and per-view geometry: [`cockpit-views.md`](cockpit-views.md). How a mouse click on the gunsight surface reaches its handler: [`../simulation/cockpit-input.md`](../simulation/cockpit-input.md).
+Everything drawn over the live 3D view, rather than on the console, belongs to one widget: `Gau_RovingGunsightWidget` (`0043c7d8`), built from `.GAU` offset **1088**. The console and console-mounted gauges are a separate widget tree: [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md). The view manager and per-view geometry: [`cockpit-views.md`](cockpit-views.md). How a mouse click on the gunsight surface reaches its handler: [`cockpit-input.md`](cockpit-input.md).
 
 ## Front-window HUD — the gunsight complex
 
-Its own ints:
+Its geometry is the `.GAU` block at 1088 ([layout](../formats/gau-cockpit-layout.md#gau-block-at-1088)): an origin, the complex's own extent, the heading tape's rect, the speed and time anchors, the reticle point, the gunsight area that children 0, 5 and 6 share, two label rects and the floating scanner repeater's top-left ([`mfd-scanner.md`](mfd-scanner.md#the-floating-repeater)).
 
-| int | file offset | Role |
-|---|---|---|
-| `[0]`,`[1]` | 1088, 1092 | Origin added to every child rect. Zero in all 9 retail files |
-| `[2]`,`[3]` | 1096, 1100 | The complex's own bottom-right — `320, 117` or `320, 157` |
-| `[4..7]` | 1104-1116 | **Heading tape** rect. `100,y - 220,y+17` in every file, so 120x17 centred on the 320-wide HUD. The rotation indicator is derived from it, below |
-| `[8..0xb]` | 1120-1132 | Speed and time readout anchors — see below |
-| `[0xc]`,`[0xd]` | 1136, 1140 | Reticle point |
-| `[0xe]` | 1144 | Half-extent of child 4's rect about the reticle point. Zero in all 9 retail files, and unread by that child's paint |
-| `[0xf..0x12]` | 1148-1163 | Rect shared by children 0, 5 and 6 — the gunsight area, the target arrow's safe area |
-| `[0x13..0x16]` | 1164-1179 | The **`ATT` legend's** rect — see below |
-| `[0x17..0x1a]` | 1180-1195 | A second label of the same kind, at the widget's `+0x107`. Neither gunsight paint reaches it |
-| `[0x1b]`,`[0x1c]` | 1196, 1200 | Top-left of the floating scanner repeater, a bare point with no size. Per herc; see [`mfd-scanner.md`](mfd-scanner.md) |
-
-The complex also builds two `ColorSchemePanels[12]` (`dark`) labels of its own, at `+0x103` and `+0x107`. The first is the manual's **`ATT` legend** — see [below](#the-att-legend).
+The complex also builds two `ColorSchemePanels[12]` (`dark`) labels of its own, at `+0x103` and `+0x107`. The first is the manual's **`ATT` legend** — see [below](#the-att-legend). Neither gunsight paint reaches the second.
 
 `Gunsight_AddChild` (`0043d5a4`) appends to a pointer array at the widget's `+0xd7`, so construction order *is* child index. `Gunsight_Paint` (`0043d5c8`) walks that array calling each child's slot 0, then draws what sits outside it: the [`ATT` legend](#the-att-legend), the [speed and time readouts](#speed-and-time-readouts), the **floating scanner repeater** (`Gunsight_PaintHudScanner` (`0043e0ec`) into `HudScanner_Paint` (`0043f2b0`)) and the [RAZOR's altitude scale](#the-razors-altitude-scale), which works from a second derived point at the widget's `+0x113` — the reticle plus `(0x46 << XCoordShift, -0x12 << YCoordShift)`.
 
@@ -116,7 +103,7 @@ Children 7 and 8, the manual's Waypoint Indicator. Both are `HudWaypointIndicato
 | 7 | 1 | `NavMarker_Position` (`0043495c`) | `DAT_004d3c1e`, id 15 → palette 13 yellow | none |
 | 8 | 0 | The waypoint after the player group's route cursor, or `mech+0x1a4` while `DAT_004d2af0` is set | table entry 0 → palette 14 green | `WAYPOINT n: d M.` |
 
-What each points at, and how the player's route and the nav marker behave, is [`../simulation/player-waypoints.md`](../simulation/player-waypoints.md).
+What each points at, and how the player's route and the nav marker behave, is [`player-waypoints.md`](player-waypoints.md).
 
 **Child 8 follows the route.** Its branch to the player's selected target is gated on `DAT_004d2af0`, a `.bss` dword with no writer found — see [Open](#open).
 
@@ -136,20 +123,20 @@ The caption is the label child, given the tape's rect dropped `3 << YCoordShift`
 
 ### Speed and time readouts
 
-`Gau_RovingGunsightWidget` places these from two anchor points in the same block, both already device-shifted:
+`Gau_RovingGunsightWidget` places these from two anchor points in the same block ([layout](../formats/gau-cockpit-layout.md#gau-block-at-1088)), both already device-shifted:
 
-- **1128/1132** is the *left* edge of the `SPEED:` caption. The value follows at `captionEnd + (2 << XCoordShift)`.
-- **1120/1124** is the *right* edge of the time field. Its left edge is that minus the measured width of `"00000"` — a five-digit reservation — and the `TIME:` caption is right-aligned `(2 << XCoordShift)` before it.
+- The speed anchor is the *left* edge of the `SPEED:` caption. The value follows at `captionEnd + (2 << XCoordShift)`.
+- The time anchor is the *right* edge of the time field. Its left edge is that minus the measured width of `"00000"` — a five-digit reservation — and the `TIME:` caption is right-aligned `(2 << XCoordShift)` before it.
 
-The speed value's rect is as wide as `"000 K/H"` measured in the value font. Its text is rebuilt on every paint — `Gunsight_Paint` and `Gunsight_UpdateAndPaint` both call `Hud_UpdateSpeedReadout` (`0043dc78`) — as the decimal of `Mech_GetDisplaySpeedKph(LocalPlayerMech)` (`0041bb3c`) followed by `" K/H"`. What that figure means, and why it overstates a walking Herc's speed, is in [`../simulation/mech-locomotion.md`](../simulation/mech-locomotion.md#walkrun-gait-discontinuity).
+The speed value's rect is as wide as `"000 K/H"` measured in the value font. Its text is rebuilt on every paint — `Gunsight_Paint` and `Gunsight_UpdateAndPaint` both call `Hud_UpdateSpeedReadout` (`0043dc78`) — as the decimal of `Mech_GetDisplaySpeedKph(LocalPlayerMech)` (`0041bb3c`) followed by `" K/H"`. What that figure means, and why it overstates a walking Herc's speed, is in [`mech-locomotion.md`](mech-locomotion.md#walkrun-gait-discontinuity).
 
 Captions use `ColorSchemePanels[16]` (`HUD2`, ink 73) and values `[17]` (`HUD3`, ink 74). Those are theater palette indices, not colours the widget picks — which is where retail's pale yellow-green captions and cyan values come from.
 
 ### The ATT legend
 
-The manual's upper-left indicator that Automatic Turret Tracking is on. Its label is built over the rect at 1164 — 24x7 in every retail file, `68,0 - 92,7` on most hercs, `60,0` on OGRE, `30,0` on SAMSON and `60,67` on RAZOR — centred (`Label_SetRect` flag 2) with no margin.
+The manual's upper-left indicator that Automatic Turret Tracking is on. Its label is built over the rect at 1164 ([per herc](../formats/gau-cockpit-layout.md#per-herc-values)), centred (`Label_SetRect` flag 2) with no margin.
 
-Both `Gunsight_Paint` and `Gunsight_UpdateAndPaint` test the console button panel's auto-track latch (`CockpitView+0x1e1`, byte `+0xb3` — the flag `ConsoleButtons_GetStateBlock` copies into the mount manager's `+0x14`) after the child loop. While it is set they blit `HUD` frame 14, a 50x16 plate, at the rect's top-left, then set the label's text to `STRINGS0.STR` group 37 entry 0, `ATT`. While it is clear nothing is drawn. The tracker itself: [`../simulation/torso-aim.md`](../simulation/torso-aim.md#automatic-turret-tracking--t).
+Both `Gunsight_Paint` and `Gunsight_UpdateAndPaint` test the console button panel's auto-track latch (`CockpitView+0x1e1`, byte `+0xb3` — the flag `ConsoleButtons_GetStateBlock` copies into the mount manager's `+0x14`) after the child loop. While it is set they blit `HUD` frame 14, a 50x16 plate, at the rect's top-left, then set the label's text to `STRINGS0.STR` group 37 entry 0, `ATT`. While it is clear nothing is drawn. The tracker itself: [`torso-aim.md`](torso-aim.md#automatic-turret-tracking--t).
 
 ### The RAZOR's altitude scale
 

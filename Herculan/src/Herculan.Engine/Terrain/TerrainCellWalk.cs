@@ -3,8 +3,8 @@ namespace Herculan.Engine.Terrain;
 /// <summary>
 /// Which cells <c>Terrain_DrawVisibleCells</c> (<c>0046d0a4</c>)'s walk visits: the cells
 /// <c>CellWalk_Polygon</c> (<c>00471e38</c>) or <c>CellWalk_PolygonByColumn</c> (<c>004723f8</c>) hands
-/// the run callback for the visible region's polygon about the viewer's cell (docs/retail/polygon-fill.md,
-/// "Walking a polygon's cells"; docs/retail/formats/terrain-drawing.md, "The cell walk"). A cell the walk
+/// the run callback for the visible region's polygon about the viewer's cell (docs/retail/rendering/polygon-fill.md,
+/// "Walking a polygon's cells"; docs/retail/rendering/terrain-drawing.md, "The cell walk"). A cell the walk
 /// visits has its objects drawn; one it does not keeps them undrawn — see
 /// <see cref="Render.ObjectDrawTable"/>.
 ///
@@ -170,7 +170,7 @@ public static class TerrainCellWalk {
 
 	/// <summary>
 	/// <c>Poly_ScanConvert</c> (<c>00493086</c>), the <c>int32</c> scan converter, by the rules in
-	/// docs/retail/polygon-fill.md, "Scan conversion": the right chain from the top vertex fills each row's
+	/// docs/retail/rendering/polygon-fill.md, "Scan conversion": the right chain from the top vertex fills each row's
 	/// <c>x1</c>, the left chain from the bottom vertex its <c>x0</c>, one Bresenham edge at a time, and
 	/// where two edges share a row the later one's value stands.
 	/// </summary>

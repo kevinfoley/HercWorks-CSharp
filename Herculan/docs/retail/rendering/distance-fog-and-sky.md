@@ -76,18 +76,18 @@ The sky is a backdrop of flat palette fills, painted into the view every frame b
 
 ### The object
 
-`World_LoadTheater` (`0042e010`) builds it with `Hzline_Ctor` (`0042eb5c`) — Borland class `hzline`, `0x7a` bytes over `TSGroup` — and fills it from the first eight `int16`s of `wld\world<N>.wld`, through `Hzline_SetColors` (`0042ebbc`) for shorts 1, 4 and 7:
+`World_LoadTheater` (`0042e010`) builds it with `Hzline_Ctor` (`0042eb5c`) — Borland class `hzline`, `0x7a` bytes over `TSGroup` — and fills it from the first eight `int16`s of `wld\world<N>.wld` ([their retail values](../formats/wld-world.md#the-hzline-shorts)), through `Hzline_SetColors` (`0042ebbc`) for shorts 1, 4 and 7:
 
-| Short | Field | Retail value | Meaning |
-|---|---|---|---|
-| 0 | `+0x6c` | 2 | the first band past the horizon colour starts `+0x6c >> 1` rows above the line (`t` below) |
-| 1 | `+0x28` | 208 | the zenith colour. `Hzline_SetColors` stores `short1 + short3 - 1`, the **horizon colour** `C` |
-| 2 | `+0x54` | 6 | band height `h`, in screen rows at every resolution |
-| 3 | `+0x58` | 16 in `WORLD0`, `WORLD2`, `WORLD6`; 15 in the other seven | band count `N`, the horizon colour and the zenith fill included |
-| 4 | `+0x2c` | 239 where short 3 is 16, 224 elsewhere | first ground colour |
-| 5 | `+0x5c` | 1 | ground band height |
-| 6 | `+0x60` | 1 | ground band count |
-| 7 | `+0x30` | 0 | the line's vertical offset in rows: `Hzline_BuildHorizon` adds it and `Hzline_DrawWithOffset` adds half of it again |
+| Short | Field | Meaning |
+|---|---|---|
+| 0 | `+0x6c` | the first band past the horizon colour starts `+0x6c >> 1` rows above the line (`t` below) |
+| 1 | `+0x28` | the zenith colour. `Hzline_SetColors` stores `short1 + short3 - 1`, the **horizon colour** `C` |
+| 2 | `+0x54` | band height `h`, in screen rows at every resolution |
+| 3 | `+0x58` | band count `N`, the horizon colour and the zenith fill included |
+| 4 | `+0x2c` | first ground colour |
+| 5 | `+0x5c` | ground band height |
+| 6 | `+0x60` | ground band count |
+| 7 | `+0x30` | the line's vertical offset in rows: `Hzline_BuildHorizon` adds it and `Hzline_DrawWithOffset` adds half of it again |
 
 So the sky is the palette run from 208 up to `C` = 223 in `WORLD0`, `WORLD2` and `WORLD6`, and up to `C` = 222 in the other seven, which never draw entry 223. Shorts 4–6 reach only a branch no frame takes ([Below the line](#below-the-line)). `World_LoadTheater` also stores `short4 + short6 - 1` at `0049aee8` ([Open](#open)).
 
@@ -100,7 +100,7 @@ mid  = (cx, cy) + f·tan(pitch) · (sin roll, cos roll)        screen axes, y do
 ends = mid ∓ (256 << k) · (cos roll, −sin roll)               ±512 px at 640x480
 ```
 
-That is the vanishing line of level ground, with pitch positive looking up. The line is lengthened when the view's canvas origin (`DAT_004cfa24`/`28`, [`cockpit-views.md`](cockpit-views.md#vue--per-view-geometry)) is non-zero, so it still spans a view whose projection centre sits outside its own window: by its own length at both ends when the origin's y is non-zero, otherwise at the end on the side its x points to.
+That is the vanishing line of level ground, with pitch positive looking up. The line is lengthened when the view's canvas origin (`DAT_004cfa24`/`28`, [`../simulation/cockpit-views.md`](../simulation/cockpit-views.md#view-geometry)) is non-zero, so it still spans a view whose projection centre sits outside its own window: by its own length at both ends when the origin's y is non-zero, otherwise at the end on the side its x points to.
 
 `+0x48`/`+0x4c` hold `(sin roll, −cos roll)` in Q14, from which `Hzline_FillSky` steps `h·(−sin roll, −cos roll)` per band, toward the sky. The test that would negate the pair once the pitch passes vertical compares the unsigned angle with `−0x4000` and is never true.
 
@@ -146,9 +146,9 @@ Apart from the fade, an object's shade ramps are re-pointed by its distance. `Ob
 | 6 | 8, 12 | 4, 6 |
 
 1. `WorldShades_DistanceBand` (`0042e878`) counts the thresholds the distance has reached, at most one fewer than there are: `WorldShades_BandsTagged` (`004cfd84`) for a non-zero tag, `WorldShades_BandsTag0` (`004cfd88`) for tag 0. A tag-5 object first has one of the two `WorldShades_DistanceOffsets` (`004cfd6c`) added — the second when its radius (vtable `+0x10`) is 5000 or more — clamped at 0.
-2. For each pair, `Palette_SetRampsToRange` re-points the ramp at the `(column, band)` entry of `WorldShades_LevelRanges` (`004cfd7c`), the index ranges `World_LoadTheater` expands from the `.WLD`'s two ramp tables ([`terrain-texturing.md`](terrain-texturing.md#the-worldn-descriptor--layout)).
+2. For each pair, `Palette_SetRampsToRange` re-points the ramp at the `(column, band)` entry of `WorldShades_LevelRanges` (`004cfd7c`), the index ranges `World_LoadTheater` expands from the `.WLD`'s two ramp tables ([`../formats/wld-world.md`](../formats/wld-world.md#the-worldn-descriptor--layout)).
 
-Every retail theater has 16 thresholds, 4400 apart from 60000, except `WORLD4`'s tagged set, which starts at 30000.
+Both threshold sets are read from the theater's `.WLD`; their retail values are in [`../formats/wld-world.md`](../formats/wld-world.md#the-worldn-descriptor--layout).
 
 With its third argument non-zero — `ObjList_DrawEntryRender` passes the byte at `004cfa08` — step 2 instead builds a two-segment range list for `Palette_SetRampsToRangeList` from the band's range and the band's entry of `WorldShades_BlendRanges` (`004cfd80`) ([Open](#open)). While `0049aef2` is set (0 in the image) the whole step is replaced by `WorldShades_ResetRamps` (`0042ea0c`), which points ramps 0, 2, 4, 6, 8, 10, 12 and 24 at the range `{16, 16}`.
 

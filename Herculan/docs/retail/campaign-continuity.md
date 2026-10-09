@@ -177,6 +177,6 @@ A granted unit does not unlock its weapon; the armory row stays disabled until t
 | Losing a mission can send the campaign down another route — another sector, or other missions. | `gam\career.dat` is a flat list per chapter ([`shell/campaign-loop.md`](shell/campaign-loop.md#the-campaign-table--gamcareerdat)) and `Career_Advance` steps through it whatever the outcome. A loss changes what the next missions contain, or ends the war. |
 | A structure's health carries from one mission to the next. | Only whether it was destroyed carries: one flag per structure, tested for being above 0, choosing a starting condition of 0. |
 
-## Remarks
+## Open
 
-While operation `0x17` is not implemented and its meaning is unknown, the context in which it is referenced suggests that it may have been intended to activate when the player scanned a particular target.
+- **Open:** what operation `0x17` was meant to do. Both its uses, `C1_04`'s scouting run and `C2_06`'s intelligence gathering ([Unreachable branches](#unreachable-branches)), fit a flag set when the player scans a particular target.

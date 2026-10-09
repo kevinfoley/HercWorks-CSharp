@@ -70,13 +70,13 @@ An idle machine draws nothing: every energy mount powers up with `+0x7d` already
 
 ## Cockpit readouts
 
-The pool's one cockpit readout is the **Master Energy Pool meter**: `Player_PerFrameCockpitUpdate` (`0041b130`) computes `(pool << 10) / 10000` and pushes it to the LED bar at cockpit slot `+0x1e5`, whose range is `0x400` — see [`cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md#led-gauges). The shield rings and numbers show the shield array, not the pool ([`cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md#shieldsgauge)), and a weapon's charge bar shows its own capacitor ([`weapon-mounts.md`](weapon-mounts.md#energy)).
+The pool's one cockpit readout is the **Master Energy Pool meter**: `Player_PerFrameCockpitUpdate` (`0041b130`) computes `(pool << 10) / 10000` and pushes it to the LED bar at cockpit slot `+0x1e5`, whose range is `0x400` — see [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#led-gauges). The shield rings and numbers show the shield array, not the pool ([`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#shieldsgauge)), and a weapon's charge bar shows its own capacitor ([`weapon-mounts.md`](weapon-mounts.md#energy)).
 
 ## Shield refill time
 
 The recharge cap is per *tick*, not per unit time, but the tick is held to 25 Hz ([`dbsim-physics-notes.md`](dbsim-physics-notes.md#fixed-point-math-toolkit)), so the refill time of 28 s from empty ([`damage-system.md`](damage-system.md#recharge-tick--shield_rechargetick-00413b38)) does not vary with hardware. Retail takes about 30 s, matching.
 
-At mission start the shield rings fade in black to green. That is the power-up animation, not charge: both facings are full from `Shield_Init` onward ([`cockpit-hud-widgets.md`](../formats/cockpit-hud-widgets.md#shield-rings-fill)).
+At mission start the shield rings fade in black to green. That is the power-up animation, not charge: both facings are full from `Shield_Init` onward ([`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#shield-rings-fill)).
 
 ## Rejected readings
 

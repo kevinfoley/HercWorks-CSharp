@@ -121,7 +121,7 @@ internal sealed class RetailData {
 
 	/// <summary>
 	/// The name a structure type's MFD readout gives it: <c>STRINGS0.STR</c> group 23 or 24, picked
-	/// by its texture selector, at its silhouette index (docs/retail/formats/mfd.md#viewport-and-condition-per-class).
+	/// by its texture selector, at its silhouette index (docs/retail/simulation/mfd.md#viewport-and-condition-per-class).
 	/// </summary>
 	public string? StructureName(int typeIndex) {
 		if (Bases is not { } bases || SimStrings is not { } strings || typeIndex < 0 || typeIndex >= bases.Types.Length) {

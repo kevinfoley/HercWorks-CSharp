@@ -4,7 +4,7 @@ Reverse-engineered from `DBSIM.EXE` in the `ES2Recon` Ghidra project. All addres
 
 Verified against retail data in `ES2/VOL/simvol0/{hb0,hb1,hb2,hba,hd0-3,ed0-3,vue,gau,dpl,dat}/`.
 
-Canopy art itself and the cockpit palette: [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md). The console and HUD widgets a view's canvas carries: [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md). The front-window gunsight complex: [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md). How a mouse click on a screen-edge widget reaches its handler: [`../simulation/cockpit-input.md`](../simulation/cockpit-input.md).
+Canopy art itself and the cockpit palette: [`../rendering/cockpit-canopy-palette.md`](../rendering/cockpit-canopy-palette.md). The console and HUD widgets a view's canvas carries: [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md). The front-window gunsight complex: [`cockpit-gunsight-hud.md`](cockpit-gunsight-hud.md). How a mouse click on a screen-edge widget reaches its handler: [`cockpit-input.md`](cockpit-input.md).
 
 ## Object model
 
@@ -15,7 +15,7 @@ Canopy art itself and the cockpit palette: [`cockpit-canopy-palette.md`](cockpit
 | `CockpitViewManager_LoadViews` | `00429834` | Whole cockpit bring-up (below). |
 | `CockpitViewManagerPublished` | `004cfa20` | The same manager object again, stored at the tail of `CockpitViewManager_LoadViews` by `CockpitViewManager_Publish` (`00429810`) and read back by `CockpitViewManager_Published` (`00429820`). How a module that does not have the manager to hand reaches it — the message port and the joystick's `HDD VIEW` action both do. |
 | `CockpitViewInstance` | `0049b088` | The GAU widget tree, owned by the manager. |
-| `Gau_BuildCockpitWidgets` | `00431bf8` | Builds that tree from `gau\<HERC>.GAU` — see [`cockpit-hud-widgets.md`](cockpit-hud-widgets.md#gau-widget-tree). |
+| `Gau_BuildCockpitWidgets` | `00431bf8` | Builds that tree from `gau\<HERC>.GAU` — see [`../formats/gau-cockpit-layout.md`](../formats/gau-cockpit-layout.md#gau-widget-tree). |
 
 Translation units: `MECHVIEW.CPP` (view manager, `00429660`–`0042ab00`), `PANEL.CPP` (widget tree, `00431008`–`00434400`), palette module (`Palette_LoadResources` (`0043034c`)–`00430e40`).
 
@@ -23,7 +23,7 @@ Translation units: `MECHVIEW.CPP` (view manager, `00429660`–`0042ab00`), `PANE
 
 | Offset | Contents |
 |---|---|
-| `+0x00` | View count, from `.VUE` (4 in every retail file) |
+| `+0x00` | View count, from `.VUE` |
 | `+0x04` | `.VUE` records: `viewCount x 32` bytes |
 | `+0x08` | Canopy bitmap handles, 4 pointers |
 | `+0x0c` | Clip-region blocks, `4 x 0x204` bytes |
@@ -37,12 +37,12 @@ Translation units: `MECHVIEW.CPP` (view manager, `00429660`–`0042ab00`), `PANE
 
 ### `CockpitViewManager_LoadViews` sequence
 
-1. Load `vue\<HERC>`: `int32 viewCount`, then `viewCount x 32`-byte records.
+1. Load `vue\<HERC>` — [`../formats/vue-view-geometry.md`](../formats/vue-view-geometry.md).
 2. Allocate the four per-view slot arrays above.
-3. Per view `i`: `CockpitClipRegions_Load` on `ed<i>`/`hd<i>`, then `ClipRegions_BuildScanlineSpans`; and unless `CockpitArt_LoadOnDemand`, `CockpitCanopy_LoadViewBitmap` for `db<i>`/`hb<i>` — see [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md#canopy-art--hb0hb1hb2-and-db0db1db2).
+3. Per view `i`: `CockpitClipRegions_Load` on `ed<i>`/`hd<i>` ([`../formats/hd-ed-clip-regions.md`](../formats/hd-ed-clip-regions.md)), then `ClipRegions_BuildScanlineSpans`; and unless `CockpitArt_LoadOnDemand`, `CockpitCanopy_LoadViewBitmap` for `db<i>`/`hb<i>` — see [`../formats/canopy-art-hb-db.md`](../formats/canopy-art-hb-db.md#canopy-art--hb0hb1hb2-and-db0db1db2).
 4. Build `CockpitViewInstance` (`CockpitView_Ctor`, `00431008` → `ColorSchemePanels_LoadAll`) and `Gau_BuildCockpitWidgets`.
-5. Install the per-herc cockpit colour scheme — see [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md#palette).
-6. Install `IMPACTCP.DPL`'s same-index scheme into the secondary palette `DAT_0049aef8` for the damage flash — see [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md#the-damage-shake).
+5. Install the per-herc cockpit colour scheme — see [`../rendering/cockpit-canopy-palette.md`](../rendering/cockpit-canopy-palette.md#palette).
+6. Install `IMPACTCP.DPL`'s same-index scheme into the secondary palette `DAT_0049aef8` for the damage flash — see [`../rendering/cockpit-canopy-palette.md`](../rendering/cockpit-canopy-palette.md#the-damage-shake).
 
 ## Views
 
@@ -64,7 +64,7 @@ Views 2 and 3 share one bitmap handle: `CockpitCanopy_LoadViewBitmap` maps view 
 
 - `CockpitView_QueueViewCommand` (`0042a3f4`) latches a command at `+0x18`, gated on the current view.
 - `CockpitView_ProcessViewCommand` (`0042a4c4`) executes it.
-- `CockpitView_SetView` (`0042a1f0`) does the work: `CockpitView_ApplyViewState`, then one `Bitmap_Blit` of the canopy at `(0,0)` (see [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md#blitting)), then `CockpitView_InvalidateWidgets` (`004316c0`) invalidates every cockpit widget.
+- `CockpitView_SetView` (`0042a1f0`) does the work: `CockpitView_ApplyViewState`, then one `Bitmap_Blit` of the canopy at `(0,0)` (see [`../rendering/cockpit-canopy-palette.md`](../rendering/cockpit-canopy-palette.md#blitting)), then `CockpitView_InvalidateWidgets` (`004316c0`) invalidates every cockpit widget.
 - `CockpitView_ApplyViewState` (`00429e60`) copies the view's `0x204`-byte clip block into the render context (`DAT_006c5ff4 + 4`), sets that context's clip mode (`+0x208`) to **2** — the region-list mode, which makes even sprite blits follow the cutout scanline by scanline — points `ActiveScanlineClipSpans` at its span table for the polygon rasterizers, and installs the `.VUE` rect into context slots `0x84`-`0x89`. Only the target box is drawn through this context; see [`hud-target-indicator.md`](hud-target-indicator.md).
 
 **The canopy is blitted once per view change, not per frame.** The 3D scene is then rasterized over it every frame, span-clipped to `ActiveScanlineClipSpans`; HUD widgets repaint on top.
@@ -81,7 +81,7 @@ Command values latched at `+0x18`, and the current-view gate each requires:
 | 5 | 0 (or 2 → 6) | glance to view 3 |
 | 6 | 2 or 3 | return from a glance to view 0 |
 
-Two device paths reach those commands. `CockpitView_HandleEdgeTrigger` (`00433a88`) answers a **mouse click on one of three screen-edge strips** — `+0x21a` the bottom one, `+0x21e`/`+0x222` the left and right — picking the command by current view; they are ordinary widgets, and [`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#10-the-screen-edges-are-three-widgets) has their rects and the full mapping. `CockpitView_PollViewDevice` (`00432b14`) reads four device-state bytes at `+0x1e`-`+0x21` for commands 1/0/5/4, the joystick hat's up/down/left/right. The manual binds `[F7]`/`[F8]` to heads-down, `[F9]`/`[F10]` to the left and right windows and `[Esc]` to the way back.
+Two device paths reach those commands. `CockpitView_HandleEdgeTrigger` (`00433a88`) answers a **mouse click on one of three screen-edge strips** — `+0x21a` the bottom one, `+0x21e`/`+0x222` the left and right — picking the command by current view; they are ordinary widgets, and [`cockpit-input.md`](cockpit-input.md#10-the-screen-edges-are-three-widgets) has their rects and the full mapping. `CockpitView_PollViewDevice` (`00432b14`) reads four device-state bytes at `+0x1e`-`+0x21` for commands 1/0/5/4, the joystick hat's up/down/left/right. The manual binds `[F7]`/`[F8]` to heads-down, `[F9]`/`[F10]` to the left and right windows and `[Esc]` to the way back.
 
 ### Heads-down pan — `CockpitView_StepViewTransition` (`0042a9c0`)
 
@@ -110,41 +110,13 @@ Step is 10 canvas rows; `maybe_CockpitLayoutMode == 2` doubles it and forces tra
 
 **Both views' canopies are resident in the canvas throughout.** `Sim_InitMissionSession` (`004614fc`) calls `CockpitView_SetView(mgr, 1)` and then `CockpitView_SetView(mgr, 0)` during bring-up, so the pan is a pure scroll and never a redraw. That order also settles the six-row overlap where the two blits meet — `.HB1` lands at canvas row 474 and `.HB0` runs to 479, so **`.HB0` wins**.
 
-## `.VUE` — per-view geometry
+## View geometry
 
-After the 9-byte VOL prefix: `int32 viewCount`, then `viewCount x` 8 `int32`s. All coordinates are authored in the 320-wide space and shifted by `VideoMode_X/YCoordShift`.
+Each view's 3D viewport rect, projection centre and canvas origin come from its `.VUE` record; the file's layout and the retail values are [`../formats/vue-view-geometry.md`](../formats/vue-view-geometry.md).
 
-| Field | Meaning |
-|---|---|
-| 0-3 | 3D viewport rect `x0, y0, x1, y1` |
-| 4-5 | Projection centre, `cx, cy` — **stored negated**, see below |
-| 6-7 | Canvas origin `originX, originY` |
+The rect is the **outer bound** on where the 3D scene may reach, and the `.HD<n>` scanline spans ([The viewport cutout](#the-viewport-cutout)) are the canopy-shaped hole inside it: two mechanisms over one view, both applied to the whole 3D pass. The two agree on retail data (`APOCA.HD0` resolves to rows 0-371 against a rect of `0,0 - 640,372` in the 640-wide modes), so the rect changes nothing that is visible on a herc whose canopy is opaque outside its rect — which is what makes the spans sufficient on their own and the rect easy to miss.
 
-The rect is the **outer bound** on where the 3D scene may reach, and the `.HD<n>` scanline spans below are the canopy-shaped hole inside it: two mechanisms over one view, both applied to the whole 3D pass. The two agree on retail data (`APOCA.HD0` resolves to rows 0-371 against a rect of `0,0 - 640,372` in the 640-wide modes), so the rect changes nothing that is visible on a herc whose canopy is opaque outside its rect — which is what makes the spans sufficient on their own and the rect easy to miss.
-
-The two glances share a canopy bitmap but not a rect: view 3's runs the full width where view 2's stops short of it, on every retail herc.
-
-Every retail `.VUE` gives view 1 the canvas origin `(0,237)` — no herc differs.
-
-`APOCA.VUE` (`viewCount = 4`):
-
-| View | Rect | Centre | Canvas origin |
-|---|---|---|---|
-| 0 | `0,0 – 320,186` | `-160,-95` | `0,0` |
-| 1 | `0,0 – 0,0` | `-160,-95` | `0,237` |
-| 2 | `0,0 – 287,231` | `-160,-95` | `320,0` |
-| 3 | `0,0 – 320,231` | `-160,-95` | `-320,0` |
-
-View 1's zero-size rect is why the heads-down view shows no 3D. **RAZOR is the sole exception** — `0,0 – 320,181`, matching its 2368-byte `.HD1` against every other herc's 16-byte stub; see [The RAZOR's heads-down view](#the-razors-heads-down-view).
-
-`RAZOR.VUE` (`viewCount = 4`):
-
-| View | Rect | Centre | Canvas origin |
-|---|---|---|---|
-| 0 | `0,0 – 320,239` | `-160,-146` | `0,0` |
-| 1 | `0,0 – 320,181` | `-160,-146` | `0,237` |
-| 2 | `0,0 – 320,239` | `-160,-146` | `320,0` |
-| 3 | `0,0 – 320,239` | `-160,-146` | `-320,0` |
+View 1's zero-size rect is why the heads-down view shows no 3D, on every herc but the one in [The RAZOR's heads-down view](#the-razors-heads-down-view).
 
 ### The projection centre is not the middle of the view
 
@@ -155,7 +127,7 @@ The value reaches the projection in two steps:
 1. `CockpitView_ApplyViewState` (`00429e60`) copies the record's first six ints into the render context at `+0x210..+0x224`, then adds the view's canvas origin into the last pair.
 2. `Raster_InstallViewProjection` (`0048c1d8`) computes `centre = rectTopLeft - thatPair`, where the rect is the one at `+0x210` — the `.VUE` rect, in the view's own window coordinates.
 
-Every retail rect starts at `(0,0)`, so the centre in a view's own window is `-(c + canvasOrigin)`. For the forward view the origin is `(0,0)` and this is `(-cx, -cy)` authored — `(160, 95)` for APOCA. Retail `cy` runs 95 (APOCA, RAPTOR2) to 146 (RAZOR); `cx` is 160 for every herc and every view, and all four views of a herc carry the same pair. In every other view the origin stays in the sum, and it moves the centre off the view's own window to the point on the canvas where the forward view's centre is.
+Every retail rect starts at `(0,0)`, so the centre in a view's own window is `-(c + canvasOrigin)`. For the forward view the origin is `(0,0)` and this is `(-cx, -cy)` authored — `(160, 95)` for APOCA; the retail pairs are in [`../formats/vue-view-geometry.md`](../formats/vue-view-geometry.md#retail-files). In every other view the origin stays in the sum, and it moves the centre off the view's own window to the point on the canvas where the forward view's centre is.
 
 ### The side glances are one image plane
 
@@ -175,47 +147,15 @@ Its centre is `0 - (-146 + 237) = -91` authored rows, 91 rows above the view's w
 
 `CockpitCanvasWidth`/`Height` (`004d25d2`/`004d25d6`) are 320x480 in mode 0 and 640x960 in modes 1/2 — taller and wider than the 3D viewport (`004d25c2`/`004d25c6` = 320x240 / 640x480). The canvas is a virtual space the views window into at their `.VUE` origins: rows 0-239 the forward cockpit, rows 237-476 the heads-down display, x ±320 the side views.
 
-**No retail `.GAU` uses more than the forward quadrant.** Widget origins across all nine hercs span `x:[3..298] y:[1..230]`, so the screen size the `.GAU` header declares at offset 8, (320,400), overstates the used range and the side views have no widgets of their own.
+**No retail `.GAU` uses more than the forward quadrant** ([block map](../formats/gau-cockpit-layout.md#block-map)), so the screen size its header declares overstates the used range and the side views have no widgets of their own.
 
-## `.HD0`-`.HD3` / `.ED0`-`.ED3` — 3D-viewport clip regions
+## The viewport cutout
 
-`CockpitClipRegions_Load` (`0042dcf0`). Layout after the 9-byte VOL prefix, all fields little-endian `int16`:
-
-```
-int16 rectCount
-rectCount x { int16 y0, int16 y1, int16 x0, int16 x1 }      -- inclusive on all four edges
-int16 blockCount
-blockCount x {
-    int16 firstRow, int16 rowCount,
-    rowCount x { int16 xStart, int16 xEnd }                 -- one entry per scanline, inclusive
-}
-```
-
-Coordinates are shifted by the caller's `(xShift, yShift)`: `(0,0)` for the `.HD*` set (already 640-wide), `VideoMode_X/YCoordShift` for `.ED*`. Inclusive ends are expanded as `end = (end << shift) + (1 << shift) - 1`. Output is a `0x204`-byte block: `int count` plus up to 128 region pointers, rects tagged type 0 and span blocks type 2.
+Each view's clip regions come from its `.HD<n>` or `.ED<n>` file, which `CockpitClipRegions_Load` (`0042dcf0`) loads into a `0x204`-byte block of rects and span blocks; the file's layout and the retail values are [`../formats/hd-ed-clip-regions.md`](../formats/hd-ed-clip-regions.md).
 
 `ClipRegions_BuildScanlineSpans` (`0048b9a8`) flattens that into a table of `0xf0 << VideoMode_YCoordShift` rows (240 or 480), each `{ int spanCount, ptr to spanCount x {int start, int length} }`, sorted by start, and stores it in `ActiveScanlineClipSpans` (`004a5b10`). The polygon rasterizer (`00468310`) indexes it by row and skips rows with zero spans.
 
 **This is the viewport cutout mechanism.** DBSIM never colour-keys the canopy art, and palette index 0 has no special meaning in it.
-
-Blocks may overlap and repeat — `APOCA.HD0` lists `row 204 +168` twice — which is harmless because flattening accumulates every region per row.
-
-Parsed extents (`hd0`/`hd2`, all nine hercs; span counts after flattening):
-
-| Herc | hd0 rows/spans | hd2 rows/spans | hd1 spans |
-|---|---|---|---|
-| APOCA | 372 / 666 | 462 / 538 | 0 |
-| COLOSSUS | 350 / 694 | 407 / 424 | 0 |
-| SAMSON | 352 / 762 | 436 / 446 | 0 |
-| MAVERICK | 450 / 1050 | 442 / 495 | 0 |
-| OGRE | 388 / 734 | 447 / 467 | 0 |
-| OUTLAW | 392 / 768 | 480 / 480 | 0 |
-| RAPTOR2 | 334 / 720 | 434 / 477 | 0 |
-| RAZOR | 480 / 948 | 480 / 630 | **584** |
-| TOMAHAWK | 380 / 958 | 430 / 430 | 0 |
-
-Every file consumes its whole body under this layout with 3 constant trailing bytes unread. RAZOR is the only herc with a non-stub view-1 file, matching the file sizes on disk (`APOCA.HD1` is 16 bytes, both counts zero; `RAZOR.HD1` is 2368). `APOCA.HD0` resolves to rows 0-371, matching the independently measured index-0 bounding box on `APOCA.HB0` (`y:[0..371]`).
-
-Every rect in every retail file has `x0 == 0`. This matters because DBSIM's flattening step feeds a rect's fourth field to the rasterizer as a span *length* (`piVar4[1] = piVar1[3]`, against `end - start + 1` for span blocks) while the loader's own shift arithmetic treats it as an inclusive end. With `x0 == 0` the two readings differ by one column at the right edge and nothing else; `CockpitClipRegions` takes the inclusive reading.
 
 ## Video modes
 
@@ -229,13 +169,13 @@ Every rect in every retail file has `x0 == 0`. This matters because DBSIM's flat
 
 The back buffer is `VideoMode_BackBufferWidth`/`Height` (`004d25ca`/`004d25ce`), twice the viewport both ways; see [Presentation](#presentation).
 
-**The argument is the player's only on the command line.** The first call — `WinMain`'s, passing 0 — discards what it was given and reads `data\prefs.cfg` instead, taking option 4 and mapping it to **0 for a stored 1 and 3 for anything else**, so the file reaches mode 0 or the last row and never the middle one. That first call also latches a once-only gate, so the later `-v<n>` call keeps its own argument, and `-v1` is the only way to the low-res banks at 640x480. See [`../simulation/preferences.md`](../simulation/preferences.md#the-video-mode-and-full-screen-bytes).
+**The argument is the player's only on the command line.** The first call — `WinMain`'s, passing 0 — discards what it was given and reads `data\prefs.cfg` instead, taking option 4 and mapping it to **0 for a stored 1 and 3 for anything else**, so the file reaches mode 0 or the last row and never the middle one. That first call also latches a once-only gate, so the later `-v<n>` call keeps its own argument, and `-v1` is the only way to the low-res banks at 640x480. See [`preferences.md`](preferences.md#the-video-mode-and-full-screen-bytes).
 
 Both mode flags are fields of one `0xc3`-byte global block at `004d2540`, which `MAIN.CPP`'s static initializer, `Main_StaticInit` (`0045cad8`), zeroes with `memset` and then fills through `EBX`. Borland's `_INIT_` table reaches it at `004a7b70`, a priority-`0x20` entry like every other source file's; it has no direct caller. Its first dword is the main render target. The block is one global object, of a class the Borland type descriptor at `0045cc07` names `MGlobs`: `0xdd` bytes, the `0xc3` bytes of plain fields the `memset` covers and a member object at `+0xc3` (`004d2603`) that `GLBitmap_Ctor` (`00481460`) constructs first. Its destructor `MGlobs_Dtor` (`0045cc53`) and the `_EXIT_` routine `Main_StaticDtor` (`0045cbf0`, reached from `004a7c50`) touch only that member. Eighteen functions hold the block's base, in a register or as a pushed argument, and reach its fields by displacement, so a field of this block is never settled by a search for its absolute address. Those eighteen are every holder in the image: of the 63 dwords in the PE equal to `004d2540`, 62 are their loads and pushes and the 63rd is the descriptor's pointer to the object.
 
 `VideoMode_PanelMode` is a three-valued selector, not a flag. Retail stores only 0 and 3: `Main_StaticInit` writes 0, and `VideoMode_Configure`'s three branches write 0, 3 and 3 (modes 0, 1 and 2+). `PanelMode == 3` selects `.HFN` fonts, `hba\` sprite banks, `hb<n>` canopy art and `hd<n>` clip files. Value 1 is a display mode the shipped game cannot enter; see [Panel mode 1](#panel-mode-1). `UseHiResBanks` separately selects hi-res banks for `hudhtick`, `mfd`, `radar`, `hdd`, `pweapons`, `wpn_dmg`, `weapons`, `pdg`, `bases`, `vehicles`, `flyers` and the alert banks — which is why two different flag idioms appear at the bank load sites.
 
-**`maybe_CockpitLayoutMode` (`004d25bc`) holds zero on every path found** ([Open](#open)). It is byte `+0x7c` of the block, and the one write found is `Main_StaticInit`'s store of 0. All 23 absolute occurrences of `004d25bc` are `MOVSX` reads. Over the eighteen functions that hold the block's base, `es2_fieldscan.py` finds one other access to `+0x7c`, a read in `Sim_InitMissionSession`, and finds `Main_StaticInit`'s store as its positive control. The two values it is tested against would select: value 1, the defective path described in [`cockpit-canopy-palette.md`](cockpit-canopy-palette.md#known-defect-in-the-retail-code), and value 2 would route the canopy blit through `Bitmap_BlitScaled` (`004816bc`) and put the view origin in `DAT_004d25da`/`de` rather than `DAT_004cfa24`/`28`. **So `DAT_004d25da`/`de` stay zero** with it: the stores found, in `CockpitView_SetView` at `0042a1d8`/`0042a1e1`, are on the value-2 path, and the offset `Widget_OnMouseDown` and `Widget_OnMouseUp` add from them ([`../simulation/cockpit-input.md`](../simulation/cockpit-input.md#10-the-screen-edges-are-three-widgets)) is zero.
+**`maybe_CockpitLayoutMode` (`004d25bc`) holds zero on every path found** ([Open](#open)). It is byte `+0x7c` of the block, and the one write found is `Main_StaticInit`'s store of 0. All 23 absolute occurrences of `004d25bc` are `MOVSX` reads. Over the eighteen functions that hold the block's base, `es2_fieldscan.py` finds one other access to `+0x7c`, a read in `Sim_InitMissionSession`, and finds `Main_StaticInit`'s store as its positive control. The two values it is tested against would select: value 1, the defective path described in [`../formats/canopy-art-hb-db.md`](../formats/canopy-art-hb-db.md#known-defect-in-the-retail-code), and value 2 would route the canopy blit through `Bitmap_BlitScaled` (`004816bc`) and put the view origin in `DAT_004d25da`/`de` rather than `DAT_004cfa24`/`28`. **So `DAT_004d25da`/`de` stay zero** with it: the stores found, in `CockpitView_SetView` at `0042a1d8`/`0042a1e1`, are on the value-2 path, and the offset `Widget_OnMouseDown` and `Widget_OnMouseUp` add from them ([`cockpit-input.md`](cockpit-input.md#10-the-screen-edges-are-three-widgets)) is zero.
 
 ### Presentation
 

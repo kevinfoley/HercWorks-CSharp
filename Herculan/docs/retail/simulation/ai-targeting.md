@@ -196,7 +196,7 @@ Called from the think functions of `attacking`, `flanking`, `facing off` and `dr
 
 ## Radio callouts
 
-A squad message is posted with `Ai_PostSquadMessage` (`00420a98`), which [`cockpit-messages.md`](../formats/cockpit-messages.md#the-pilot-and-squad-channel) owns along with the id catalog. Three ids are raised from this slice:
+A squad message is posted with `Ai_PostSquadMessage` (`00420a98`), which [`cockpit-messages.md`](cockpit-messages.md#the-pilot-and-squad-channel) owns along with the id catalog. Three ids are raised from this slice:
 
 | Id | Raised by |
 |---|---|

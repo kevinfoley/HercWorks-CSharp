@@ -551,7 +551,7 @@ public sealed class Rocket {
 /// What <c>Rocket_PlayerSteer</c> reads out of the player input block (<c>0x4d234a</c>): the two values
 /// its camera-axis pointers at <c>+0x22</c> and <c>+0x26</c> address, and the trigger byte at
 /// <c>+0x0d</c>. While the round has the controls the pointers address the steering and throttle
-/// axes; otherwise they follow the JOYSTICK row — see docs/retail/formats/joystick-input.md.
+/// axes; otherwise they follow the JOYSTICK row — see docs/retail/simulation/joystick-input.md.
 /// </summary>
 /// <param name="Steer">The <c>+0x22</c> axis, which turns the heading.</param>
 /// <param name="Pitch">The <c>+0x26</c> axis, which pitches the nose.</param>

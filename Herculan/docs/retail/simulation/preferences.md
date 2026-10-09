@@ -32,7 +32,7 @@ The caller supplies the modulus, which is why one pair drives a three-value row 
 |---|---|---|
 | 0 MUSIC | `Prefs_ApplyMusicOption` (`00459c98`) | `Sound_SetMusicEnabled`, then `Sound_UnmuteMusic` / `Sound_MuteMusic` |
 | 1 SOUNDS | `Prefs_ApplySoundsOption` (`00459c6c`) | `Sound_SetEffectsEnabled`, then `Sound_UnmuteEffects` / `Sound_MuteEffects` |
-| 2 PILOT MESSAGE | `Prefs_ApplyPilotMessageOption` (`00459cc4`) | `Sound_SpeechEnabled` (`0049f97e`) `= byte != 0`. That flag gates every recorded line — `Voice_Acquire` opens no clip and `Snc_Start` plays none while it is down — on both message channels ([`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#the-port)) |
+| 2 PILOT MESSAGE | `Prefs_ApplyPilotMessageOption` (`00459cc4`) | `Sound_SpeechEnabled` (`0049f97e`) `= byte != 0`. That flag gates every recorded line — `Voice_Acquire` opens no clip and `Snc_Start` plays none while it is down — on both message channels ([`cockpit-messages.md`](cockpit-messages.md#the-port)) |
 | 8 TERRAIN TEXTURE | `Prefs_ApplyTerrainTextureOption` (`00459d4c`) | `TerrainTexturingEnabled` (`004aab2c`) |
 | `0x0e` THROTTLE | `Input_SetThrottleLeverMode` | the herc controls block's THROTTLE row, and so an independent corroboration of where that block starts |
 
@@ -52,7 +52,7 @@ Four callers, and between them they are every write the simulator makes:
 |---|---|---|
 | `PreferencesPanel_Save` (`004574cc`) | 9: options 0-3 and 7-11 (`DAT_0049e304`) | `PreferencesPanel_Run` closing the panel |
 | `ControlsPanel_Save` (`00459140`) | 13: `ControlsOptionBase - 1` through `+11` | `ControlsPanel_Run` closing the panel, at `00458c07` |
-| `Joystick_InitAndSeedBindings` (`00459dd4`) | 25: options 12-36 (`DAT_0049e9d0`) — both blocks | A start that enumerates a stick while option 12 (`DAT_004d1fc8`) is 0 ([`../formats/joystick-input.md`](../formats/joystick-input.md#a-stick-that-does-not-enumerate)) |
+| `Joystick_InitAndSeedBindings` (`00459dd4`) | 25: options 12-36 (`DAT_0049e9d0`) — both blocks | A start that enumerates a stick while option 12 (`DAT_004d1fc8`) is 0 ([`joystick-input.md`](joystick-input.md#a-stick-that-does-not-enumerate)) |
 | `Prefs_SaveOption` (`00459b64`) | 1 | `Sim_Run` (`0045f144`) at `0045f413`, on option 6, at shutdown and only when the live full-screen state differs from the option's byte |
 
 **There is no cancel.** `PreferencesPanel_Revert` (`004574e0`) tests the same nine options with `Prefs_OptionChanged` (`00459c38`) and rolls the changed ones back out of the load-time shadow at `004d1ff2` through `Prefs_RevertSelectedOptions` (`00459b04`) — and it is unreferenced, as `Prefs_SaveAllOptions` is. Leaving the preferences panel saves, whichever button does it.
@@ -67,16 +67,16 @@ The controls panel pairs its save with `Prefs_CommitOptions` (`00459878`) one in
 |---|---|---|
 | 0 | MUSIC | off / on |
 | 1 | SOUNDS | off / on |
-| 2 | PILOT MESSAGE | 0 text only, 1 voice only, 2 both; what each gates is [`../formats/cockpit-messages.md`](../formats/cockpit-messages.md#the-port)'s |
+| 2 | PILOT MESSAGE | 0 text only, 1 voice only, 2 both; what each gates is [`cockpit-messages.md`](cockpit-messages.md#the-port)'s |
 | 3 | COMPUTER MESSAGE | as option 2 |
 | 4 | **VSHELL's** `Game Resolution` | 0 `High Res (640x480)`, 1 `Low Res (320x240)` — and the byte `VideoMode_Configure` reads, [below](#the-video-mode-and-full-screen-bytes) |
 | 5 | **VSHELL's** shell music track | non-zero `hmi\shell1.wav`, zero `hmi\shell2.wav`; the shell flips it at every startup, so the two alternate ([`../shell/movies-and-sound.md`](../shell/movies-and-sound.md#sound)) |
 | 6 | `Display Mode` | 0 `Window`, 1 `Full Screen`. Both programs read it and the simulator writes it back |
-| 7 | TERRAIN DISTANCE | 0-2, the draw radius ([`../formats/terrain-texturing.md`](../formats/terrain-texturing.md#the-terrain-detail-setting)) |
+| 7 | TERRAIN DISTANCE | 0-2, the draw radius ([`../rendering/terrain-texturing.md`](../rendering/terrain-texturing.md#the-terrain-detail-setting)) |
 | 8 | TERRAIN TEXTURE | off / on |
-| 9 | HERC DETAIL | 0-4, the LOD-root bias ([`../formats/mech-shape-drawing.md`](../formats/mech-shape-drawing.md#the-three-tunables)) |
-| 10 | STRUCTURE DETAIL | 0-2, the `TSDetailPart` bias structures and flyers are drawn under ([`../formats/dts-texture-binding.md`](../formats/dts-texture-binding.md#tsdetailpart-level-selection-and-structure-detail)) |
-| 11 | EFFECTS DETAIL | 0-2, `Sound_DetailSetting`: which smoke stages a collapsing structure plays and whether a debris piece bursts ([`destruction-effects.md`](destruction-effects.md#effects-detail)), and the sound throttle's divisor ([`../formats/audio.md`](../formats/audio.md#the-play-request-gate)) |
+| 9 | HERC DETAIL | 0-4, the LOD-root bias ([`../rendering/mech-shape-drawing.md`](../rendering/mech-shape-drawing.md#the-three-tunables)) |
+| 10 | STRUCTURE DETAIL | 0-2, the `TSDetailPart` bias structures and flyers are drawn under ([`../rendering/dts-texture-binding.md`](../rendering/dts-texture-binding.md#tsdetailpart-level-selection-and-structure-detail)) |
+| 11 | EFFECTS DETAIL | 0-2, `Sound_DetailSetting`: which smoke stages a collapsing structure plays and whether a debris piece bursts ([`destruction-effects.md`](destruction-effects.md#effects-detail)), and the sound throttle's divisor ([`audio.md`](audio.md#the-play-request-gate)) |
 | 12 | the joystick-configured flag | 0 lets `Joystick_InitAndSeedBindings` seed both blocks; 1 has it zero the walking block in memory when no stick enumerates |
 | 13-24 | the controls panel's twelve, walking a HERC | [below](#the-bindings-are-twelve-bytes-of-the-same-file) |
 | 25-36 | the same twelve, flying the RAZOR | |
@@ -98,7 +98,7 @@ No instruction in either image addresses options 48-53 by name, and they are zer
 
 `VideoMode_Configure` (`0045e4f4`) does not go through the option array at all: on its first call it `fread`s **seven bytes of `data\prefs.cfg`** into a local buffer and takes byte 4 as its mode and byte 6 as the full-screen flag. So the two settings reach the simulator before `Prefs_LoadOptions` has a say, and the file's own layout is what makes that work.
 
-Byte 4 is reduced to two cases — **1 gives the 320x240 block and anything else the 640x480 block with hi-res banks**, which is the mode a retail file's 0 selects. What the modes are, why the file never reaches the middle one and how `-v` overrides it are [`../formats/cockpit-views.md`](../formats/cockpit-views.md#video-modes)'s.
+Byte 4 is reduced to two cases — **1 gives the 320x240 block and anything else the 640x480 block with hi-res banks**, which is the mode a retail file's 0 selects. What the modes are, why the file never reaches the middle one and how `-v` overrides it are [`cockpit-views.md`](cockpit-views.md#video-modes)'s.
 
 Byte 6 non-zero makes `MainWindow_Create` (`00465054`) size the window to the desktop and place it topmost, and `WinMain` then clears the flag and calls the toggle at `004666c4`, which takes DirectDraw exclusive and sets an 8-bit display mode. `-Z1` and `-Z0` override the flag and not the option array. At shutdown `Sim_Run` compares option 6's byte with the live flag, which `Video_ToggleFullscreen` keeps at 0 or 1, and when they differ sets the option to the flag through `Prefs_SetOption` and saves it alone. So the player's own toggles during a session persist, and so does a `-Z` switch whose state the session ends in.
 
@@ -201,15 +201,15 @@ The OPTIONS list sits at x 226-354: its caption at y 138 height 10, then twelve 
 
 ### The capability block
 
-What the panel greys its rows against is `Input_QueryCapabilities`' eight bytes, whose fields the input layer owns — [`../formats/joystick-input.md`](../formats/joystick-input.md#the-capability-block--input_querycapabilities-004777f8).
+What the panel greys its rows against is `Input_QueryCapabilities`' eight bytes, whose fields the input layer owns — [`joystick-input.md`](joystick-input.md#the-capability-block--input_querycapabilities-004777f8).
 
-The panel reaches it in two steps. `Input_GetDevice(3)` (`0045c508`) is asked first, and when it answers null or with its low bit clear the panel takes **no block at all** and greys all twelve rows at once. A stick that fails to enumerate leaves that lookup pointing at a destroyed device, so what the panel reads then is freed memory ([`../formats/joystick-input.md`](../formats/joystick-input.md#a-stick-that-does-not-enumerate)). Only past that gate does it read the fields and grey rows one at a time: `+2` bounds the button rows, `+4`, `+5` and `+6` gate THROTTLE, RUDDER and HAT. The JOYSTICK row has no field of its own: once a stick is present it is always live.
+The panel reaches it in two steps. `Input_GetDevice(3)` (`0045c508`) is asked first, and when it answers null or with its low bit clear the panel takes **no block at all** and greys all twelve rows at once. A stick that fails to enumerate leaves that lookup pointing at a destroyed device, so what the panel reads then is freed memory ([`joystick-input.md`](joystick-input.md#a-stick-that-does-not-enumerate)). Only past that gate does it read the fields and grey rows one at a time: `+2` bounds the button rows, `+4`, `+5` and `+6` gate THROTTLE, RUDDER and HAT. The JOYSTICK row has no field of its own: once a stick is present it is always live.
 
 `ControlsPanel_RefreshRow` (`00458d20`) gates every one of its twelve cases on the same capability and **sets no text at all** when it fails, so a greyed row reads blank rather than showing a stale binding.
 
 ### The bindings are twelve bytes of the same file
 
-At `ControlsOptionBase` + 0..11. An axis row's byte indexes its three-word set directly; a button row's byte is an action code into the twenty-one names, also directly. What the input layer then does with them — which game axes a row's 0, 1 and 2 select, and what each action code dispatches — is [`../formats/joystick-input.md`](../formats/joystick-input.md#applying-the-bindings--input_buildplayerdevice-0045a7f4).
+At `ControlsOptionBase` + 0..11. An axis row's byte indexes its three-word set directly; a button row's byte is an action code into the twenty-one names, also directly. What the input layer then does with them — which game axes a row's 0, 1 and 2 select, and what each action code dispatches — is [`joystick-input.md`](joystick-input.md#applying-the-bindings--input_buildplayerdevice-0045a7f4).
 
 Which actions a button row may be **bound to** is a separate table, read by `ControlsPanel_ActionAt` (`00457cdc`): eight rows of thirteen bytes at `0049e619` walking and `0049e681` flying. **Code 0 terminates a row rather than meaning OFF** — the constructor counts a row's length by walking until it reads a zero — so although `OFF` is action name 0 it is never an offered choice, only what a row displays when its stored byte is 0. BUTTON 1 is the extreme case: one entry, `FIRE`, so the trigger cannot be rebound. The other seven rows carry twelve actions each and **alternate between two lists**, one holding `NEXT WEAPON` and the other `PREV WEAPON`.
 
@@ -230,9 +230,9 @@ The click handler (`ControlsPanel_OnClick`, `00458ebc`) moves the highlight the 
 
 The panel installs a handler of its own in vtable slot `+0x10` where the rest of the family uses `AlertPanel_HandleEvent`, because on this panel a stick's buttons must not press widgets — they have to show the player which row they just pressed. The loop hands it the device block `Input_BuildPlayerDevice` returns, and it does three things with it.
 
-**The trigger is put back.** Byte `+0x0d` is copied over button state 0 before anything reads them, undoing the extraction `Input_BuildPlayerDevice` performs ([`../formats/joystick-input.md`](../formats/joystick-input.md#the-buttons)). Without it BUTTON 1's row would be the one row a stick could not reach.
+**The trigger is put back.** Byte `+0x0d` is copied over button state 0 before anything reads them, undoing the extraction `Input_BuildPlayerDevice` performs ([`joystick-input.md`](joystick-input.md#the-buttons)). Without it BUTTON 1's row would be the one row a stick could not reach.
 
-**Then the eight states, first pressed one wins.** A press on the row that is already selected steps that row's action, exactly as a second click does; a press on another row, one under the capability block's button count, selects it and moves the highlight to widget `row + 4`. Either way the row's widget gets the [press flash](alert-panels.md#keys-and-the-press-flash) on the panel's root, though no click reaches it. Then `Input_LatchButton` latches the button, whichever branch ran ([`../formats/joystick-input.md`](../formats/joystick-input.md#the-buttons)), so one press is one step.
+**Then the eight states, first pressed one wins.** A press on the row that is already selected steps that row's action, exactly as a second click does; a press on another row, one under the capability block's button count, selects it and moves the highlight to widget `row + 4`. Either way the row's widget gets the [press flash](alert-panels.md#keys-and-the-press-flash) on the panel's root, though no click reaches it. Then `Input_LatchButton` latches the button, whichever branch ran ([`joystick-input.md`](joystick-input.md#the-buttons)), so one press is one step.
 
 **Then the keys**, which are the [family's](alert-panels.md#keys-and-the-press-flash) convention and not a departure from it: [Return] presses the widget at `+0x2f7`, or focuses widget 0 when that is unset; [Esc] presses the cancel widget at `+0x2fb`, DONE; [Tab], scancode `0x52` and [Shift+Tab] focus the next widget ([`alert-panels.md`](alert-panels.md#keys-and-the-press-flash) says why [Shift+Tab] does not go back). Only that focus walk moves `+0x2f7` on this panel, so [Return] presses the JOYSTICK row, widget 0, which the loop focuses before its first pass, and steps it.
 

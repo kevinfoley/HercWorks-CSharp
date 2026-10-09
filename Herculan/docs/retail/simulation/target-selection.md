@@ -15,7 +15,7 @@ Every writer of `+0x1a4` also maintains `target+0x1a2`, a count of how many obje
 | `;` | `0x27` | `TargetSelect_SetObject(view, 0)` (`004332dc`) | Clear. Undocumented in the manual |
 | `Tab` | `0x0f` | `TargetingPod_CycleComponent` | Step the Targeting Pod's component lock, if one is fitted — [below](#component-targeting--the-targeting-pod) |
 
-`TargetSelect_SetObject(view, obj)` is the entry point for `;` and for a gunsight click (`Gunsight_UpdateAndPaint`, which takes the object from a pixel pick whose arming function has no reference found — [`../formats/terrain-drawing.md`](../formats/terrain-drawing.md#the-pixel-pick-and-the-occlusion-probe)). The F4 scanner's TARGET button is not a caller: it runs `TargetSelect_Cycle`, exactly as `Enter` does ([`mfd-scanner.md`](../formats/mfd-scanner.md#buttons)), and the joystick's target and nearest-target actions reach `TargetSelect_Cycle` and `TargetSelect_Nearest` from `Sim_PollPlayerInput`. `TargetSelect_SetObject` *walks* `+0x210` through the object list from a stored cursor until it lands on the object asked for, so a request for something unselectable ends with the selection back where it started.
+`TargetSelect_SetObject(view, obj)` is the entry point for `;` and for a gunsight click (`Gunsight_UpdateAndPaint`, which takes the object from a pixel pick whose arming function has no reference found — [`../rendering/terrain-drawing.md`](../rendering/terrain-drawing.md#the-pixel-pick-and-the-occlusion-probe)). The F4 scanner's TARGET button is not a caller: it runs `TargetSelect_Cycle`, exactly as `Enter` does ([`mfd-scanner.md`](mfd-scanner.md#buttons)), and the joystick's target and nearest-target actions reach `TargetSelect_Cycle` and `TargetSelect_Nearest` from `Sim_PollPlayerInput`. `TargetSelect_SetObject` *walks* `+0x210` through the object list from a stored cursor until it lands on the object asked for, so a request for something unselectable ends with the selection back where it started.
 
 ### Cycle's shortlist — `TargetSelect_Cycle` (`0043349c`)
 
@@ -78,8 +78,8 @@ A terrain ray between the two objects' aim nodes (`+0x1c` of the vtable `+0x24` 
 
 `mech+0x96` is PASSIVE/ACTIVE. The player has two switches, and they are not the same code:
 
-- **[R]** is `Mech_ToggleRadarMode` (`0041b468`), called from `CockpitWidgets_HandleCommand` ([Open](#open)). It flips the field only when `obj+0xa3` is set, then posts the radar-mode message and plays the mode tone ([`cockpit-messages.md`](../formats/cockpit-messages.md), [`audio.md`](../formats/audio.md)).
-- **The F4 scanner's PASS and ACTIVE buttons** are `MfdButton_OnClick` (`0044681c`), which *sets* the field to 0 or 1 on the viewed machine (`view+0x203`) directly — no `obj+0xa3` test, no message, no tone. See [`mfd-scanner.md`](../formats/mfd-scanner.md#buttons).
+- **[R]** is `Mech_ToggleRadarMode` (`0041b468`), called from `CockpitWidgets_HandleCommand` ([Open](#open)). It flips the field only when `obj+0xa3` is set, then posts the radar-mode message and plays the mode tone ([`cockpit-messages.md`](cockpit-messages.md), [`audio.md`](audio.md)).
+- **The F4 scanner's PASS and ACTIVE buttons** are `MfdButton_OnClick` (`0044681c`), which *sets* the field to 0 or 1 on the viewed machine (`view+0x203`) directly — no `obj+0xa3` test, no message, no tone. See [`mfd-scanner.md`](mfd-scanner.md#buttons).
 
 **The player's HERC starts each mission passive** in retail ([Open](#open)). `Base_Construct` latches it on for structure types 5, 6, `0x1d`, `0x1e` — the radar masts. An AI machine's radar is set by the writers [below](#how-an-ai-machines-radar-is-set); an anti-radiation hit and destruction clear it.
 

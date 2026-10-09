@@ -179,7 +179,7 @@ sealed class SimulatorHost : IDisposable {
 
 	// The player's own cockpit canopy art + HUD, drawn as three simultaneous panels (front/left/right) rather
 	// than the original's single keyboard-panned view — see docs/herculan/planning.md's Milestone 8 section and
-	// docs/retail/formats/cockpit-views.md for why. Falls back to a single full-window 3D view when there's no
+	// docs/retail/simulation/cockpit-views.md for why. Falls back to a single full-window 3D view when there's no
 	// player.mec or its cockpit assets are missing (e.g. a raw script.dat with no accompanying player.mec).
 	// The theater's palette is the live palette — all 256 slots — with only this herc's own 24-entry
 	// cockpit colour scheme installed over slots 42-65. See CockpitPalette.

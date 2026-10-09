@@ -151,7 +151,7 @@ public sealed class MessagePorts {
 	/// <summary>
 	/// Whether the power-up announces <see cref="SystemMessages.PowerUpDamaged"/>: true when any of
 	/// the first <see cref="PowerUpCheckedInternals"/> internals reads any damage at all, which is
-	/// <c>Cockpit_PowerUpTick</c>'s test as docs/retail/formats/cockpit-messages.md, "Posters", derives it.
+	/// <c>Cockpit_PowerUpTick</c>'s test as docs/retail/simulation/cockpit-messages.md, "Posters", derives it.
 	///
 	/// <para>The original's reading (<c>Mech_ReadEntryDamage</c>, <c>0041b514</c>) takes a zero
 	/// maximum as fully damaged where <see cref="ComponentDamage.DependentPercent"/> reads it as 0;

@@ -144,7 +144,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 
 		// CommBox_OnMessageBegin tests whether the hiss is already running before starting it, so a
 		// second box opening under the first does not layer a second copy — see the note on
-		// Sound_Play in docs/retail/formats/audio.md.
+		// Sound_Play in docs/retail/simulation/audio.md.
 		squad.Hiss += id => {
 			if (_director is { } director && !director.IsPlaying(id)) {
 				director.Play(id);
@@ -326,7 +326,7 @@ public sealed class GameAudio : ISoundSink, IDisposable {
 	///
 	/// <para><b>A flyer gets the hum and nothing else.</b> <c>start3</c> and the announcement both
 	/// sit behind <c>cockpit+0x245</c>, which <c>Gau_BuildCockpitWidgets</c> sets for a flyer before
-	/// this runs; see docs/retail/formats/audio.md, "The cockpit power-up". The announcement is
+	/// this runs; see docs/retail/simulation/audio.md, "The cockpit power-up". The announcement is
 	/// <see cref="MessagePorts.PowerUp"/>'s.</para>
 	/// </summary>
 	public void PowerUp(MechObject pilot) {

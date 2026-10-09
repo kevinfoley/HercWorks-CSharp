@@ -1,6 +1,6 @@
 # Key bindings
 
-The simulator's keyboard, by what each key does. Keys the manual does not list are marked **(not in the manual)**. The technical side — how a keystroke becomes a command code, and which handler answers it — is [`simulation/cockpit-input.md`](simulation/cockpit-input.md#keyboard-commands-are-scancodes); the joystick's bindings are [`formats/joystick-input.md`](formats/joystick-input.md).
+The simulator's keyboard, by what each key does. Keys the manual does not list are marked **(not in the manual)**. The technical side — how a keystroke becomes a command code, and which handler answers it — is [`simulation/cockpit-input.md`](simulation/cockpit-input.md#keyboard-commands-are-scancodes); the joystick's bindings are [`simulation/joystick-input.md`](simulation/joystick-input.md).
 
 "Keypad" means the numeric keypad with Num Lock off. The arrow keys and the keypad's arrows are the same keys to the game.
 
@@ -98,7 +98,7 @@ In the outside view:
 | `N` | Look at the next HERC in your squad. The controls stay on the camera while it is not your own. |
 | `V`, `Esc` | Back to the cockpit. |
 
-A joystick does the same with its stick and trigger, and its CHASE VIEW button follows your HERC from behind instead ([`formats/joystick-input.md`](formats/joystick-input.md#the-buttons)). With the cockpit gone, so are the keys that work its displays: the weapon rows, `F1` to `F11`, `;`, `Tab`, `R` and the `Alt` order keys do nothing until you are back inside. `Tab` swaps the controls like `Enter`. The full behaviour is [`simulation/external-views.md`](simulation/external-views.md).
+A joystick does the same with its stick and trigger, and its CHASE VIEW button follows your HERC from behind instead ([`simulation/joystick-input.md`](simulation/joystick-input.md#the-buttons)). With the cockpit gone, so are the keys that work its displays: the weapon rows, `F1` to `F11`, `;`, `Tab`, `R` and the `Alt` order keys do nothing until you are back inside. `Tab` swaps the controls like `Enter`. The full behaviour is [`simulation/external-views.md`](simulation/external-views.md).
 
 ## Panels and the game
 

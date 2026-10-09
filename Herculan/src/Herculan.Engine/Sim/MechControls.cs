@@ -45,7 +45,7 @@ namespace Herculan.Engine.Sim;
 ///
 /// <para><b><see cref="ThrottleLeverBipolar"/> is this engine's invention, not retail behaviour.</b>
 /// DBSIM has only the unipolar mode: its lever spends its whole travel on one direction and
-/// <c>CHANGE DIRECTION</c> flips which. See docs/retail/formats/joystick-input.md.</para>
+/// <c>CHANGE DIRECTION</c> flips which. See docs/retail/simulation/joystick-input.md.</para>
 /// </param>
 /// <param name="TorsoTwist">
 /// The turret axis, left/right. Full deflection at ±0x100, as the two above. It is a
@@ -110,7 +110,7 @@ public readonly record struct MechControls(short Turn, short Throttle, int Throt
 	/// accumulating <c>direction * 0x80</c> per held key, where the direction pair is the ±1
 	/// components the key binding carries, so a cardinal key reaches <c>0x80</c> on its axis and
 	/// nothing reaches <c>0x100</c>. The joystick hat is a third value again (<c>0xc0</c>); only an
-	/// analogue stick spans the full range. See docs/retail/formats/joystick-input.md#the-keyboard.</para>
+	/// analogue stick spans the full range. See docs/retail/simulation/joystick-input.md#the-keyboard.</para>
 	///
 	/// <para>It is load-bearing for steering, because the turn rate is
 	/// <c>Q8(tentRate, axis)</c> — <b>linear</b> in the axis. At <see cref="AxisFull"/> a keyboard

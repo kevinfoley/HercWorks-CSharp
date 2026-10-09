@@ -21,7 +21,7 @@ internal sealed class MfdPainter {
 	/// <summary>
 	/// The multi-function display, built the way <c>MfdDisplay_Ctor</c> (<c>00445218</c>) builds it —
 	/// see <see cref="MfdLayout"/> for where every rect comes from and
-	/// docs/retail/formats/cockpit-hud-widgets.md for the panel it sits in.
+	/// docs/retail/simulation/cockpit-hud-widgets.md for the panel it sits in.
 	///
 	/// <list type="number">
 	/// <item>the screen background, whichever <c>MFD</c> frame the current mode selects — see

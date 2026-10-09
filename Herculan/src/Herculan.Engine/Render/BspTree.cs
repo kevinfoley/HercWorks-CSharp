@@ -17,7 +17,7 @@ public readonly record struct BspLeaf(BspTree Tree, int Index);
 /// <summary>
 /// A <see cref="TSBSPPart"/>'s tree in render space, which orders the part's children back to front
 /// from the eye each frame the way <c>TSBSPPart_Render</c> (<c>00476b0c</c>) and
-/// <c>TSBSPPart_RenderNode</c> (<c>00476a1c</c>) do. docs/retail/formats/dts-texture-binding.md,
+/// <c>TSBSPPart_RenderNode</c> (<c>00476a1c</c>) do. docs/retail/rendering/dts-texture-binding.md,
 /// "<c>TSBSPPart</c> child selection", has the walk.
 ///
 /// <para>Each node's splitting plane is in a frame of its own: the node's transform id when it

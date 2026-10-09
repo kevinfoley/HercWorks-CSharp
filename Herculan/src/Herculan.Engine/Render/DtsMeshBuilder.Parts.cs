@@ -130,7 +130,7 @@ public static partial class DtsMeshBuilder {
 	/// The children of a <see cref="TSBSPPart"/> its tree reaches, in file order — the set
 	/// <c>TSBSPPart_Render</c> (<c>00476b0c</c>) draws: it walks the tree from node 0 through
 	/// <c>TSBSPPart_RenderNode</c> (<c>00476a1c</c>), and a child no node names is never drawn.
-	/// docs/retail/formats/dts-texture-binding.md, "<c>TSBSPPart</c> child selection", lists the retail
+	/// docs/retail/rendering/dts-texture-binding.md, "<c>TSBSPPart</c> child selection", lists the retail
 	/// shapes that carry one.
 	/// </summary>
 	internal static TSObject[] ReachableParts(TSBSPPart part) =>

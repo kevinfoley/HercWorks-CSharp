@@ -29,13 +29,13 @@ Byte 7 is a field and not an offset from the id: the numbering runs 1 to 66 acro
 
 ### The port
 
-Messages reach the cockpit's message port through a vtable call. The cockpit view holds two ports on the one `MsgPort` base: the computer's ticker at `view+0x20b` and the pilot and squad channel at `view+0x207`. Each is a queue of ten records plus one lifecycle, and the preferences screen's COMPUTER MESSAGE and PILOT MESSAGE settings are their two enable bytes — options 3 and 2 of the simulator's option array ([`../simulation/preferences.md`](../simulation/preferences.md#dataprefscfg--the-option-array)), offered as TEXT ONLY / VOICE ONLY / TEXT / VOICE.
+Messages reach the cockpit's message port through a vtable call. The cockpit view holds two ports on the one `MsgPort` base: the computer's ticker at `view+0x20b` and the pilot and squad channel at `view+0x207`. Each is a queue of ten records plus one lifecycle, and the preferences screen's COMPUTER MESSAGE and PILOT MESSAGE settings are their two enable bytes — options 3 and 2 of the simulator's option array ([`preferences.md`](preferences.md#dataprefscfg--the-option-array)), offered as TEXT ONLY / VOICE ONLY / TEXT / VOICE.
 
-The byte gates the two halves separately: the display runs when it is not 1 and the voice when it is not 0 — three behaviours for three settings, which is why that row offers no OFF. The voice has a second gate both ports share: PILOT MESSAGE's handler writes `Sound_SpeechEnabled`, which every clip goes through ([`../simulation/preferences.md`](../simulation/preferences.md#dataprefscfg--the-option-array)), so with PILOT MESSAGE on TEXT ONLY the computer is silent whatever COMPUTER MESSAGE says. With the display off the port still runs the whole lifecycle and only skips the drawing — `port+0x4d2`, the suppression flag every paint entry point tests alongside `port+0x49e`, "a line is up".
+The byte gates the two halves separately: the display runs when it is not 1 and the voice when it is not 0 — three behaviours for three settings, which is why that row offers no OFF. The voice has a second gate both ports share: PILOT MESSAGE's handler writes `Sound_SpeechEnabled`, which every clip goes through ([`preferences.md`](preferences.md#dataprefscfg--the-option-array)), so with PILOT MESSAGE on TEXT ONLY the computer is silent whatever COMPUTER MESSAGE says. With the display off the port still runs the whole lifecycle and only skips the drawing — `port+0x4d2`, the suppression flag every paint entry point tests alongside `port+0x49e`, "a line is up".
 
 Two further gates sit on the display half, both fields of the cockpit view manager, which `CockpitViewManager_Published` (`00429820`) hands back ([`cockpit-views.md`](cockpit-views.md#object-model)). Its `+0x14` is the **current view index**: the show refuses to display while it reads 4, the external view, and suppresses the line exactly as TEXT OFF does, lifecycle and all, alert tone included. Its `+0x1c` is the **view-change flag**, which `CockpitView_ProcessViewCommand` sets as it stages a change and `CockpitView_StepViewTransition` clears as the slide begins ([`cockpit-views.md`](cockpit-views.md#heads-down-pan--cockpitview_stepviewtransition-0042a9c0)): both ports' paints, and the pilot and squad channel's show, erase and background restore, test it and return, so neither box is painted while a view change is pending.
 
-Both boxes are the herc's own, the last two fields of its `.GAU`: the pilot channel's at content offset 1668, `0,y - 320,y+10`, of which only the height is ever drawn ([below](#its-box)), and the ticker's at 1684, `100,y - 220,y+9` — a 120x9 box centred horizontally, at `y = 34` in seven cockpits, 43 in APOCA's and 100 in RAZOR's. Both are coordinate-shifted into device pixels by the `.GAU` loader's caller (`Gau_BuildCockpitWidgets`, `00431bf8`) before the constructor sees them.
+Both boxes are the herc's own, the last two fields of its `.GAU` ([block map](../formats/gau-cockpit-layout.md#block-map)): the pilot channel's at content offset 1668, of which only the height is ever drawn ([below](#its-box)), and the ticker's at 1684. Both are coordinate-shifted into device pixels by the `.GAU` loader's caller (`Gau_BuildCockpitWidgets`, `00431bf8`) before the constructor sees them.
 
 `MessagePort_Tick` (`00435610`) is the whole lifecycle, and it runs on four latches:
 
@@ -83,9 +83,9 @@ Vertically the line is centred by cell rather than by ink: the paint anchors at 
 | Poster | Messages |
 |---|---|
 | `Computer_PostMessage`'s eighteen callers | The damage set `0x03`, `0x04`, `0x08`, `0x0c`, `0x10`, `0x13`, `0x15`; `0x19` `MISSION TARGET DETECTED` and `0x1d` `WAYPOINT REACHED` from the player's think; `0x2a`/`0x2b` jamming; `0x2e` `ENEMY TARGET DESTROYED` and `0x2f` `ENEMY TARGET DISABLED`; and the data link's `0x34`-`0x37` and `0x38`. Plus `0x12`, below |
-| `Mission_Status` (`004135e8`) | `0x16` `MISSION FAILED`, `0x17` `MISSION SUCCESSFUL`, `0x1e` `APPROACHING MISSION ZONE BOUNDARY`, `0x20` `RULES OF ENGAGEMENT VIOLATED` — see [`../simulation/mission-objectives.md`](../simulation/mission-objectives.md#what-the-computer-says) |
+| `Mission_Status` (`004135e8`) | `0x16` `MISSION FAILED`, `0x17` `MISSION SUCCESSFUL`, `0x1e` `APPROACHING MISSION ZONE BOUNDARY`, `0x20` `RULES OF ENGAGEMENT VIOLATED` — see [`mission-objectives.md`](mission-objectives.md#what-the-computer-says) |
 | `Cockpit_PowerUpTick` (`00432924`) | Once `200 <` coarse ticks have passed since the sequence began, it reads the piloted machine's internals 0-9 with `Mech_ReadEntryDamage` (`0041b514`) and posts `0x22` `POWERUP INITIATED. INTERNAL DAMAGE DETECTED.` if any reads nonzero, else `0x21` `... ALL SYSTEMS NOMINAL.`, then sets `cockpit+0x245` so it announces once. The reading is the internal's damage as Q8 of its maximum, so one counts once it holds 1/256 of it: a nonzero reading also goes through `Damage_ToConditionState` (`00438700`) and is tested against `0x5a`, but that function returns a condition index from 0 to 4, which is always under. A flyer never announces, because its start is never stamped — see the [power-up sound](audio.md#the-cockpit-power-up), a separate event the announcement rides alongside |
-| `NavMarker_Tick` (`004349ac`) | `0x1d` `WAYPOINT REACHED` again, on returning to a dropped marker — [`../simulation/player-waypoints.md`](../simulation/player-waypoints.md#the-nav-marker) |
+| `NavMarker_Tick` (`004349ac`) | `0x1d` `WAYPOINT REACHED` again, on returning to a dropped marker — [`player-waypoints.md`](player-waypoints.md#the-nav-marker) |
 | `Mech_ToggleRadarMode` (`0041b468`) | Withdraws **both** `0x2c` `ACTIVE RADAR MODE` and `0x2d` `PASSIVE RADAR MODE`, then posts the one the mode just became — so flipping twice quickly announces where it ended up rather than reading out the sequence |
 | `ConsoleButtons_ToggleAutoTrack` (`00441f7c`) | The same shape with `0x26` `AUTO TRACKING ENGAGED` and `0x27` `AUTO TRACKING DISABLED` |
 
@@ -95,7 +95,7 @@ Those rows post 29 distinct ids, so **34 of the file's sixty-three lines have no
 
 **`0x2e` and `0x2f` do not test sides.** Their guard is only that the player fired the killing shot and that the victim is the player's own selected target (`mech+0x1a4`), so destroying a friendly you had boxed announces `ENEMY TARGET DESTROYED`, and the two `FRIENDLY` lines are among those with no poster.
 
-The damage set's own guards — which reading of what, and which latch byte stops each line repeating — are [`../simulation/component-damage.md`](../simulation/component-damage.md#what-the-endpoint-announces)'s.
+The damage set's own guards — which reading of what, and which latch byte stops each line repeating — are [`component-damage.md`](component-damage.md#what-the-endpoint-announces)'s.
 
 At 16 ms a coarse tick the power-up announcement lands 3.2 s in, inside `start3`'s five seconds rather than after them.
 
@@ -115,7 +115,7 @@ Unlike the computer's, **the variant roll is live here**: ids `0x02`, `0x1e` and
 
 ### Its speakerless set
 
-A post whose `+0x02` subject is null is not a squadmate's. The port's post (`PilotMessagePort_Post`, `00435c48`, vtable slot 0) resolves such an id in a table of its own at `004d0971` instead of a slot's, rolling variants against `CommandStringTable` (`004d04c8`) the same way. `Gau_BuildCockpitWidgets` fills that table right after building the port, from `str\COMMAND<n>.STR` — `SystemMessages_Index` mode 1, the literal `commandX` with the [training mission number](script-dat.md#the-training-mission-number) as the digit. The one poster is `Action_Activate` (`00423430`), a mission action's line ([`../simulation/mission-deployment.md`](../simulation/mission-deployment.md#the-four-ways-an-action-activates)).
+A post whose `+0x02` subject is null is not a squadmate's. The port's post (`PilotMessagePort_Post`, `00435c48`, vtable slot 0) resolves such an id in a table of its own at `004d0971` instead of a slot's, rolling variants against `CommandStringTable` (`004d04c8`) the same way. `Gau_BuildCockpitWidgets` fills that table right after building the port, from `str\COMMAND<n>.STR` — `SystemMessages_Index` mode 1, the literal `commandX` with the [training mission number](../formats/script-dat.md#the-training-mission-number) as the digit. The one poster is `Action_Activate` (`00423430`), a mission action's line ([`mission-deployment.md`](mission-deployment.md#the-four-ways-an-action-activates)).
 
 An ordinary mission speaks from `COMMAND0.STR`: three lines, one group, a pilot bank's shape with an eighth attribute byte.
 
@@ -143,7 +143,7 @@ A training mission builds a different class for `view+0x207` (vtable `0049baa8`,
 - One that does not is split at its last space that still fits. The head goes on the current line after a space — added even when that line is empty, so an instruction whose first sentence is too long opens with a blank (`COMMAND2.STR` id 2 does). The rest starts the next line **unwrapped**, however long.
 - The widest line is picked by character count, and only that line is measured for the box's width.
 
-The box is `(lines + 1) * (8 << YCoordShift)` tall, as wide as that measured line plus `10 << XCoordShift` each side, and centred on the screen. Its top is the `.GAU` rect's, raised by the herc's **training lift**, the `int32` at content offset 1664: on the training arm only, `Gau_BuildCockpitWidgets` shifts it by `YCoordShift` and subtracts it from both of the rect's y edges (`00431ce4`-`00431d05`) before the constructor sees the rect. It is not the rect's height — every retail rect is 10 units tall — but APOCA 60, RAPTOR2 70, MAVERICK and OUTLAW 75, COLOSSUS, OGRE, SAMSON and TOMAHAWK 85, RAZOR 0, so a walker's training box opens 45 to 55 units down the screen instead of 115 to 135. The constructor extends the rect by eleven lines to size the save-under buffers. The lines are left-aligned at the box's left edge plus the same margin, the first anchored at `top + 1.5 * lineHeight` and each next one line lower, in `ColorSchemePanels[10]` `WHITE` (`0049b0d4`, stored at `+0x4df`) on the computer's black, framed in its red.
+The box is `(lines + 1) * (8 << YCoordShift)` tall, as wide as that measured line plus `10 << XCoordShift` each side, and centred on the screen. Its top is the `.GAU` rect's, raised by the herc's **training lift**, the `int32` at content offset 1664: on the training arm only, `Gau_BuildCockpitWidgets` shifts it by `YCoordShift` and subtracts it from both of the rect's y edges (`00431ce4`-`00431d05`) before the constructor sees the rect. It is not the rect's height; its retail values ([block map](../formats/gau-cockpit-layout.md#block-map)) mean a walker's training box opens 45 to 55 units down the screen instead of 115 to 135. The constructor extends the rect by eleven lines to size the save-under buffers. The lines are left-aligned at the box's left edge plus the same margin, the first anchored at `top + 1.5 * lineHeight` and each next one line lower, in `ColorSchemePanels[10]` `WHITE` (`0049b0d4`, stored at `+0x4df`) on the computer's black, framed in its red.
 
 **Its voice follows the paint**, on the same display pass and only when PILOT MESSAGE is not TEXT ONLY: `TMx_0000` with the training number and `id + 1` patched in, under the voice folder (`simvoice`, its last letter the language byte) and the directory `data\drive.cfg` names (`DriveCfg_PrefixPath`, `0045ee44`). So the clips are loose files beside the archives, one per instruction: `SIMVOICE\TM1_0001.WAV` reads all of `COMMAND1.STR` id 0. The 65 retail clips are exactly the four files' instruction ids plus one.
 
@@ -155,14 +155,14 @@ Its per-frame update (`TrainingMessagePort_Update`, `004365d0`) sets the ready l
 
 | id | line | raised by |
 |---|---|---|
-| `0x01` | `I SPOTTED SOME BAD GUYS, SIR` | sighting a hostile — [`../simulation/ai-targeting.md`](../simulation/ai-targeting.md#radio-callouts) |
+| `0x01` | `I SPOTTED SOME BAD GUYS, SIR` | sighting a hostile — [`ai-targeting.md`](ai-targeting.md#radio-callouts) |
 | `0x02` | `CHALK UP ANOTHER KILL FOR THE GOOD GUYS!!` / `ALL RIGHT!` | this machine put something out of the fight |
 | `0x03` | `I'M GETTING MY BUTT KICKED OUT HERE! HOW 'BOUT A LITTLE HELP?!` | taking fire |
 | `0x04` | `THEY NAILED ME! I THINK I'M DONE FOR...` | a squadmate immobilised |
 | `0x05` | `NICE SHOOTING` | the player scored |
 | `0x06` | `THAT'S ALL SHE WROTE, LETS GO HOME!` | nothing hostile left |
 | `0x07` | `MY HERCS BEEN SHOT TO PIECES. I'M HEADING BACK TO BASE.` | withdrawing |
-| `0x08` | `WATCH YOUR TARGET, SIR!` | friendly fire — [`../simulation/ai-targeting.md`](../simulation/ai-targeting.md) |
+| `0x08` | `WATCH YOUR TARGET, SIR!` | friendly fire — [`ai-targeting.md`](ai-targeting.md) |
 | `0x09` | `I'M BREAKIN' UP! EJECTING!` | ejecting |
 | `0x0a` | `NO PROBLEM.` | — |
 | `0x0b` | `ON MY WAY.` | `HELP ME OUT!` taken |
@@ -187,22 +187,22 @@ Its per-frame update (`TrainingMessagePort_Update`, `004365d0`) sets the ready l
 | `0x1f` | `NEGATIVE.` / `SORRY SIR.` / `UNABLE TO COMPLY.` | the generic no; no poster found |
 | `0x20` | `ALREADY GOTCHA COVERED.` | the order names a post this machine already holds; `FIRE AT WILL` to a machine already in a fight |
 | `0x21` | `PLEASE STAND BY...` | — |
-| `0x22` | `STANDING BY...` | the pilot selected on the command display, by comm box or map marker — `HddDisplay_SelectPilot` (`0044a720`), which posts it directly through the port's slot 0, not through `Ai_PostSquadMessage`; withdrawn when an order is sent to that slot ([`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md)) |
+| `0x22` | `STANDING BY...` | the pilot selected on the command display, by comm box or map marker — `HddDisplay_SelectPilot` (`0044a720`), which posts it directly through the port's slot 0, not through `Ai_PostSquadMessage`; withdrawn when an order is sent to that slot ([`ai-squadmates.md`](ai-squadmates.md)) |
 | `0x23` | `DAMN!` | — |
-| `0x25` | `AAAAAAARRGHH!` | a squadmate destroyed — `Mech_CreditNeutralisedTarget`, [`../simulation/component-damage.md`](../simulation/component-damage.md#what-the-attacker-is-told--mech_creditneutralisedtarget-00415710) |
+| `0x25` | `AAAAAAARRGHH!` | a squadmate destroyed — `Mech_CreditNeutralisedTarget`, [`component-damage.md`](component-damage.md#what-the-attacker-is-told--mech_creditneutralisedtarget-00415710) |
 | `0x26` | `ROGER. RADAR ACTIVATED.` | `SCAN FOR HOSTILES` taken |
 | `0x27` | `I ALREADY SHUT IT DOWN.` | — |
 | `0x28` | `ROGER. SHUTTING DOWN.` | `EMCON` taken |
 | `0x29` | `NEGATIVE. IT'S TRASHED.` | — |
 | `0x2a` | `ON MY WAY.` | `PATROL GRIDPOINT` / `GOTO GRIDPOINT` taken |
 
-`0x15` is in no bank at all. The em-dashed ids and `0x1f` are recorded but have no poster found ([Open](#open)); which arm of `Mech_ReceiveSquadOrder` raises each of the rest is [`../simulation/ai-squadmates.md`](../simulation/ai-squadmates.md#receiving-one--mech_receivesquadorder-00420ad4-mech-vtable-0x28)'s case table.
+`0x15` is in no bank at all. The em-dashed ids and `0x1f` are recorded but have no poster found ([Open](#open)); which arm of `Mech_ReceiveSquadOrder` raises each of the rest is [`ai-squadmates.md`](ai-squadmates.md#receiving-one--mech_receivesquadorder-00420ad4-mech-vtable-0x28)'s case table.
 
 **`0x1e` is the yes and `0x1f` the no.** Mistaking them is easy because one refusal arm of `Mech_ReceiveSquadOrder` posts `0x1e`: a squadmate too shot up to comply with `IGNORE MY TARGET` answers affirmatively, which is correct and reads as a bug in a table of refusals.
 
 ### Its box
 
-`PilotMessagePort_Speak` (`00435d9c`) paints it, and it looks nothing like the ticker. The box is **sized to its line and centred on the screen**: the paint measures the composed text, sets `x0 = (screen / 2) - (width / 2) - (10 << XCoordShift)` and `x1 = x0 + width + (0x14 << XCoordShift)`, and takes y from the `.GAU` rect unchanged. Every retail file authors that rect as `0,y - 320,y+10`, so the authored width is discarded and only the height reaches the screen. The line sits at `(screen / 2) - (width / 2)`, vertically at `bottom - ((height - inkHeight) >> 1)` — the **ink** centred in the box, where the ticker centres the cell.
+`PilotMessagePort_Speak` (`00435d9c`) paints it, and it looks nothing like the ticker. The box is **sized to its line and centred on the screen**: the paint measures the composed text, sets `x0 = (screen / 2) - (width / 2) - (10 << XCoordShift)` and `x1 = x0 + width + (0x14 << XCoordShift)`, and takes y from the `.GAU` rect unchanged. Every retail file authors that rect the full 320 wide ([block map](../formats/gau-cockpit-layout.md#block-map)), so the authored width is discarded and only the height reaches the screen. The line sits at `(screen / 2) - (width / 2)`, vertically at `bottom - ((height - inkHeight) >> 1)` — the **ink** centred in the box, where the ticker centres the cell.
 
 **The colours are the speaker's.** The paint resolves the message record's `+0x02` through `Squad_IndexOf` and, for a squadmate, fills with that slot's colour, `HudColorTable_Get(slot)` (ids 12, 15, 26 — [`heads-down-display.md`](heads-down-display.md#the-gauge)), and frames it in the palette entry **one below** the fill:
 
@@ -218,7 +218,7 @@ That subtraction is arithmetic on the already-resolved palette index, not a seco
 
 A training mission draws a different picture altogether ([above](#the-training-port)). What is on screen in `Reference/MFD_Talking_head.png` is the speaker-coloured single line.
 
-The speaker's own portrait, alongside this box, is driven separately — see [`heads-down-display.md`](heads-down-display.md#snc--portrait-lip-sync-scripts).
+The speaker's own portrait, alongside this box, is driven separately — see [`../formats/snc-lip-sync.md`](../formats/snc-lip-sync.md#sncnamesnc--portrait-lip-sync-scripts).
 
 ## Rejected readings
 

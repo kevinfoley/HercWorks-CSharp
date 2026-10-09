@@ -2,7 +2,7 @@
 
 Covers how a `.DTS` poly gets a colour: which `.DBA` is bound to a model, how a textured poly maps its UVs, and how the three untextured poly types resolve their surface value. VSHELL findings are from disassembly of `VSHELL.EXE` in the `ES2Recon` Ghidra project; the shading sections are from `DBSIM.EXE` and are marked as such.
 
-**The `.DTS` format carries no reference to any texture file.** Which `.DBA` is bound to a model is an application-level decision — see "DBA binding" below.
+**Which `.DBA` is bound to a model is an application-level decision**, the `.DTS` naming no texture file ([`../formats/dts-shape.md`](../formats/dts-shape.md)) — see "DBA binding" below.
 
 ## TSBitmapPart's texture lookup (VSHELL)
 
@@ -17,16 +17,7 @@ Resolution is `activeDba.Frames[poly+0x10]`, with no UV interpolation.
 
 ## TSTexture4Poly (VSHELL)
 
-### Surface stride
-
-A poly's colour index (`poly+0xc`) is on disk as `surfaceIndex * 4`, so `surfaceIndex = colourIndex / 4`. The front value is the first int32 slot of the group's surface `surfaceIndex`; the back value is the third, 2 slots (8 bytes) later.
-
-Two independent sources agree:
-
-- Raw disassembly of `TSTexture4Poly_Render` (`00422af5`): `MOVZX ESI,word ptr [EBX+0xc]` → `SHL ESI,0x2` → added to `g_ActiveSurfaceRecords` (`DAT_005d88a2`) as a byte offset; front = `*(int32*)(base+offset)`, back = `+8`.
-- The file format itself: a group's on-disk colour count is four times its surface count, one per slot of each surface's four `{int16 value, int16 flag}` slots — front fill, front line, back fill, back line.
-
-Related symbols: `TSGroup_RenderPolys` (`00423497`), `TSBSPGroup_Render` (`00423709`, [below](#tsbspgroup-poly-order)), `g_ActiveSurfaceRecords` (`005d88a2`).
+A poly's colour index names a surface of its group through the stride in [`../formats/dts-shape.md`](../formats/dts-shape.md#surface-stride). Related symbols: `TSGroup_RenderPolys` (`00423497`), `TSBSPGroup_Render` (`00423709`, [below](#tsbspgroup-poly-order)), `g_ActiveSurfaceRecords` (`005d88a2`).
 
 ### Render path and UV generation
 
@@ -62,7 +53,7 @@ Over every `dts\*.DTS` the VOLs ship, 3 and 4 are the only vertex counts this ty
 
 `TSTexture4Poly` is a mesh poly: it lives in a `TSGroup` and references real 3D vertices through its vertex-list offset and vertex count, structurally unlike `TSBitmapPart`'s 2D quad. It has its own vtable.
 
-- `g_TSObjectTypeRegistry` (`0047f258`, VSHELL) — 18 entries, 12-byte stride, each `{tag:uint32, constructorFnPtr, nameStringPtr}`. `tag` matches an object's on-disk chunk header, `[subtype:u16][supertype:u16]` (e.g. `0x0014000f` = `TSTexture4Poly`).
+- `g_TSObjectTypeRegistry` (`0047f258`, VSHELL) — 18 entries, 12-byte stride, each `{tag:uint32, constructorFnPtr, nameStringPtr}`. `tag` matches an object's on-disk chunk header ([`../formats/dts-shape.md`](../formats/dts-shape.md#chunk-tags)).
 - `TSTexture4Poly_Construct` (`0045ffe0`) stamps the vtable of each level of the class's inheritance chain in turn as the inlined constructors run, finishing with `g_TSTexture4PolyVtable` (`0047ee0c`).
 - Slot `+0x1c` of that vtable is `TSTexture4Poly_Render` (`00422af5`), which:
 - reads `poly+0xc`, the colour index, as an index into the per-surface runtime record array (`DAT_005d88a2`, 4-byte stride);
@@ -254,7 +245,7 @@ VSHELL has the same pair: `TSTexture4Poly_RasterizeA` (`004202dd`) is the screen
 
 ### The depth buffer
 
-When `maybe_g_DepthBufferEnabled` (`0049f270`) is non-zero, `Raster_SetupTexturedSpan` stores each vertex's view depth, and for each row `Raster_DrawPolygon` (and `Raster_DrawTexturedPolyNear`) runs `Raster_DepthTestSpan` (`0048b748`) before drawing. It walks the row's dwords in the buffer at `g_DepthBuffer` (`006c6014`), comparing each against the interpolated depth with `(row + g_DepthBufferFrameTag)` (`004a5b04`) in its top byte; where the stored dword is greater it writes the new value, and the pixels that pass form the row's visible runs. Those runs are drawn through the clipped span routines when `ActiveScanlineClipSpans` is set; otherwise the whole span is drawn. The same flag makes the `TSBSPPart` walk draw the viewer's side of each plane first ([below](#tsbsppart-child-selection)) and the terrain cell walk run near to far ([`../polygon-fill.md`](../polygon-fill.md#walking-a-polygons-cells)). It is 0 in the image; what writes it is [Open](../polygon-fill.md#open).
+When `maybe_g_DepthBufferEnabled` (`0049f270`) is non-zero, `Raster_SetupTexturedSpan` stores each vertex's view depth, and for each row `Raster_DrawPolygon` (and `Raster_DrawTexturedPolyNear`) runs `Raster_DepthTestSpan` (`0048b748`) before drawing. It walks the row's dwords in the buffer at `g_DepthBuffer` (`006c6014`), comparing each against the interpolated depth with `(row + g_DepthBufferFrameTag)` (`004a5b04`) in its top byte; where the stored dword is greater it writes the new value, and the pixels that pass form the row's visible runs. Those runs are drawn through the clipped span routines when `ActiveScanlineClipSpans` is set; otherwise the whole span is drawn. The same flag makes the `TSBSPPart` walk draw the viewer's side of each plane first ([below](#tsbsppart-child-selection)) and the terrain cell walk run near to far ([`polygon-fill.md`](polygon-fill.md#walking-a-polygons-cells)). It is 0 in the image; what writes it is [Open](polygon-fill.md#open).
 
 `DepthBuffer_Alloc` (`0048b960`) allocates the buffer as width × height zeroed dwords and records the two sizes. `DepthBuffer_ClearWrappedRows` (`0048b7f0`) sets to `0xffffffff` every row whose `(row + g_DepthBufferFrameTag) & 0xff` is 0 and then decrements the tag, so with one clear per frame each row's tag byte falls by one a frame and a row is reset once every 256 frames rather than every frame. Whether anything calls them is [Open](#open).
 
@@ -271,19 +262,9 @@ A flat poly is drawn in three steps: project the face's vertices to screen point
 
 Both fills' outline pass is gated on the default brush (`DAT_006c60d4 != DAT_006c60dc`) and writes that brush, so a caller that installed its own brush on the context, as the beam draw does, gets an identical flat redraw instead of an outline.
 
-### The `.DPL` shade-ramp table
+### Shaded-poly surface values are ramp numbers
 
-Immediately after the `colourCount * 4` colour entries. Read byte-complete on all 65 retail `.DPL` in `SHELL0.VOL` and `SIMVOL0.VOL`:
-
-```
-int32  rampCount              // 256 in 37 files; the other 28 store 0 and end there
-rampCount x {
-  int16  length               // retail: 1, 4, 7, 8, 13 or 16
-  int16  paletteIndex[length] // darkest to brightest
-}
-```
-
-Only the low ~19 slots carry real ramps; the rest is the degenerate `[255]`. `WORLD2`: ramp 0 is `196..203` (greys `#484848`..`#d4d4d4`), ramp 8 is `172..187` (blue-greys `#343444`..`#c4c4d4`), ramp 12 is `192..198` (near-black to `#707070`).
+The ramps they index are the `.DPL`'s shade-ramp table ([`../formats/dpl-palette.md`](../formats/dpl-palette.md#the-shade-ramp-table)).
 
 Corroboration that the surface value is a ramp number and not a frame index: across the retail fleet shaded-poly surface values cluster on **0-15**, overwhelmingly on the even (multi-step) slots. `APOCA.DTS` uses exactly four values over 1227 polys (12, 2, 0, 8); `SAMSON.DTS` five; `BASES_AN.DTS` nine, topped by 14, 8, 4, 12. A frame index into a 24-to-66-frame bank does not concentrate like that. Colour check: every distinct tone the tall chimney (structure type 14) shows in `Reference/Scramble_Training_Base_2.png` is in the set `WORLD2`'s ramp 8 produces, and its surfaces name ramp 8.
 
@@ -362,7 +343,7 @@ Retail data has unreached children. Of the 586 `TSBSPPart`s across the retail `.
 |---|---|
 | `HYPERION.DTS` root 5 | one single-poly group |
 | `PITBULL.DTS` root 5 | five cell-animation parts |
-| `ROCKETS.DTS` root 1, finest level | the exhaust flame's cell-animation part ([`rockets-dat.md`](rockets-dat.md#dtsrocketsdts)) |
+| `ROCKETS.DTS` root 1, finest level | the exhaust flame's cell-animation part ([`../formats/rockets-dat.md`](../formats/rockets-dat.md#dtsrocketsdts)) |
 | `BASES.DGS` shape 3, middle level | one cell-animation part |
 | `BASES.DGS` shape 13, two levels | an empty group in one, a 7-poly group in the other |
 | `BASES.DGS` shapes 41 and 43, all three levels | one group each |
@@ -372,7 +353,7 @@ Retail data has unreached children. Of the 586 `TSBSPPart`s across the retail `.
 
 ### `TSBSPGroup` poly order
 
-A `TSBSPGroup` is a `TSGroup` with a BSP tree over its own polys. VSHELL's `TSBSPGroup_Render` (`00423709`) sets up as a plain group's render does, then draws through `TSBSPGroup_RenderNode` (`0042362c`) from node 0 instead of walking the polys in order. DBSIM's `TSBSPGroup_Render` (`00475af8`) does the same through its own copy of the walk, `TSBSPGroup_RenderNode` (`00475a20`). In the file a node is four `int16`s — plane constant, poly, front, back — and VSHELL walks them as 10-byte records at `group+0x2a` whose constant is an `int32`. The splitting plane is the node poly's own stored normal:
+A `TSBSPGroup` is a `TSGroup` with a BSP tree over its own polys. VSHELL's `TSBSPGroup_Render` (`00423709`) sets up as a plain group's render does, then draws through `TSBSPGroup_RenderNode` (`0042362c`) from node 0 instead of walking the polys in order. DBSIM's `TSBSPGroup_Render` (`00475af8`) does the same through its own copy of the walk, `TSBSPGroup_RenderNode` (`00475a20`). VSHELL walks the nodes ([file layout](../formats/dts-shape.md#tsbspgroup-nodes)) as 10-byte records at `group+0x2a` whose constant is an `int32`. The splitting plane is the node poly's own stored normal:
 
 ```
 d = dot(polys[node.poly].normal, eyeInModelSpace) - node.constant
@@ -383,7 +364,7 @@ draw first; draw polys[node.poly]; draw second
     otherwise           recurse into node `child`
 ```
 
-So each node's poly is drawn between the two half-spaces it splits, far side first, and a poly no node reaches is not drawn. None of the 57 retail `.DTS` and `.DGS` files contains a `TSBSPGroup`.
+So each node's poly is drawn between the two half-spaces it splits, far side first, and a poly no node reaches is not drawn. No retail shape carries a `TSBSPGroup` ([`../formats/dts-shape.md`](../formats/dts-shape.md#tsbspgroup-nodes)).
 
 ## `TSDetailPart` level selection and STRUCTURE DETAIL
 
@@ -439,7 +420,6 @@ Readings a fresh pass could land on. Each is disproven; do not reintroduce.
 | A brightness multiplier over an expanded RGB texel, in place of the indexed lookup | See [`terrain-lighting.md`](terrain-lighting.md#rejected-readings), which carries this row |
 | Interpolating the normal and computing the shade per fragment (Phong) | The original interpolates the shade computed per vertex; the two differ wherever the 0 clamp bites |
 | Normals are not reachable, so Gouraud cannot be implemented | Normals are extra entries in the point list; a Gouraud poly's normal list indexes them per vertex |
-| A textured quad can be fanned into two triangles carrying plain UVs | Each triangle then maps affinely and independently; they agree only on a parallelogram, and every other quad kinks along the diagonal. See "Quad mapping on triangle hardware" |
 | A winding-derived face normal stands in for the stored one, the eye-facing flip cancelling the sign | It cancels only while the corner normals are that same vector. Once they come from the point list the sign is derived from one convention and applied to the other, and every Gouraud poly lights inside out — dark toward the sun. The two conventions are exactly opposed; see "Normals live in the point list" |
 
 ## Type-15 band widths

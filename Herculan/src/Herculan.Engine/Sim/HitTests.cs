@@ -292,7 +292,7 @@ public static class HitTests {
 		var muzzle = new Vec3i(shot.Muzzle.X, shot.Muzzle.Y, shot.Muzzle.Z);
 		var end = shot.Muzzle.TransformPoint(0, shot.Distance, 0);
 
-		if (!world.Terrain.RayWalk(muzzle, end, out var ground)) {
+		if (!world.Terrain.RayWalk(muzzle, end, world.ThinRay, out var ground)) {
 			return false;
 		}
 

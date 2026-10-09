@@ -139,6 +139,16 @@ public static class TweakSettingDefinitions {
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> ChargeBarPowerLevel = new("tweak.charge_bar_power_level", TweakCategory.Functional, defaultValue: false, recommendedValue: false);
 
+	/// <summary>
+	/// Shots and lines of sight meet the ground where it is. On a third of the terrain's cells retail
+	/// solves where a ray strikes the ground against a plane that can be metres off it, so a shot's
+	/// impact lands early or late there. Where that puts the point outside the cell, a v1.10 shot or
+	/// line of sight goes on through the ground; a v1.0 shot already stops on the ground there in this
+	/// engine (retail v1.0 stops it at a range read from stale memory), and a v1.0 line of sight is
+	/// unchanged by it. See <see cref="Terrain.ThinRayRules.ExactFarPlane"/>.
+	/// </summary>
+	public static readonly TweakSettingDefinition<bool> FixTerrainHitPoint = new("tweak.fix_terrain_hit_point", TweakCategory.Functional, defaultValue: false, recommendedValue: true);
+
 	#endregion
 
 	/// <summary>Every defined <c>bool</c> tweak setting, keyed by ID for <see cref="TweakSettings"/> save/load.</summary>
@@ -147,5 +157,6 @@ public static class TweakSettingDefinitions {
 		PreserveSoundPosition, CriticalDamageMessage, ShowSquadmateNumber, FixComputerMessagePreference,
 		SmootherTurretMovement, MouseExternalView, FixDefendPositionOrder, FixWeaponDamageRecords,
 		ChargeBarPowerLevel, FlashThroughSecondHit, ShowAltitudeTape, DropPodSoundFromPod,
+		FixTerrainHitPoint,
 	};
 }

@@ -376,7 +376,7 @@ public partial class MechObject {
 			return LineOfSight.BlockedByShape;
 		}
 
-		if (!world.Terrain.RayWalk(from, to, out _)) {
+		if (!world.Terrain.RayWalk(from, to, world.ThinRay, out _)) {
 			return LineOfSight.Clear;
 		}
 

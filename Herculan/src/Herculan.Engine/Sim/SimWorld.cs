@@ -183,6 +183,17 @@ public sealed class SimWorld {
 	/// </summary>
 	public TweakSettings Tweaks { get; set; } = new();
 
+	/// <inheritdoc cref="Content.GameContent.IsV110"/>
+	/// <remarks>The simulation asks it only which release's ray walk to run — see <see cref="ThinRay"/>.</remarks>
+	public bool IsV110 { get; set; }
+
+	/// <summary>
+	/// The rules every thin-ray ground test runs by, <see cref="HeightGrid.RayWalk"/> for weapon
+	/// fire and line of sight: this install's release, and the
+	/// <see cref="TweakSettingDefinitions.FixTerrainHitPoint"/> tweak as it stands now.
+	/// </summary>
+	public ThinRayRules ThinRay => new(IsV110, Tweaks.GetSettingValue(TweakSettingDefinitions.FixTerrainHitPoint));
+
 	/// <summary>
 	/// Where the camera is, in world units — the original's own view object (<c>ViewObjectPtr</c> (<c>004d256e</c>)),
 	/// which simulation code legitimately reads.

@@ -173,7 +173,8 @@ public sealed class MissionScene {
 			UnlimitedAmmunition = mission.Header.UnlimitedAmmunition,
 			PlayerInvulnerable = mission.Header.PlayerInvulnerable,
 			Theater = mission.Header.TheaterIndex,
-			Tweaks = TweakSettings.Current
+			Tweaks = TweakSettings.Current,
+			IsV110 = content.IsV110
 		};
 		world.Mission.LoadCounters(mission.Counters);
 		var models = new SceneModelLibrary(content, theater);

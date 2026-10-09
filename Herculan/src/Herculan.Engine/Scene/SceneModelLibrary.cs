@@ -22,7 +22,8 @@ namespace Herculan.Engine.Scene;
 /// </summary>
 /// <param name="Key">Stable identity, e.g. <c>dts\ACHILLES.DTS#0</c>.</param>
 /// <param name="Mesh">Triangles, outline edges then points in model space, ready to upload — see
-/// <see cref="MeshBuild"/>.</param>
+/// <see cref="MeshBuild"/>. A structure's ground plane is not in it but in
+/// <paramref name="GroundMesh"/>.</param>
 /// <param name="TriangleVertexCount">Where <paramref name="Mesh"/>'s outline range starts.</param>
 /// <param name="Atlas">
 /// The model's packed texture bank, or null when no bank could be resolved — in which case the
@@ -55,10 +56,15 @@ namespace Herculan.Engine.Scene;
 /// (<c>0046b80c</c>) reports for an object drawing this shape. Zero for a root that is not a
 /// <c>TSBasePart</c>.
 /// </param>
+/// <param name="GroundMesh">
+/// A structure's ground plane at the rest pose <paramref name="Mesh"/> is built at — see
+/// <see cref="MeshCell.Ground"/> — for a caller that draws the model whole and the ground plane with
+/// the ground. Null for every other model, and empty for a structure that has none.
+/// </param>
 public sealed record SceneModel(
 	string Key, MeshVertex[] Mesh, int TriangleVertexCount, TextureAtlas? Atlas,
 	int HeightWorldUnits, MeshSegment[] Segments, SpriteQuad[][] Sprites,
-	MeshCell[] Cells, int PointVertexCount = 0, int ShapeRadius = 0);
+	MeshCell[] Cells, int PointVertexCount = 0, int ShapeRadius = 0, MeshBuild? GroundMesh = null);
 
 /// <summary>
 /// Loads and caches the models a mission needs, keyed so identical unit types share one mesh and one
@@ -530,7 +536,8 @@ public sealed class SceneModelLibrary {
 	/// from. Null only when the install is missing the relevant file or the index is out of range.
 	///
 	/// <para>Split by cell, so that a collapsing part can be redrawn as its rubble — see
-	/// <see cref="DtsMeshBuilder.BuildCells"/> and <see cref="Sim.BaseObject.CellFrames"/>.</para>
+	/// <see cref="DtsMeshBuilder.BuildCells"/> and <see cref="Sim.BaseObject.CellFrames"/> — and with its
+	/// ground plane apart from the rest, which is drawn with the ground (<see cref="MeshCell.Ground"/>).</para>
 	///
 	/// <para>An <see cref="BaseShapeSource.AnimatedLibrary"/> type is split <b>by node as well</b>,
 	/// because its shape moves: a radar mast's dish free-runs and an armed tower's turret is seeked
@@ -544,9 +551,9 @@ public sealed class SceneModelLibrary {
 	public SceneModel? Base(BaseType type) =>
 		type.Source == BaseShapeSource.AnimatedLibrary
 			? Build(BaseTypeTable.AnimatedLibraryName, type.ShapeIndex, type.TextureBankName,
-				segmented: true, transparentBank: true, celled: true)
+				segmented: true, transparentBank: true, celled: true, splitGround: true)
 			: BuildFromShapeLibrary(BaseTypeTable.StaticLibraryName, type.ShapeIndex, type.TextureBankName,
-				transparentBank: true, celled: true);
+				transparentBank: true, celled: true, splitGround: true);
 
 	/// <summary>
 	/// The hit geometry a structure type's shape carries, as distinct from the geometry it is drawn
@@ -698,7 +705,7 @@ public sealed class SceneModelLibrary {
 	/// </summary>
 	public SceneModel? Hulk(int shapeIndex) =>
 		BuildFromShapeLibrary(HulkLibraryName, shapeIndex, StructureBankName, transparentBank: true,
-			celled: true);
+			celled: true, splitGround: true);
 
 	/// <summary>The wreck library <c>Base_LoadResources</c> opens, by the literal name <c>bhulks</c>.</summary>
 	public const string HulkLibraryName = "BHULKS.DGS";
@@ -712,14 +719,14 @@ public sealed class SceneModelLibrary {
 	private SceneModel? Build(string dtsName, int rootIndex, string? bankName,
 			bool segmented = false, bool transparentBank = false, int cellFrame = 0,
 			IReadOnlySet<short>? hiddenPartIds = null, bool celled = false, bool leveled = false,
-			ANAnimList? poseList = null) {
+			ANAnimList? poseList = null, bool splitGround = false) {
 		string key = cellFrame == 0 ? $"dts\\{dtsName}#{rootIndex}" : $"dts\\{dtsName}#{rootIndex}@{cellFrame}";
 		if (_models.TryGetValue(key, out var cached)) {
 			return cached;
 		}
 
 		var model = BuildFromRoot(key, Root(dtsName, rootIndex), bankName, segmented, transparentBank,
-			cellFrame, hiddenPartIds, celled, leveled, poseList);
+			cellFrame, hiddenPartIds, celled, leveled, poseList, splitGround);
 		_models[key] = model;
 		return model;
 	}
@@ -780,7 +787,7 @@ public sealed class SceneModelLibrary {
 			: null;
 
 	private SceneModel? BuildFromShapeLibrary(string libraryName, int shapeIndex, string? bankName,
-			bool transparentBank = false, bool celled = false) {
+			bool transparentBank = false, bool celled = false, bool splitGround = false) {
 		string key = $"dgs\\{libraryName}#{shapeIndex}";
 		if (_models.TryGetValue(key, out var cached)) {
 			return cached;
@@ -792,7 +799,8 @@ public sealed class SceneModelLibrary {
 			root = shapes[shapeIndex].Geometry;
 		}
 
-		var model = BuildFromRoot(key, root, bankName, transparentBank: transparentBank, celled: celled);
+		var model = BuildFromRoot(key, root, bankName, transparentBank: transparentBank, celled: celled,
+			splitGround: splitGround);
 		_models[key] = model;
 		return model;
 	}
@@ -800,14 +808,25 @@ public sealed class SceneModelLibrary {
 	private SceneModel? BuildFromRoot(string key, TSObject? root, string? bankName,
 			bool segmented = false, bool transparentBank = false, int cellFrame = 0,
 			IReadOnlySet<short>? hiddenPartIds = null, bool celled = false, bool leveled = false,
-			ANAnimList? poseList = null) {
+			ANAnimList? poseList = null, bool splitGround = false) {
 		if (root == null) {
 			return null;
 		}
 
 		var atlas = bankName != null ? LoadAtlas(bankName, transparentBank) : null;
-		var build = DtsMeshBuilder.BuildRoot(root, atlas, _shading, cellFrame, hiddenPartIds, poseList);
-		var (min, max) = DtsMeshBuilder.Bounds(build.Vertices);
+		MeshBuild build;
+		MeshBuild? ground = null;
+		if (splitGround) {
+			(build, var groundBuild) = DtsMeshBuilder.BuildRootSplitGround(root, atlas, _shading);
+			ground = groundBuild;
+		} else {
+			build = DtsMeshBuilder.BuildRoot(root, atlas, _shading, cellFrame, hiddenPartIds, poseList);
+		}
+
+		// Measured over the whole shape, ground plane included.
+		var (min, max) = DtsMeshBuilder.Bounds(ground is { } apart
+			? build.Vertices.Concat(apart.Vertices).ToArray()
+			: build.Vertices);
 
 		Vector3 extent = max - min;
 
@@ -817,13 +836,14 @@ public sealed class SceneModelLibrary {
 		// without animating, levels for the transient shapes built a cell at a time.
 		return new SceneModel(key, build.Vertices, build.TriangleVertexCount, atlas,
 			(int)(extent.Y * WorldScale.WorldUnitsPerMeter),
-			segmented ? DtsMeshBuilder.BuildSegments(root, atlas, _shading, hiddenPartIds, poseList) : Array.Empty<MeshSegment>(),
+			segmented ? DtsMeshBuilder.BuildSegments(root, atlas, _shading, hiddenPartIds, poseList, splitGround) : Array.Empty<MeshSegment>(),
 			DtsSpriteBuilder.Build(root),
-			celled ? DtsMeshBuilder.BuildCells(root, atlas, _shading, hiddenPartIds)
+			celled ? DtsMeshBuilder.BuildCells(root, atlas, _shading, hiddenPartIds, splitGround)
 				: leveled ? DtsMeshBuilder.BuildDetailLevels(root, atlas, _shading, cellFrame)
 				: Array.Empty<MeshCell>(),
 			build.PointVertexCount,
-			root is TSBasePart basePart ? basePart.Radius : 0);
+			root is TSBasePart basePart ? basePart.Radius : 0,
+			ground);
 	}
 
 	/// <summary>

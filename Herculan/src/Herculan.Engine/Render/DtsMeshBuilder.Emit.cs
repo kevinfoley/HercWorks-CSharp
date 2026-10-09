@@ -11,10 +11,22 @@ namespace Herculan.Engine.Render;
 /// (<see cref="MeshSegment"/>), and pieces by cell alone (<see cref="MeshCell"/>).
 /// </summary>
 public static partial class DtsMeshBuilder {
-	private static MeshBuild Emit(Collector sink) {
+	/// <param name="ground">
+	/// Which side of the ground-plane split to emit (<see cref="MeshCell.Ground"/>), or null for the
+	/// whole shape. Twins are dropped across the whole shape first either way, so the two sides are
+	/// exactly the whole mesh's triangles divided.
+	/// </param>
+	private static MeshBuild Emit(Collector sink, bool? ground = null) {
 		var kept = DropCoincidentTwins(sink.Triangles, leavesApart: false);
-		var edges = SurvivingOutlines(kept, sink.Outlines);
+		var outlines = sink.Outlines;
 		var points = sink.Points;
+		if (ground is { } side) {
+			kept = kept.Where(triangle => triangle.Ground == side).ToList();
+			outlines = outlines.Where(edge => edge.Ground == side).ToList();
+			points = points.Where(point => point.Ground == side).ToList();
+		}
+
+		var edges = SurvivingOutlines(kept, outlines);
 
 		int triangleVertices = kept.Count * 3;
 		int lineVertices = edges.Count * 2;
@@ -110,7 +122,8 @@ public static partial class DtsMeshBuilder {
 	/// </summary>
 	private static MeshSegment[] EmitSegments(Collector sink) =>
 		Partition(sink, local: true, (key, vertices, triangleVertices, pointVertices) =>
-			new MeshSegment(key.TransformId, key.Gate, vertices, triangleVertices, pointVertices, key.Leaf));
+			new MeshSegment(key.TransformId, key.Gate, vertices, triangleVertices, pointVertices, key.Leaf,
+				key.Ground));
 
 	/// <summary>
 	/// The same split by cell and <see cref="TSBSPPart"/> child alone, at the baked rest pose
@@ -119,8 +132,8 @@ public static partial class DtsMeshBuilder {
 	/// </summary>
 	private static MeshCell[] EmitCells(Collector sink) =>
 		Partition(sink, local: false, (key, vertices, triangleVertices, pointVertices) =>
-				new MeshCell(key.Gate, vertices, triangleVertices, pointVertices, key.Leaf))
-			.GroupBy(cell => (cell.Gate, cell.Leaf))
+				new MeshCell(key.Gate, vertices, triangleVertices, pointVertices, key.Leaf, key.Ground))
+			.GroupBy(cell => (cell.Gate, cell.Leaf, cell.Ground))
 			.Select(MergeCells)
 			.ToArray();
 
@@ -128,9 +141,10 @@ public static partial class DtsMeshBuilder {
 	/// One cell's geometry from however many nodes carried it. <see cref="Partition"/> keys on the
 	/// node as well because a segment needs it; a cell placed at the rest pose does not, so the
 	/// node's share of one cell is folded back together into a single piece. A BSP part's children
-	/// stay apart, because the renderer orders them.
+	/// stay apart, because the renderer orders them, and so does the ground plane, which it draws
+	/// with the ground.
 	/// </summary>
-	private static MeshCell MergeCells(IGrouping<(CellGate Gate, BspLeaf? Leaf), MeshCell> pieces) {
+	private static MeshCell MergeCells(IGrouping<(CellGate Gate, BspLeaf? Leaf, bool Ground), MeshCell> pieces) {
 		var parts = pieces.ToArray();
 		if (parts.Length == 1) {
 			return parts[0];
@@ -158,12 +172,13 @@ public static partial class DtsMeshBuilder {
 			atPoint += part.PointVertexCount;
 		}
 
-		return new MeshCell(pieces.Key.Gate, vertices, triangleVertices, pointVertices, pieces.Key.Leaf);
+		return new MeshCell(pieces.Key.Gate, vertices, triangleVertices, pointVertices, pieces.Key.Leaf,
+			pieces.Key.Ground);
 	}
 
 	/// <summary>
 	/// The shared split behind <see cref="EmitSegments"/> and <see cref="EmitCells"/>: survivors
-	/// bucketed by node, cell and <see cref="TSBSPPart"/> child, each bucket emitted as triangles,
+	/// bucketed by node, cell, <see cref="TSBSPPart"/> child and ground plane, each bucket emitted as triangles,
 	/// then the outline edges and then the points belonging to the same bucket.
 	/// </summary>
 	private static T[] Partition<T>(Collector sink, bool local,
@@ -173,7 +188,7 @@ public static partial class DtsMeshBuilder {
 
 		var byNode = new Dictionary<PieceKey, List<Triangle>>();
 		foreach (var triangle in kept) {
-			var key = new PieceKey(triangle.TransformId, triangle.Gate, triangle.Leaf);
+			var key = new PieceKey(triangle.TransformId, triangle.Gate, triangle.Leaf, triangle.Ground);
 			if (!byNode.TryGetValue(key, out var list)) {
 				byNode[key] = list = new List<Triangle>();
 			}
@@ -189,7 +204,7 @@ public static partial class DtsMeshBuilder {
 
 		var keys = byNode.Keys.Concat(edgesByNode.Keys).Concat(pointsByNode.Keys).Distinct()
 			.OrderBy(key => key.TransformId).ThenBy(key => key.Gate.Sequence).ThenBy(key => key.Gate.Frame)
-			.ThenBy(key => key.Leaf?.Index ?? -1)
+			.ThenBy(key => key.Leaf?.Index ?? -1).ThenBy(key => key.Ground)
 			.ToArray();
 		var pieces = new T[keys.Length];
 		int next = 0;
@@ -220,12 +235,12 @@ public static partial class DtsMeshBuilder {
 	}
 
 	/// <summary>What <see cref="Partition"/> buckets by.</summary>
-	private readonly record struct PieceKey(int TransformId, CellGate Gate, BspLeaf? Leaf);
+	private readonly record struct PieceKey(int TransformId, CellGate Gate, BspLeaf? Leaf, bool Ground);
 
 	private static Dictionary<PieceKey, List<OutlineEdge>> ByNode(List<OutlineEdge> edges) {
 		var byNode = new Dictionary<PieceKey, List<OutlineEdge>>();
 		foreach (var edge in edges) {
-			var key = new PieceKey(edge.TransformId, edge.Gate, edge.Leaf);
+			var key = new PieceKey(edge.TransformId, edge.Gate, edge.Leaf, edge.Ground);
 			if (!byNode.TryGetValue(key, out var list)) {
 				byNode[key] = list = new List<OutlineEdge>();
 			}

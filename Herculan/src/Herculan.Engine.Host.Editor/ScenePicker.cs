@@ -87,7 +87,10 @@ internal sealed class ScenePicker {
 			.Select(o => {
 				var model = o.Model!;
 				if (!modelBounds.TryGetValue(model.Key, out var bounds)) {
-					bounds = ComputeBounds(model.Mesh);
+					// The whole shape, a structure's ground plane included — see SceneModel.GroundMesh.
+					bounds = ComputeBounds(model.GroundMesh is { } ground
+						? model.Mesh.Concat(ground.Vertices).ToArray()
+						: model.Mesh);
 					modelBounds[model.Key] = bounds;
 				}
 

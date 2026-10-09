@@ -73,8 +73,14 @@ GpuMesh? terrainMesh = null;
 GpuTexture? terrainTexture = null;
 var modelMeshes = new Dictionary<string, GpuMesh>();
 var modelTextures = new Dictionary<string, GpuTexture>();
+var groundMeshes = new Dictionary<string, GpuMesh>();
 var disposables = new List<IDisposable>();
 SceneItem[]? items = null;
+
+// The terrain with each structure's ground plane painted in its cell order, as the simulator draws
+// them — see SceneRenderer.Render. Without it a structure's shadow lies in the terrain's own plane and
+// ties with it in the depth buffer.
+GroundShapeLayer? groundLayer = null;
 
 // The items of the objects whose group waits on an action, which the settings may stop drawing.
 var waitingItems = new List<SceneItem>();
@@ -133,12 +139,18 @@ window.Load += (gl, input) => {
 
 	foreach (var model in scene.Models.All) {
 		modelMeshes[model.Key] = new GpuMesh(gl, model.Mesh, model.TriangleVertexCount, model.PointVertexCount);
+		if (model.GroundMesh is { Vertices.Length: > 0 } ground) {
+			groundMeshes[model.Key] = new GpuMesh(gl, ground.Vertices, ground.TriangleVertexCount,
+				ground.PointVertexCount);
+		}
+
 		if (model.Atlas != null) {
 			modelTextures[model.Key] = model.Atlas.Upload(gl, indexed: true);
 		}
 	}
 
 	disposables.AddRange(modelMeshes.Values);
+	disposables.AddRange(groundMeshes.Values);
 	disposables.AddRange(modelTextures.Values);
 
 	// The terrain, and the only item the measuring grid is painted onto.
@@ -146,16 +158,30 @@ window.Load += (gl, input) => {
 		new(terrainMesh, Matrix4x4.Identity, terrainTexture?.Handle) { ShowGrid = settings.ShowGrid, CellQuantisedFog = true, GroundFill = true }
 	};
 
+	// Nothing is filed by cell here, so a ground plane is drawn wherever the camera is, as every object is.
+	groundLayer = new GroundShapeLayer(built[0], scene.World.Terrain) { ShapesFollowWalk = false };
+
 	foreach (var sceneObject in scene.Objects) {
 		if (sceneObject.Model is not { } model || !modelMeshes.TryGetValue(model.Key, out var mesh)) {
 			continue;
 		}
 
-		var item = new SceneItem(mesh, MissionScene.TransformOf(sceneObject),
-			modelTextures.TryGetValue(model.Key, out var texture) ? texture.Handle : null);
+		uint? textureHandle = modelTextures.TryGetValue(model.Key, out var texture) ? texture.Handle : null;
+		var item = new SceneItem(mesh, MissionScene.TransformOf(sceneObject), textureHandle);
 		built.Add(item);
-		if (index.IsWaiting(sceneObject)) {
+		bool waiting = index.IsWaiting(sceneObject);
+		if (waiting) {
 			waitingItems.Add(item);
+		}
+
+		// Filed as the simulator's submit files a structure: by its position and its body radius.
+		if (groundMeshes.TryGetValue(model.Key, out var groundMesh)) {
+			var groundItem = new SceneItem(groundMesh, MissionScene.TransformOf(sceneObject), textureHandle);
+			groundLayer.Shapes.Add(new GroundShapeDraw(groundItem, sceneObject.Object.Position,
+				sceneObject.Object.HitRadius));
+			if (waiting) {
+				waitingItems.Add(groundItem);
+			}
 		}
 	}
 
@@ -251,7 +277,7 @@ window.Render += (_, gl) => {
 
 	// Full-window viewport: the editor draws one 3D view, unlike the simulator host's three cockpit
 	// panels, which is what SceneRenderer.Render's x/y origin exists for.
-	renderer.Render(camera, items, 0, 0, size.X, size.Y);
+	renderer.Render(camera, items, groundLayer, 0, 0, size.X, size.Y);
 
 	overlay.Draw(wireframe, camera, aspect, settings, selection);
 	groupOverlay.DrawObjects(wireframe, camera, aspect, settings, selection);

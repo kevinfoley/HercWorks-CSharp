@@ -67,8 +67,9 @@ public readonly record struct CellGate(short Sequence, short Frame, PartDetail? 
 /// <param name="TriangleVertexCount">Where the outline edges start — see <see cref="MeshBuild"/>.</param>
 /// <param name="PointVertexCount">How many trailing vertices are points — see <see cref="MeshBuild"/>.</param>
 /// <param name="Leaf">The <see cref="TSBSPPart"/> child this segment is, or null — see <see cref="BspLeaf"/>.</param>
+/// <param name="Ground">Whether this segment is the shape's ground plane — see <see cref="MeshCell.Ground"/>.</param>
 public readonly record struct MeshSegment(int TransformId, CellGate Gate, MeshVertex[] Vertices,
-	int TriangleVertexCount, int PointVertexCount = 0, BspLeaf? Leaf = null);
+	int TriangleVertexCount, int PointVertexCount = 0, BspLeaf? Leaf = null, bool Ground = false);
 
 /// <summary>
 /// One cell's share of a shape's geometry, at the rest pose <see cref="DtsMeshBuilder.BuildRoot"/>
@@ -81,8 +82,15 @@ public readonly record struct MeshSegment(int TransformId, CellGate Gate, MeshVe
 /// <param name="TriangleVertexCount">Where the outline edges start — see <see cref="MeshBuild"/>.</param>
 /// <param name="PointVertexCount">How many trailing vertices are points — see <see cref="MeshBuild"/>.</param>
 /// <param name="Leaf">The <see cref="TSBSPPart"/> child this piece is, or null — see <see cref="BspLeaf"/>.</param>
+/// <param name="Ground">
+/// Whether this piece holds the polys lying in the shape's own ground plane — a structure's shadow and
+/// floor plates, which only a build asked to split them apart separates (see
+/// <see cref="DtsMeshBuilder.BuildCells"/>). Such a piece is drawn with the ground rather than
+/// depth-tested against the terrain it lies in — see <see cref="GroundShapeLayer.ObjectGround"/>, and
+/// <c>LiesInGroundPlane</c> for the rule.
+/// </param>
 public readonly record struct MeshCell(CellGate Gate, MeshVertex[] Vertices, int TriangleVertexCount,
-	int PointVertexCount = 0, BspLeaf? Leaf = null);
+	int PointVertexCount = 0, BspLeaf? Leaf = null, bool Ground = false);
 
 /// <summary>
 /// A built mesh: filled triangles first, then the outline edges that are drawn over them as lines,
@@ -178,6 +186,9 @@ public static partial class DtsMeshBuilder {
 
 		/// <summary>The <see cref="TSBSPPart"/> child this triangle was built under, or null.</summary>
 		public BspLeaf? Leaf { get; init; }
+
+		/// <summary>Whether this triangle's poly lies in the shape's ground plane — see <see cref="MeshCell.Ground"/>.</summary>
+		public bool Ground { get; init; }
 
 		public Vector3 Color { get; }
 		public Vector2 UvA { get; }
@@ -345,6 +356,9 @@ public static partial class DtsMeshBuilder {
 		/// <inheritdoc cref="Triangle.Leaf" />
 		public BspLeaf? Leaf { get; init; }
 
+		/// <inheritdoc cref="Triangle.Ground" />
+		public bool Ground { get; init; }
+
 		/// <summary>The poly this edge belongs to — see <see cref="Triangle.PolyId"/>.</summary>
 		public int PolyId { get; }
 	}
@@ -377,6 +391,12 @@ public static partial class DtsMeshBuilder {
 		/// around it.
 		/// </summary>
 		public bool AllDetailLevels { get; init; }
+
+		/// <summary>
+		/// Whether the polys lying in the shape's ground plane are tagged to be split into pieces of their
+		/// own — see <see cref="MeshCell.Ground"/>. Set for the structure builds alone.
+		/// </summary>
+		public bool SplitGround { get; init; }
 
 		/// <summary>
 		/// The cell and detail level the walk is currently inside, pushed and restored around each
@@ -462,6 +482,17 @@ public static partial class DtsMeshBuilder {
 		var sink = new Collector { PoseList = poseList };
 		Collect(root, null, sink, atlas, shading, cellFrame, hiddenPartIds);
 		return Emit(sink);
+	}
+
+	/// <summary>
+	/// <see cref="BuildRoot"/>'s mesh at cell zero, divided into the shape's ground plane and the rest —
+	/// see <see cref="MeshCell.Ground"/>. For a structure drawn whole, as the mission editor draws it.
+	/// </summary>
+	public static (MeshBuild Body, MeshBuild Ground) BuildRootSplitGround(TSObject root,
+			TextureAtlas? atlas = null, SurfaceShading? shading = null) {
+		var sink = new Collector { SplitGround = true };
+		Collect(root, null, sink, atlas, shading);
+		return (Emit(sink, ground: false), Emit(sink, ground: true));
 	}
 
 	/// <summary>
@@ -568,10 +599,13 @@ public static partial class DtsMeshBuilder {
 	/// </summary>
 	/// <param name="hiddenPartIds"><inheritdoc cref="BuildRoot" path="/param[@name='hiddenPartIds']"/></param>
 	/// <param name="poseList"><inheritdoc cref="BuildRoot" path="/param[@name='poseList']"/></param>
+	/// <param name="splitGround"><inheritdoc cref="BuildCells" path="/param[@name='splitGround']"/></param>
 	public static MeshSegment[] BuildSegments(TSObject root, TextureAtlas? atlas = null,
 			SurfaceShading? shading = null, IReadOnlySet<short>? hiddenPartIds = null,
-			ANAnimList? poseList = null) {
-		var sink = new Collector { AllCells = true, AllDetailLevels = true, PoseList = poseList };
+			ANAnimList? poseList = null, bool splitGround = false) {
+		var sink = new Collector {
+			AllCells = true, AllDetailLevels = true, PoseList = poseList, SplitGround = splitGround
+		};
 		Collect(root, null, sink, atlas, shading, cellFrame: 0, hiddenPartIds);
 		return EmitSegments(sink);
 	}
@@ -590,9 +624,14 @@ public static partial class DtsMeshBuilder {
 	/// <see cref="BuildRoot"/>'s mesh exactly.</para>
 	/// </summary>
 	/// <param name="hiddenPartIds"><inheritdoc cref="BuildRoot" path="/param[@name='hiddenPartIds']"/></param>
+	/// <param name="splitGround">
+	/// Puts the polys lying in the shape's ground plane into pieces of their own, flagged
+	/// <see cref="MeshCell.Ground"/>. For a structure only.
+	/// </param>
 	public static MeshCell[] BuildCells(TSObject root, TextureAtlas? atlas = null,
-			SurfaceShading? shading = null, IReadOnlySet<short>? hiddenPartIds = null) {
-		var sink = new Collector { AllCells = true, AllDetailLevels = true };
+			SurfaceShading? shading = null, IReadOnlySet<short>? hiddenPartIds = null,
+			bool splitGround = false) {
+		var sink = new Collector { AllCells = true, AllDetailLevels = true, SplitGround = splitGround };
 		Collect(root, null, sink, atlas, shading, cellFrame: 0, hiddenPartIds);
 		return EmitCells(sink);
 	}

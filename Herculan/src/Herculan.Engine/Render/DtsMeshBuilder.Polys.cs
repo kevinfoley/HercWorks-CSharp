@@ -214,6 +214,30 @@ public static partial class DtsMeshBuilder {
 	}
 
 	/// <summary>
+	/// Whether every corner of a poly lies in the shape's ground plane at the rest pose — Z 0 in the
+	/// shape's own space, the plane a structure is placed by. Retail has no such class: it paints a
+	/// structure over its own cell's ground and a group's polys in file order, and these polys, almost
+	/// always first in their group, are covered by nothing of their own shape. Telling them apart by
+	/// their plane is this engine's rule, so that they can be painted with the ground as retail's
+	/// order paints them rather than tie with it in the depth buffer — see
+	/// <see cref="MeshCell.Ground"/>. Across <c>BASES.DGS</c> 29 of the 45 shapes have such polys, 190
+	/// over every level, 177 of them ahead of every other poly in their group.
+	/// </summary>
+	private static bool LiesInGroundPlane(TSPoly poly, short[] indexes, Vector3[] points) {
+		for (int i = 0; i < poly.VertexCount; i++) {
+			int index = indexes[poly.VertexList + i];
+			if (index < 0 || index >= points.Length || MathF.Abs(points[index].Y) > GroundPlaneTolerance) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	/// <summary>How far off the ground plane, in render units, a corner may be and still lie in it.</summary>
+	private const float GroundPlaneTolerance = 1e-4f;
+
+	/// <summary>
 	/// Whether a surface entry's flag puts <c>0x14</c> in the high byte of the int32 it shares with
 	/// its value — "do not draw this face", flag 5120 in every retail file that uses it.
 	/// </summary>
@@ -255,6 +279,7 @@ public static partial class DtsMeshBuilder {
 		Vector3 first = points[firstIndex];
 		Vector3 localFirst = localPoints[firstIndex];
 		int polyId = sink.NextPolyId();
+		bool ground = sink.SplitGround && LiesInGroundPlane(poly, group.Indexes, points);
 
 		// A textured quad is mapped as a quad by the original, not as two triangles — see
 		// QuadUvWeights. A textured triangle needs none of that: the affine map taking three
@@ -290,7 +315,7 @@ public static partial class DtsMeshBuilder {
 					UvAt(frame, i + 1) * weights.Item2,
 					UvAt(frame, i + 2) * weights.Item3,
 					faceNormal: face.Normal,
-					uvWeights: quadWeights == null ? default : weights) { Leaf = sink.Leaf });
+					uvWeights: quadWeights == null ? default : weights) { Leaf = sink.Leaf, Ground = ground });
 			} else {
 				// The fan's corners are vertex-list slots 0, i+1 and i+2, and the normal list is
 				// parallel to it, so the same three slots index it.
@@ -303,7 +328,7 @@ public static partial class DtsMeshBuilder {
 					face, side, look.LitAsBack,
 					unlit: solid.HasValue, shadeRamp: look.ShadeRamp, vertexNormals: corners,
 					faceNormal: face.Normal,
-					solidPaletteIndex: solid?.FillIndex ?? -1) { Leaf = sink.Leaf });
+					solidPaletteIndex: solid?.FillIndex ?? -1) { Leaf = sink.Leaf, Ground = ground });
 			}
 		}
 
@@ -335,7 +360,7 @@ public static partial class DtsMeshBuilder {
 		if (poly.VertexCount == 1) {
 			sink.Points.Add(new OutlineEdge(first, first, localFirst, localFirst, lineColor,
 				group.Transform, sink.Gate, polyId, face, side, standalone: true,
-				solidPaletteIndex: edgeIndex) { Leaf = sink.Leaf });
+				solidPaletteIndex: edgeIndex) { Leaf = sink.Leaf, Ground = ground });
 			return;
 		}
 
@@ -357,7 +382,7 @@ public static partial class DtsMeshBuilder {
 				face, side, standalone: standalone,
 				solidPaletteIndex: edgeIndex,
 				shadeRamp: shadedOutline ? look.LineRamp : -1,
-				outlineFillRamp: shadedOutline ? look.ShadeRamp : -1) { Leaf = sink.Leaf });
+				outlineFillRamp: shadedOutline ? look.ShadeRamp : -1) { Leaf = sink.Leaf, Ground = ground });
 		}
 	}
 

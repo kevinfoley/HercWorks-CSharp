@@ -418,10 +418,16 @@ public sealed class SceneRenderer : IDisposable {
 	/// order. A shape off the grid ranks after all of it, as the original's no-cell bucket
 	/// draws.</para>
 	///
+	/// <para>A structure's ground plane — its shadow and floor plates, <see cref="MeshCell.Ground"/> —
+	/// is drawn in the same pass, ranked by the cell its object was filed under, after that cell's
+	/// shapes. The original paints the whole structure over its own cell's ground
+	/// (docs/retail/rendering/terrain-drawing.md, "Objects in the walk"), and these polys lie in the
+	/// terrain's own plane on a level pad, where a depth test could only tie with the ground.</para>
+	///
 	/// <para>Everything else is drawn afterwards with the depth test, so a machine stands over its
-	/// own shadow. The original also paints a shape over an object filed under a cell painted earlier
-	/// where the two overlap on screen; that is not reproduced here — every object is drawn over every
-	/// shape — and is listed as Unported in docs/retail/simulation/ground-shapes.md.</para>
+	/// own shadow and a structure over its floor. The original also paints a shape over an object filed
+	/// under a cell painted earlier where the two overlap on screen; that is not reproduced here — every
+	/// object is drawn over every shape — and KNOWN_ISSUES.md lists it.</para>
 	///
 	/// <para>Before any of it, the pass rebuilds the zone's visible region for its own view, as
 	/// <c>Terrain_SetupVisibleRegion</c> does before the submit, and files <paramref name="ground"/>'s
@@ -437,7 +443,7 @@ public sealed class SceneRenderer : IDisposable {
 		var order = ground != null ? FileObjects(camera, aspect, ground) : default;
 
 		// Before anything is drawn into the frame, because it draws into a target of its own.
-		var groundShapes = ground is { Shapes.Count: > 0 }
+		var groundShapes = ground is { Shapes.Count: > 0 } or { ObjectGround.Count: > 0 }
 			? RankGroundShapes(camera, projection, ground, order,
 				viewportX, viewportY, viewportWidth, viewportHeight)
 			: null;
@@ -740,8 +746,9 @@ public sealed class SceneRenderer : IDisposable {
 	/// The ground shapes' side of it: files each shape under the cell
 	/// <see cref="HeightGrid.PickDrawCell"/> picks, drops it when this pass's draw does not reach that
 	/// cell (<see cref="ObjectDrawTable.CellDrawn"/>), takes the cell's rank in this view's walk, and
-	/// draws the terrain's ranks for the shapes' fragments to test against. Returns the shapes in the
-	/// order to draw them.
+	/// draws the terrain's ranks for the shapes' fragments to test against. The structures' ground
+	/// planes (<see cref="GroundShapeLayer.ObjectGround"/>) take the rank of the cell their object was
+	/// filed under. Returns everything in the order to draw it.
 	/// </summary>
 	private List<(SceneItem Item, uint Rank)> RankGroundShapes(Camera camera, Matrix4x4 projection,
 			GroundShapeLayer ground, TerrainPaintOrder order,
@@ -749,26 +756,44 @@ public sealed class SceneRenderer : IDisposable {
 		var grid = ground.Grid;
 		var viewer = camera.Position;
 
-		var ranked = new List<(SceneItem Item, uint Rank)>(ground.Shapes.Count);
+		var ranked = new List<(SceneItem Item, uint Rank, int Distance)>(
+			ground.Shapes.Count + ground.ObjectGround.Count);
 		foreach (var shape in ground.Shapes) {
 			var cell = grid.PickDrawCell(shape.Position, shape.Radius, viewer, ground.Region);
-			if (cell is { } filed && !ground.Objects.CellDrawn(filed)) {
+			if (ground.ShapesFollowWalk && cell is { } filed && !ground.Objects.CellDrawn(filed)) {
 				continue;
 			}
 
-			ranked.Add((shape.Item, cell is { } picked
-				? order.Rank(picked.X, picked.Y)
-				: TerrainPaintOrder.AfterTerrain));
+			ranked.Add((shape.Item, RankOf(cell), -1));
+		}
+
+		// A structure's ground plane, under the cell its object was filed under this pass. Within that
+		// cell it comes after the cell's ground shapes, which ObjList_DrawCellObjects (00428c60) draws on
+		// the spot before the rest, and with the cell's other structures farthest first, the order
+		// ObjList_DrawSorted (00429620) paints them in. An entry this pass does not draw is skipped by the
+		// draw itself.
+		foreach (var item in ground.ObjectGround) {
+			if (item.Filing is not { } entry) {
+				continue;
+			}
+
+			ranked.Add((item, RankOf(entry.Cell), entry.Position.ApproxDistanceTo(viewer)));
 		}
 
 		// Stable, so shapes sharing a cell keep the order they were given in.
-		ranked = ranked.OrderBy(entry => entry.Rank).ToList();
+		var result = ranked.OrderBy(entry => entry.Rank).ThenByDescending(entry => entry.Distance < 0)
+			.ThenByDescending(entry => entry.Distance)
+			.Select(entry => (entry.Item, entry.Rank)).ToList();
 
 		_paintRanks ??= new TerrainPaintRankBuffer(_gl);
 		_paintRanks.Draw(ground.Terrain, grid, order, camera.ViewMatrix, projection,
 			viewportX, viewportY, viewportWidth, viewportHeight);
 
-		return ranked;
+		return result;
+
+		// A cell's place in this view's walk; the no-cell bucket is drawn after all of it.
+		uint RankOf((int X, int Y)? cell) =>
+			cell is { } filed ? order.Rank(filed.X, filed.Y) : TerrainPaintOrder.AfterTerrain;
 	}
 
 	/// <summary>

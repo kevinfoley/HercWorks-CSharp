@@ -25,14 +25,20 @@
 VARYING vec3 vColor;
 VARYING vec2 vUV;
 VARYING float vUvWeight;
-VARYING float vTextured;
-VARYING float vUnlit;
 VARYING float vShade;
-VARYING float vShadeRamp;
+
+// The codes that say what a face is and which row it reads. Every corner of a primitive carries the
+// same value, so they are flat: interpolating a constant is not exact, and the fragment stage tests
+// these against thresholds. A Gouraud face on ramp 0 carries exactly 256, which comes out of
+// interpolation as 255.99998 on some pixels and fails `>= 256.0`, speckling the face with the
+// shaded chain's next row.
+flat VARYING float vTextured;
+flat VARYING float vUnlit;
+flat VARYING float vShadeRamp;
 // The palette index a flat solid face names, or -1. See MeshVertex.SolidPaletteIndex.
-VARYING float vSolidPaletteIndex;
+flat VARYING float vSolidPaletteIndex;
 // The fill ramp a shaded poly's outline is tested against, or -1. See MeshVertex.OutlineFillRamp.
-VARYING float vOutlineFillRamp;
+flat VARYING float vOutlineFillRamp;
 VARYING float vLightShade;
 VARYING float vViewDistance;
 

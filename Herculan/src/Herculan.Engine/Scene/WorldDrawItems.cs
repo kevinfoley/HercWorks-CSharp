@@ -110,7 +110,11 @@ public sealed class WorldDrawItems {
 			}
 		}
 
-		All = built.ToArray();
+		// A structure's ground plane is drawn with the ground layer (GroundShapeLayer.ObjectGround), not
+		// among the items, but it is built and gated like every other piece of its object, so it was kept
+		// in the list until here.
+		var groundPieces = new HashSet<SceneItem>(GroundLayer.ObjectGround);
+		All = built.Where(entry => !groundPieces.Contains(entry)).ToArray();
 
 		// Every item that draws a simulation object is filed with it. The terrain has no subject and is
 		// not filed.
@@ -125,7 +129,7 @@ public sealed class WorldDrawItems {
 		// hides the world. Both lists share the same SceneItem objects, so the per-frame transform
 		// refresh reaches whichever one is being drawn.
 		Piloted = playerItems.Count > 0
-			? built.Where(entry => !playerItems.Contains(entry)).ToArray()
+			? All.Where(entry => !playerItems.Contains(entry)).ToArray()
 			: All;
 	}
 
@@ -257,7 +261,9 @@ public sealed class WorldDrawItems {
 						DetailSelected = root == 0
 					};
 
-					if (segment.Leaf is { } leaf) {
+					if (segment.Ground) {
+						GroundLayer.ObjectGround.Add(part);
+					} else if (segment.Leaf is { } leaf) {
 						if (!rootGroups.TryGetValue(leaf.Tree, out var group)) {
 							rootGroups[leaf.Tree] = group = new BspDrawGroup(leaf.Tree,
 								frame => MissionScene.PosedTransformOf(subject, frame));
@@ -321,7 +327,7 @@ public sealed class WorldDrawItems {
 				var part = new SceneItem(cells[i], MissionScene.TransformOf(sceneObject), texture) {
 					LightSubject = sceneObject.Object
 				};
-				JoinBspGroup(part, cell.Leaf, cellGroups, sceneObject);
+				JoinGroundOrBspGroup(part, cell.Ground, cell.Leaf, cellGroups, sceneObject);
 
 				cellItems[i] = part;
 				built.Add(part);
@@ -400,7 +406,7 @@ public sealed class WorldDrawItems {
 					LightSubject = structure,
 					Visible = false
 				};
-				JoinBspGroup(hulkItem, hulk.Cells[i].Leaf, hulkGroups, sceneObject);
+				JoinGroundOrBspGroup(hulkItem, hulk.Cells[i].Ground, hulk.Cells[i].Leaf, hulkGroups, sceneObject);
 
 				hulkItems[i] = (hulkItem, gate);
 				built.Add(hulkItem);
@@ -414,9 +420,15 @@ public sealed class WorldDrawItems {
 	}
 
 	// A piece baked at the rest pose joins its object's group for the part it is a child of,
-	// whose planes sit at the rest pose in front of the object's own frame.
-	private static void JoinBspGroup(SceneItem item, BspLeaf? leaf, Dictionary<BspTree, BspDrawGroup> groups,
-			SceneObject owner) {
+	// whose planes sit at the rest pose in front of the object's own frame -- unless it is the shape's
+	// ground plane, which is painted with the ground instead, ahead of every child (MeshCell.Ground).
+	private void JoinGroundOrBspGroup(SceneItem item, bool ground, BspLeaf? leaf,
+			Dictionary<BspTree, BspDrawGroup> groups, SceneObject owner) {
+		if (ground) {
+			GroundLayer.ObjectGround.Add(item);
+			return;
+		}
+
 		if (leaf is not { } child) {
 			return;
 		}

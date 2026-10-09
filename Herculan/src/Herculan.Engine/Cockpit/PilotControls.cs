@@ -95,6 +95,10 @@ public sealed class PilotControls {
 	public void Update(IKeyState? controls, bool modalPanelOpen, IKeyState? freeCameraKeys) {
 		var pilotMech = _view.PilotMech;
 
+		// The flight model's lever test is a pair of globals in the original, read for every aircraft it
+		// steps whoever is piloting, so the world carries it for the Cybrid flyers too.
+		_scene.World.FlightThrottleIsLever = JoystickBindings.FlightThrottleIsLever(StickCapabilities, _preferences);
+
 		// A modal takes the player's input away entirely — the stick as well as the keyboard, and not just
 		// the command keys the key handler already gates. Each of these panels runs a loop of its own in
 		// the original (AlertPanel_Enter, poll the device, present) and that loop never calls Sim_MainTick,

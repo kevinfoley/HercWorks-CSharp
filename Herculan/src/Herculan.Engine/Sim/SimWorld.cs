@@ -183,6 +183,15 @@ public sealed class SimWorld {
 	/// </summary>
 	public TweakSettings Tweaks { get; set; } = new();
 
+	/// <summary>
+	/// <c>FlightModel_Step</c> (<c>00466a54</c>)'s throttle test, <see cref="Input.JoystickBindings.FlightThrottleIsLever"/>,
+	/// as the player's controls stand this frame. The original reads it from globals for every airframe it
+	/// steps, so a Cybrid flyer's throttle follows the player's stick and RAZOR THROTTLE binding — see
+	/// docs/retail/simulation/ai-flyers.md, "A flyer cannot change speed". False when nothing sets it: a
+	/// headless world has no player's controls.
+	/// </summary>
+	public bool FlightThrottleIsLever { get; set; }
+
 	/// <inheritdoc cref="Content.GameContent.IsV110"/>
 	/// <remarks>The simulation asks it only which release's ray walk to run — see <see cref="ThinRay"/>.</remarks>
 	public bool IsV110 { get; set; }

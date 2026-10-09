@@ -38,6 +38,8 @@ tweak.charge_bar_power_level.display_name  Barre de charge interactive
 tweak.charge_bar_power_level.description   Réglez le niveau de puissance d'une arme à énergie en cliquant sur sa barre de charge dans le panneau des armes ou en la faisant glisser : la barre se remplit alors jusqu'à l'endroit où vous relâchez. Les touches [-] et [=] fonctionnent toujours. Le jeu original prévoit la barre pour cela, mais le bouton de la ligne de l'arme la recouvre, si bien qu'elle ne reçoit jamais de clic.
 tweak.fix_terrain_hit_point.display_name  Impacts précis sur le terrain
 tweak.fix_terrain_hit_point.description   Les tirs et les lignes de vue rencontrent le sol exactement là où il se trouve. Sur environ un tiers du terrain, le jeu original calcule le point où un tir frappe le sol sur une pente qui peut être décalée de plusieurs mètres par rapport à la vraie, si bien que l'impact tombe trop court ou trop long. Dans la version 1.10, le sol n'arrête alors parfois plus du tout un tir ou une ligne de vue, si bien que les machines peuvent se voir et se tirer dessus à travers certaines parties des collines.
+tweak.flyer_ignores_player_throttle.display_name  Les volants Cybrid ignorent votre manette des gaz
+tweak.flyer_ignores_player_throttle.description   Un volant Cybrid vole toujours à sa vitesse de croisière normale. Dans le jeu original, quand votre joystick a une manette des gaz et que la commande THROTTLE du Razor est réglée sur THROTTLE, tous les volants Cybrid de la mission ralentissent, même si vous ne pilotez pas un Razor.
 tweaks.title                   Ajustements
 tweaks.category.cosmetic       Cosmétique
 tweaks.category.ai             IA

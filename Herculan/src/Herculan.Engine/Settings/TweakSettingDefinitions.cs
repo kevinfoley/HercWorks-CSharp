@@ -96,6 +96,16 @@ public static class TweakSettingDefinitions {
 	public static readonly TweakSettingDefinition<bool> DropPodSoundFromPod = new("tweak.drop_pod_sound_from_pod", TweakCategory.Cosmetic, defaultValue: false, recommendedValue: true);
 	#endregion
 
+	#region AI
+	/// <summary>
+	/// A Cybrid flyer's speed ignores the player's own throttle setup: it always reads its throttle as a
+	/// rate, so a SKIMMER cruises at 875. Retail tests the player's stick and RAZOR THROTTLE binding for
+	/// every aircraft, and with a throttle lever bound holds every Cybrid flyer at 750. See
+	/// <see cref="Sim.SimWorld.FlightThrottleIsLever"/>.
+	/// </summary>
+	public static readonly TweakSettingDefinition<bool> FlyerIgnoresPlayerThrottle = new("tweak.flyer_ignores_player_throttle", TweakCategory.AI, defaultValue: false, recommendedValue: true);
+	#endregion
+
 	#region FUNCTIONAL
 	/// <summary>
 	/// Enable smoother turret movement when aiming with a joystick or other analog
@@ -157,6 +167,6 @@ public static class TweakSettingDefinitions {
 		PreserveSoundPosition, CriticalDamageMessage, ShowSquadmateNumber, FixComputerMessagePreference,
 		SmootherTurretMovement, MouseExternalView, FixDefendPositionOrder, FixWeaponDamageRecords,
 		ChargeBarPowerLevel, FlashThroughSecondHit, ShowAltitudeTape, DropPodSoundFromPod,
-		FixTerrainHitPoint,
+		FixTerrainHitPoint, FlyerIgnoresPlayerThrottle,
 	};
 }

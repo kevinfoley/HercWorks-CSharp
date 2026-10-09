@@ -38,6 +38,8 @@ tweak.charge_bar_power_level.display_name  Interactive Charge Bar
 tweak.charge_bar_power_level.description   Set an energy weapon's power level by clicking or dragging its charge bar on the weapon panel: the bar then fills to where you let go. The [-] and [=] keys keep working. Retail builds the bar for this, but the weapon row's own button covers it, so it never takes a click.
 tweak.fix_terrain_hit_point.display_name  Accurate terrain hits
 tweak.fix_terrain_hit_point.description   Shots and lines of sight meet the ground exactly where it is. On about a third of the terrain, retail works out where a shot strikes the ground against a slope that can be several metres off the real one, so the impact lands short or long. In version 1.10 the ground then sometimes fails to stop a shot or a line of sight at all, so machines can see and shoot each other through parts of hills.
+tweak.flyer_ignores_player_throttle.display_name  Cybrid flyers ignore your throttle setup
+tweak.flyer_ignores_player_throttle.description   A Cybrid flyer always flies at its normal cruising speed. In retail, when your joystick has a throttle and the Razor's THROTTLE control is set to THROTTLE, every Cybrid flyer in the mission slows to a lower speed, even when you are not flying a Razor.
 tweaks.title                   Tweaks
 tweaks.category.cosmetic       Cosmetic
 tweaks.category.ai             AI

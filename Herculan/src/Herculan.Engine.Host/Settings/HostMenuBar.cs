@@ -6,10 +6,11 @@ using ImGuiNET;
 namespace Herculan.Engine.Host.Settings;
 
 /// <summary>
-/// The menu bar [Esc] raises over the shell and over a mission, HERCULAN's own and not retail's, and the
+/// The menu bar [Shift+Esc] raises over the shell and over a mission, HERCULAN's own and not retail's, and the
 /// panels it opens: Debug (a mission's only, and only under <c>--developer</c>), Tweaks and Settings. Hidden until <see cref="Show"/>, and never
-/// drawn into a <c>--screenshot</c> capture. Which [Esc] press reaches it is each host's to decide, since
-/// retail takes [Esc] first wherever it has a use for it; over a mission, <see cref="SimulatorFrame"/> decides.
+/// drawn into a <c>--screenshot</c> capture. Plain [Esc] is retail's in a mission, where it pans to and from the
+/// Heads-Down Display, so which key reaches the bar is each host's to decide: over a mission
+/// <see cref="SimulatorFrame"/>, over the shell <c>KeyboardRouting</c>.
 /// </summary>
 sealed class HostMenuBar : IEscapeMenu {
 	private readonly LocalizationTable _localization;
@@ -32,6 +33,9 @@ sealed class HostMenuBar : IEscapeMenu {
 
 	/// <summary>Whether one of the bar's panels is up.</summary>
 	public bool PanelOpen => Tweaks.IsOpen || Settings.IsOpen || _debug?.IsOpen == true;
+
+	/// <summary>Whether the bar or one of its panels is up.</summary>
+	public bool Up => Visible || PanelOpen;
 
 	/// <summary>Raises the bar.</summary>
 	public void Show() => Visible = true;

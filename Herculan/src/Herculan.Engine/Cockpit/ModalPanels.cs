@@ -148,8 +148,9 @@ public sealed class ModalPanels {
 	}
 
 	/// <summary>
-	/// The panels take the keyboard before anything else does. [Esc], which dismisses any of them, is also this
-	/// host's menu-bar key, so they have to be asked first or two things would act on one keystroke. All are asked
+	/// The panels take the keyboard before anything else does. [Esc], which dismisses any of them, is also the
+	/// cockpit's, and with [Shift] this host's menu-bar key, which a panel answers as [Esc] as retail's does, so
+	/// they have to be asked first or two things would act on one keystroke. All are asked
 	/// every frame — single <c>|</c>, not <c>||</c> — so each keeps its own key-edge state whether or not another
 	/// claimed the keystroke. Returns whether any of them claimed it.
 	/// </summary>

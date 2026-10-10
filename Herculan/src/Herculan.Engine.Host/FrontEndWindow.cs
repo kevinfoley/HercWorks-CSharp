@@ -120,7 +120,7 @@ sealed class FrontEndWindow : IDisposable {
 	/// </summary>
 	public void ToggleFullScreen() => _window.ToggleFullScreen(Mouse);
 
-	/// <summary>[Esc] for the menu bar: closes whichever of its windows is open, else hides an empty bar, else raises it.</summary>
+	/// <summary>A menu-bar key press: closes whichever of its windows is open, else hides an empty bar, else raises it.</summary>
 	public void MenuBarEscape() {
 		if (!_menuBar.BackOut()) {
 			_menuBar.Show();

@@ -157,7 +157,7 @@ public sealed class CockpitView {
 		}
 	}
 
-	/// <summary>Whether a glance or the pan down is out, which [Esc] brings back before it does anything else.</summary>
+	/// <summary>Whether a glance or the pan down is out, which [Esc] brings back rather than panning down.</summary>
 	public bool AwayFromForward => !Glance.AtForward || Pan.HeadsDownRequested;
 
 	/// <summary>
@@ -172,21 +172,18 @@ public sealed class CockpitView {
 	/// <summary>
 	/// [Esc] once no modal panel has taken it: out of the external view, where with the cockpit's widgets off
 	/// scancode 1 falls through them to the dispatcher's own case (see <see cref="ExternalViewChain.Escape"/>), else
-	/// <see cref="ReturnToForward"/> from a glance or the Heads-Down Display. Returns whether there was a view to
-	/// come back from.
+	/// CockpitWidgets_HandleCommand (00432bc8)'s own case 1 — view command 0 from the forward view, so it pans down
+	/// to the Heads-Down Display, and <see cref="ReturnToForward"/> from a glance or heads-down. See
+	/// docs/retail/key-bindings.md#displays-and-views.
 	/// </summary>
-	public bool BackOut(bool hasCockpit) {
+	public void Escape(bool hasCockpit) {
 		if (ExternalViewActive) {
 			Chain?.Escape();
-			return true;
-		}
-
-		if (hasCockpit && AwayFromForward) {
+		} else if (hasCockpit && AwayFromForward) {
 			ReturnToForward();
-			return true;
+		} else if (hasCockpit) {
+			RequestHeadsDown(headsDown: true);
 		}
-
-		return false;
 	}
 
 	/// <summary>

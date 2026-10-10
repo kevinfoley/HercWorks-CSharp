@@ -123,9 +123,9 @@ sealed class SimulatorHost : IDisposable {
 		_debugProbes = new DebugProbes();
 		_debugPanel = new DebugPanel(_debugOptions, _debugProbes);
 
-		// Hidden until [Esc] first raises it — see SimulatorFrame's [Esc] — since it is the only way
-		// to reach its panels and every key from F1 to F12 is already taken. A mission has no shell turn to
-		// restart, so Settings shows the folders greyed.
+		// Hidden until [Shift+Esc] first raises it — see SimulatorFrame's [Esc] — since it is the only way
+		// to reach its panels and every key from F1 to F12, [Esc] and [Tab] among the rest, is already retail's. A
+		// mission has no shell turn to restart, so Settings shows the folders greyed.
 		_menuBar = new HostMenuBar(session.Localization, new TweaksMenu(TweakSettings.Current, session.Localization),
 			new SettingsWindow(session, restartShell: null), options.DeveloperMode ? _debugPanel : null);
 
@@ -388,7 +388,7 @@ sealed class SimulatorHost : IDisposable {
 			_panels.Draw(_cockpit.AlertPanels, size.X, size.Y, _textures.HudSprites, panelSprites);
 		}
 
-		// The menu bar and its panels: hidden until [Esc] raises the bar (see SimulatorFrame),
+		// The menu bar and its panels: hidden until [Shift+Esc] raises the bar (see SimulatorFrame),
 		// and never in a --screenshot capture, which sees no input to raise it.
 		if (_options.ScreenshotPath == null) {
 			_menuBar.Draw(_window.View.Native?.Win32?.Hwnd ?? 0, _window.FullScreen);

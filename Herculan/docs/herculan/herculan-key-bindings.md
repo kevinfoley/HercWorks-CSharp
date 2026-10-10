@@ -4,7 +4,8 @@ The keys the engine adds to retail's. Every retail key works as [`../retail/key-
 
 | Key | What it does |
 |---|---|
-| `Esc` | In a mission's forward view, raise the menu bar with the Debug, Tweaks and Settings panels; in the front end, raise it with Tweaks and Settings, except while a movie or the briefing map's opening plays or a field is being typed into. Press again to back out. |
+| `Shift+Esc` | Raise the menu bar: in a mission with the Debug, Tweaks and Settings panels, in the front end with Tweaks and Settings. Press again to back out. It does nothing to a mission's pause, objectives and other panels, which take it as `Esc`, nor to a movie or the briefing map's opening, which it skips as `Esc` does. Retail takes `Shift+Esc` as `Esc`. |
+| `Esc` | While the menu bar or one of its panels is up, back out of it. In the front end it also raises the bar wherever retail has no use for it: not during a movie or the briefing map's opening, nor while a field is being typed into. |
 | Left mouse drag | With the Mouse-controlled outside view tweak, swing the outside view round the HERC. |
 | `PrtScn` | While full screen, copy the frame to the clipboard in place of Windows' own capture, which can show a stale frame of a full-screen game; with `Alt`, `Ctrl`, `Shift` or `Win` held the key is Windows'. `--save-prtscn` also saves it ([`herculan-command-line.md`](herculan-command-line.md#screenshots-and-staged-state)). |
 
@@ -12,7 +13,7 @@ The keys the engine adds to retail's. Every retail key works as [`../retail/key-
 
 The tweak replaces the outside view's controls: the mouse swings the camera, the HERC stays under your control throughout, and the cockpit's keys keep working. `Esc` still returns to the cockpit.
 
-During a tape replay, `Esc`'s menu bar and `Ctrl+E` stay with the player's own keyboard and every other key comes from the tape; under `--demo` any key ends the demo.
+During a tape replay, the menu bar's keys and `Ctrl+E` stay with the player's own keyboard and every other key comes from the tape; under `--demo` any key ends the demo.
 
 ## Developer keys
 

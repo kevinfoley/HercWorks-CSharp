@@ -5,6 +5,7 @@ using Herculan.Engine.Input;
 using Herculan.Engine.Scene;
 using Silk.NET.Input;
 using Silk.NET.Maths;
+using static Herculan.Engine.Input.KeyChords;
 
 namespace Herculan.Engine.Cockpit;
 
@@ -33,11 +34,12 @@ public sealed class SimulatorFrame {
 	private readonly Func<Vector2D<int>> _framebufferSize;
 	private readonly bool[] _systemButtonsShowing = new bool[SystemButtons.Count];
 
-	private bool _escapeDown;
-	private bool _tapeEscapeDown;
+	private readonly KeyLatch _escape = new();
+	private readonly KeyLatch _tapeEscape = new();
+	private bool _escapeHeldByMenu;
 
 	/// <param name="systemButtons">What the two system buttons reach on the window.</param>
-	/// <param name="escapeMenu">The host's own layer that [Esc] reaches before the game's views, if it has one.</param>
+	/// <param name="escapeMenu">The host's own menu, which [Shift+Esc] raises, if it has one.</param>
 	/// <param name="framebufferSize">The window's framebuffer size, read where each step places something on it.</param>
 	public SimulatorFrame(SimulatorStart start, CockpitArt? art, CockpitView view, CockpitDisplays displays,
 			ModalPanels panels, TapePlayback tape, TapeRecording recording, DeveloperKeys developerKeys,
@@ -125,7 +127,7 @@ public sealed class SimulatorFrame {
 	/// keyboard before anything else does, then [Esc].
 	/// </summary>
 	public void BeginFrame(double deltaSeconds) {
-		Stepper.BeginFrame(deltaSeconds);
+		Stepper.BeginFrame(deltaSeconds, HostTakesEscape());
 		_panels.AdvanceClock(deltaSeconds);
 		bool panelHandledKey = _panels.ReadKeys(_input.KeyboardCapturedByImGui ? null : _input.Keyboard, _outcome.Over);
 		ReadEscapeKey(panelHandledKey);
@@ -232,21 +234,30 @@ public sealed class SimulatorFrame {
 		CockpitUpdate.Update(deltaSeconds);
 	}
 
-	// [Esc] backs out one layer at a time: the host's menu, if it has one up, else the external view, a glance or
-	// the Heads-Down Display, else it raises the host's menu. Once per press, not per auto-repeat: the original's
-	// repeats back out of nothing once the view is forward, and here they would open and close the menu.
+	// Whether this frame's [Esc] is the host's rather than the game's, read before the recording takes the frame's
+	// keys so a press the host's menu takes stays off the tape: [Shift+Esc], [Esc] while the menu has anything up,
+	// and the rest of a hold whose press the menu took. A modal panel takes [Esc] before either.
+	private bool HostTakesEscape() =>
+		_input.LiveKeys is { } liveKeys && !_panels.AnyOpen
+		&& (_escapeHeldByMenu || MenuBarChord(liveKeys) || _escapeMenu?.Up == true);
+
+	// [Shift+Esc] raises the host's menu, or backs out of it one layer at a time. Plain [Esc] is the game's — out
+	// of the external view, a glance or the Heads-Down Display, or from the forward view down to the Heads-Down
+	// Display (CockpitView.Escape) — except that while the host's menu has anything up, it backs out of that
+	// first. The game acts on each auto-repeat, as the original's dispatcher does, so a held [Esc] goes up and
+	// down; the menu once per press, and a press it took keeps its repeats from the game.
 	private void ReadEscapeKey(bool consumedByPanel) {
-		// During a replay the two halves of this key come apart: the tape's [Esc] is the game's and only
-		// ever backs out of a view, and the live one keeps the host's menu.
+		bool hasCockpit = _art != null;
+
+		// During a replay the two halves of this key come apart: the tape's [Esc] is the game's, and the live
+		// one only ever reaches the host's menu.
 		bool tapePlaying = _tape.Playing;
 		var keyboard = _input.Keyboard;
 		if (tapePlaying && keyboard != null) {
-			bool tapeDown = keyboard.IsKeyPressed(Key.Escape);
-			if (tapeDown && !_tapeEscapeDown && !consumedByPanel) {
-				_view.BackOut(hasCockpit: _art != null);
+			if (_tapeEscape.PressOrRepeat(keyboard, Key.Escape) && !consumedByPanel && Unmodified(keyboard)) {
+				_view.Escape(hasCockpit);
 			}
 
-			_tapeEscapeDown = tapeDown;
 			consumedByPanel = false;
 		}
 
@@ -259,15 +270,25 @@ public sealed class SimulatorFrame {
 		// Escape edge regardless of who else claims it — otherwise a press that is still held on the frame a
 		// retail panel lets go of Escape reads as a second, fresh press here.
 		bool down = liveKeys.IsKeyPressed(Key.Escape);
-		bool pressed = down && !_escapeDown;
-		_escapeDown = down;
+		bool pressed = _escape.Press(down);
+		bool repeated = down && liveKeys.IsKeyRepeated(Key.Escape);
+		if (!down) {
+			_escapeHeldByMenu = false;
+		}
 
-		if (!pressed || consumedByPanel || _escapeMenu?.BackOut() == true) {
+		if (consumedByPanel || !Unmodified(liveKeys)) {
 			return;
 		}
 
-		if (tapePlaying || !_view.BackOut(hasCockpit: _art != null)) {
-			_escapeMenu?.Show();
+		if (pressed && MenuBarChord(liveKeys)) {
+			_escapeHeldByMenu = true;
+			if (_escapeMenu?.BackOut() != true) {
+				_escapeMenu?.Show();
+			}
+		} else if (pressed && _escapeMenu?.BackOut() == true) {
+			_escapeHeldByMenu = true;
+		} else if ((pressed || repeated) && !_escapeHeldByMenu && !tapePlaying) {
+			_view.Escape(hasCockpit);
 		}
 	}
 
@@ -342,10 +363,13 @@ public sealed class SimulatorFrame {
 }
 
 /// <summary>
-/// The host's own layer over the simulator that [Esc] reaches before the game's views do, and raises once the
-/// game has no use for the key.
+/// The host's own layer over the simulator, which [Shift+Esc] raises and [Esc] backs out of before the game's views
+/// see the key; see <see cref="SimulatorFrame"/>.
 /// </summary>
 public interface IEscapeMenu {
+	/// <summary>Whether any of the menu is up.</summary>
+	bool Up { get; }
+
 	/// <summary>Takes down whatever of the menu is up; false when nothing was.</summary>
 	bool BackOut();
 

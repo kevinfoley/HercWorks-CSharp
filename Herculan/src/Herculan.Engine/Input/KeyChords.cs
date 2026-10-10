@@ -11,6 +11,14 @@ public static class KeyChords {
 	public static bool AltHeld(IKeyState keyboard) =>
 		keyboard.IsKeyPressed(Key.AltLeft) || keyboard.IsKeyPressed(Key.AltRight);
 
+	public static bool ShiftHeld(IKeyState keyboard) =>
+		keyboard.IsKeyPressed(Key.ShiftLeft) || keyboard.IsKeyPressed(Key.ShiftRight);
+
+	// [Shift+Esc] alone, with neither [Alt] nor [Ctrl]: HERCULAN's own menu-bar key. Retail takes it as [Esc], since
+	// SimCommandMask strips [Shift]; the menu bar takes that alias for itself everywhere but a modal panel, which
+	// still answers it as retail's does.
+	public static bool MenuBarChord(IKeyState keyboard) => ShiftHeld(keyboard) && Unmodified(keyboard);
+
 	// Neither [Alt] nor [Ctrl] held: the key arrives as its bare scancode, the code the cockpit's [Enter] and
 	// [Tab] cases and an alert panel's [Enter] and [Esc] match exactly. With [Alt] or [Ctrl] it is another
 	// code (0x21c is [Alt+Enter]), or Key_WndProcHook keeps it for itself (0x20f, 0x201, 0x401). [Shift] is
@@ -33,7 +41,7 @@ public static class KeyChords {
 			Vertical = Axis(keyboard, Key.R, Key.F),
 			Yaw = Axis(keyboard, Key.Right, Key.Left),
 			Pitch = Axis(keyboard, Key.Up, Key.Down),
-			Boost = keyboard.IsKeyPressed(Key.ShiftLeft) || keyboard.IsKeyPressed(Key.ShiftRight),
+			Boost = ShiftHeld(keyboard),
 		};
 	}
 }

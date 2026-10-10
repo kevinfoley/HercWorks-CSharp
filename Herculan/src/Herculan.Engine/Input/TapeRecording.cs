@@ -17,9 +17,9 @@ public sealed class TapeRecording {
 
 	// A key's auto-repeats go onto the tape as presses, as retail's do, because the handlers act on them. Not
 	// these, whose live handlers act on the key going down alone, so a recorded repeat would replay as a press
-	// the live session never took: [Esc] (0x01), the manual's [/] (0x35), and [Alt+Enter] (0x1c with Alt).
+	// the live session never took: the manual's [/] (0x35), and [Alt+Enter] (0x1c with Alt).
 	private static bool RecordsRepeats(int code) =>
-		(code & 0xff) is not (0x01 or 0x35) && code != (0x1c | InputTapePlayer.AltBit);
+		(code & 0xff) != 0x35 && code != (0x1c | InputTapePlayer.AltBit);
 
 	public TapeRecording(InputTapeRecorder? recorder, SimulatorPreferences preferences, MessagePorts ports) {
 		Recorder = recorder;
@@ -45,9 +45,11 @@ public sealed class TapeRecording {
 	/// The top of a recorded host frame: whether it is a panel's, and the keys that went down since the last
 	/// one. Keys are edges of the polled state rather than the device's own events, because the handlers poll
 	/// too: a key pressed and let go between two frames is one no handler saw. Only what reaches the game is
-	/// recorded — nothing while the debug UI has the keyboard or the free camera is being flown.
+	/// recorded — nothing while the debug UI has the keyboard or the free camera is being flown, and no [Esc] the
+	/// host's own menu takes (<paramref name="hostTakesEscape"/>).
 	/// </summary>
-	public void BeginFrame(bool panelOpen, IKeyState? liveKeys, bool imguiHasKeyboard, bool piloting) {
+	public void BeginFrame(bool panelOpen, IKeyState? liveKeys, bool imguiHasKeyboard, bool piloting,
+			bool hostTakesEscape = false) {
 		if (Recorder == null) {
 			return;
 		}
@@ -64,7 +66,8 @@ public sealed class TapeRecording {
 		foreach (int scancode in TapeKeys.RecordedScancodes) {
 			bool down = TapeKeys.KeysOf(scancode).Any(liveKeys.IsKeyPressed);
 			bool repeated = RecordsRepeats(scancode | modifiers) && TapeKeys.KeysOf(scancode).Any(liveKeys.IsKeyRepeated);
-			if (down && listening && (!_keysDown.Contains(scancode) || repeated)) {
+			bool taken = scancode == 0x01 && hostTakesEscape;
+			if (down && listening && !taken && (!_keysDown.Contains(scancode) || repeated)) {
 				Recorder.AddPress(scancode | modifiers);
 			}
 

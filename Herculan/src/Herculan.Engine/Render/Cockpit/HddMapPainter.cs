@@ -47,7 +47,9 @@ internal sealed class HddMapPainter {
 
 		_overlay.SetScissor(scissorX, scissorY, scissorW, scissorH);
 
-		// Viewport-local device pixels, which is the space HddMapView projects into.
+		// Viewport-local device pixels, which is the space HddMapView projects into. Every size on the map is in
+		// device pixels too — an icon, a marker's offsets, a line's one pixel — so each is multiplied by `scale`
+		// as the positions are, or the map shrinks against the console as the window grows.
 		float Mx(float x) => Dx(region.X0 + x);
 		float My(float y) => Dy(region.Y0 + y);
 		float Px(int worldX) => Mx(view.ToScreenX(worldX));
@@ -62,6 +64,9 @@ internal sealed class HddMapPainter {
 
 		_overlay.Clear();
 
+		// One device pixel, which a line on the map is.
+		float pixel = Math.Max(scale, 1f);
+
 		// The grid: lines every HddMap.GridPitch world units either side of the world origin, walked
 		// out from it until they leave the viewport. The original steps in projected pixels and
 		// divides by sixteen; stepping in world units and projecting each line is the same set of
@@ -72,13 +77,13 @@ internal sealed class HddMapPainter {
 			for (int worldX = FloorToPitch(view.CentreX - halfX);
 					worldX <= view.CentreX + halfX; worldX += HddMap.GridPitch) {
 				float x = Px(worldX);
-				_overlay.AddFilledRect(x, My(0), x + 1f, My(region.Height), gridColor);
+				_overlay.AddFilledRect(x, My(0), x + pixel, My(region.Height), gridColor);
 			}
 
 			for (int worldY = FloorToPitch(view.CentreY - halfY);
 					worldY <= view.CentreY + halfY; worldY += HddMap.GridPitch) {
 				float y = Py(worldY);
-				_overlay.AddFilledRect(Mx(0), y, Mx(region.Width), y + 1f, gridColor);
+				_overlay.AddFilledRect(Mx(0), y, Mx(region.Width), y + pixel, gridColor);
 			}
 		}
 
@@ -88,7 +93,7 @@ internal sealed class HddMapPainter {
 		var bounds = view.Bounds;
 		if (!bounds.IsEmpty && hud.LogicalColor(HddMap.BorderColorId) is { } borderColor) {
 			_overlay.AddRectOutline(Px(bounds.MinX), Py(bounds.MaxY), Px(bounds.MaxX), Py(bounds.MinY),
-				1f, borderColor);
+				scale, borderColor);
 		}
 
 		var markers = state.Command.Plotted;
@@ -100,7 +105,7 @@ internal sealed class HddMapPainter {
 				continue;
 			}
 
-			AddHddMarker(hud, sprites, markers[i], view, Px, Py, selected: i == state.Command.ChosenUnit);
+			AddHddMarker(hud, sprites, markers[i], view, Px, Py, scale, selected: i == state.Command.ChosenUnit);
 		}
 
 		// The link the manual describes: a line from the selected pilot to whatever the armed order
@@ -111,9 +116,9 @@ internal sealed class HddMapPainter {
 			int chosen = state.Command.ChosenUnit;
 			if (chosen >= 0 && chosen < markers.Count) {
 				_overlay.AddLine(Px(from.WorldX), Py(from.WorldY),
-					Px(markers[chosen].WorldX), Py(markers[chosen].WorldY), linkColor);
+					Px(markers[chosen].WorldX), Py(markers[chosen].WorldY), linkColor, pixel);
 			} else if (state.Command.ChosenPoint is { } point) {
-				_overlay.AddLine(Px(from.WorldX), Py(from.WorldY), Px(point.X), Py(point.Y), linkColor);
+				_overlay.AddLine(Px(from.WorldX), Py(from.WorldY), Px(point.X), Py(point.Y), linkColor, pixel);
 			}
 		}
 
@@ -145,7 +150,7 @@ internal sealed class HddMapPainter {
 	/// box of that size instead whenever the icon would be the bigger of the two.
 	/// </summary>
 	private void AddHddMarker(CockpitArt hud, HudSpriteSheet sprites, HddMapMarker marker,
-			HddMapView view, Func<int, float> px, Func<int, float> py, bool selected) {
+			HddMapView view, Func<int, float> px, Func<int, float> py, float scale, bool selected) {
 		float centerX = px(marker.WorldX);
 		float centerY = py(marker.WorldY);
 		var sprite = sprites.Sprite(HddMap.IconBank, marker.Frame);
@@ -159,9 +164,9 @@ internal sealed class HddMapPainter {
 			int apparent = (int)Math.Min(
 				((long)HddMap.MarkerSizeReference << HddMap.MarkerSizeShift) / distance, int.MaxValue);
 
-			if (sprite is not { Height: > 0 } || apparent < sprite.Value.Height) {
+			if (sprite is not { Height: > 0 } || apparent < sprite.Value.Height * sprite.Value.Scale) {
 				if (hud.LogicalColor(marker.ColorId) is { } boxColor) {
-					float half = apparent / 2f;
+					float half = apparent * scale / 2f;
 					_overlay.AddFilledRect(centerX - half, centerY - half, centerX + half, centerY + half, boxColor);
 				}
 
@@ -173,14 +178,17 @@ internal sealed class HddMapPainter {
 			return;
 		}
 
-		float x = centerX - marker.Size / 2f + marker.NudgeX;
-		float y = centerY - marker.Size / 2f + marker.NudgeY;
+		float x = centerX + (marker.NudgeX - marker.Size / 2f) * scale;
+		float y = centerY + (marker.NudgeY - marker.Size / 2f) * scale;
+		float width = icon.Width * icon.Scale * scale;
+		float height = icon.Height * icon.Scale * scale;
 		var rect = icon.Rect;
-		_overlay.AddTexturedQuad(x, y, x + icon.Width, y + icon.Height, rect.U0, rect.V0, rect.U1, rect.V1);
+		_overlay.AddTexturedQuad(x, y, x + width, y + height, rect.U0, rect.V0, rect.U1, rect.V1);
 
 		// The order's chosen unit is boxed, two pixels proud of the icon on every side.
 		if (selected && hud.LogicalColor(HddMap.ChosenUnitColorId) is { } outline) {
-			_overlay.AddRectOutline(x - 2f, y - 2f, x + icon.Width + 2f, y + icon.Height + 2f, 1f, outline);
+			float proud = 2f * scale;
+			_overlay.AddRectOutline(x - proud, y - proud, x + width + proud, y + height + proud, scale, outline);
 		}
 	}
 }

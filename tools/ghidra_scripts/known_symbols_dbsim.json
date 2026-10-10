@@ -12968,9 +12968,15 @@
       "type": "function",
       "confidence": "high",
       "name": "ConsoleButtons_Ctor",
-      "description": "The console button panel under the weapon rows, from .GAU offset 468. Builds FOUR WeaponRangeSelectGadget children from the rects at 484/500/516/532 and registers each with Widget_RegisterClickable in index order -- the chain selector, LINK, TRACK, and a fourth whose rect is zero in every retail .GAU and which therefore never takes a click. Installs ConsoleButtons_OnChildClick as slot 0, and hides child 2 (TRACK) outright when the piloted machine is a flyer.",
+      "description": "(panel, gauBlock, owner): the console button panel under the weapon rows, from .GAU offset 468. Installs WeaponRangeGaugeVtable and builds FOUR WeaponRangeSelectGadget children from the rects at 484/500/516/532, each offset by the block's first pair, registering each with Widget_RegisterClickable in index order -- the chain selector, LINK, TRACK, and a fourth whose rect is zero in every retail .GAU -- with a centred Label over its rect at child +0x2c and its index at child +0x28. Sets the child count +0x68 to 4 and clears the auto-track latch +0xb3. When the piloted machine's type record sets the flyer flag (+0x50), puts child 2 (TRACK, panel +0x20) in widget state 2 (+0x1b), which hit-testing passes over, ConsoleButton_Paint skips, and ConsoleButtons_ToggleAutoTrack refuses.",
       "source": "docs/retail/simulation/cockpit-input.md",
-      "signature": "void * __cdecl ConsoleButtons_Ctor(void *panel, int *gauBlock, void *owner)"
+      "signature": "void * __cdecl ConsoleButtons_Ctor(void *panel, int *gauBlock, void *owner)",
+      "verified": {
+        "bytes": "00441dd0+408",
+        "sha1": "0fa6d360083f",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00441f68",
@@ -12987,8 +12993,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ConsoleButtons_ToggleAutoTrack",
-      "description": "The console buttons manager's auto-track toggle, reached from ConsoleButtons_SetStateBlock and from Sim_DispatchCommand's command 0x14 (and forced off by command 0xe). Flips the manager's +0xb3, pushes the new state into the tracking object at +0x20 and repaints it, then withdraws both 0x26 AUTO TRACKING ENGAGED and 0x27 AUTO TRACKING DISABLED from the computer's message port and posts the one the mode just became -- the same shape as Mech_ToggleRadarMode. Refuses outright when the tracking object's +0x1b is 2.",
-      "source": "docs/retail/simulation/audio.md"
+      "description": "The console buttons manager's auto-track toggle, reached from ConsoleButtons_SetStateBlock, ConsoleButtons_OnChildClick's child 2, and Sim_DispatchCommand's command 0x14 (and command 0xe while the latch is set). Refuses when the TRACK widget (+0x20) is in state 2 (+0x1b), returning 0. Otherwise flips the manager's +0xb3, copies the new state into the TRACK widget's +0x40 and repaints it through its vtable, withdraws both 0x26 AUTO TRACKING ENGAGED and 0x27 AUTO TRACKING DISABLED from the computer's message port, posts the one the mode just became -- the same shape as Mech_ToggleRadarMode -- and returns 1 in the low byte.",
+      "source": "docs/retail/simulation/audio.md",
+      "verified": {
+        "bytes": "00441f7c+174",
+        "sha1": "f0225048c33a",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0044202c",
@@ -13191,8 +13203,14 @@
       "type": "function",
       "confidence": "high",
       "name": "ConsoleButton_Paint",
-      "description": "Paints the chain/link/auto-track console buttons: plate from PWEAPONS frames 2 + state (frame 2 unlit, solid palette index 34 = the retail blue at RGB (77,77,182); frame 3 lit, index 14 green) blitted at the widget's own rect, then the caption. The chain button's caption comes from the three-entry Roman-numeral table at 0049c71c ('I', 'II', 'III'), a literal .rdata table unrelated to the string file. LINK and TRACK are not fixed the same way: both read ConsoleButtonCaptions (004d13d0) indexed by the widget's own kind field (param_1[10]: 1=LINK, 2=TRACK), which SimStrings_LoadAll fills from STRINGS0.STR group 4. Caption font is ColorSchemePanels[10] WHITE when unlit, [12] DARK when lit.",
-      "source": "cockpit rendering RE session"
+      "description": "Paints one chain/link/auto-track console button, nothing when CockpitView_RectCornerVisible fails or the widget is in state 2 (+0x1b). By the kind field +0x28 (0 chain, 1 LINK, 2 TRACK): plate from frame 2 + n of the bank at 0049c4d0 (PWEAPONS; frame 2 unlit, solid palette index 34 = the retail blue at RGB (77,77,182); frame 3 lit, index 14 green), n being the state byte +0x1b for chain and LINK and the latch +0x40 for TRACK, blitted at the widget's own rect, then the caption into the label at +0x2c in ColorSchemePanels[10] WHITE when n is 0 and [12] DARK otherwise. The chain button's caption comes from the three-entry Roman-numeral table at 0049c71c ('I', 'II', 'III') indexed by the panel's chain number +0xb1, a literal .rdata table unrelated to the string file. LINK and TRACK read ConsoleButtonCaptions (004d13d0) indexed by the kind field, which SimStrings_LoadAll fills from STRINGS0.STR group 4.",
+      "source": "cockpit rendering RE session",
+      "verified": {
+        "bytes": "00442c88+266",
+        "sha1": "0c56e8fcc658",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00442d94",

@@ -96,7 +96,7 @@ Five places, measured across all nine retail cockpits. First-hit-wins resolves e
 | FLASH COMM row *n* against *n+1* | the shared bottom line, every herc | the upper row ([`mfd.md`](mfd.md#mfdflashcomm--mode-1)) |
 | HDD `XMIT` against `CANCEL` | 2 `.GAU` units, every herc | `XMIT`, widget 13 |
 | HDD up/down arrow against left/right | a 3x3 device corner, the six hercs on arrow set 0 | the up/down arrow, widgets 2-3 ([`heads-down-display.md`](heads-down-display.md#widgets)) |
-| The bottom edge strip against a console instrument | MAVERICK's `[F6]`, RAPTOR2's throttle, RAZOR's `TRACK` | the instrument (§10) |
+| The bottom edge strip against a console instrument | MAVERICK's `[F6]`, RAPTOR2's throttle | the instrument (§10) |
 | An energy row's select gadget against its charge bar | the whole bar: the gadget's rect is the 55x6 hardpoint rect, which contains the bar's `x0+36..x0+53`, `y0+1..y0+5`, every row of every herc | the select gadget, so the bar never takes a press (§7) |
 
 MFD buttons 7 and 10 share a rect but never contest it: no mode shows both ([`mfd.md`](mfd.md#button-visibility)).
@@ -381,7 +381,7 @@ The manual: *"Change views with the mouse by clicking on the screen edge leading
 | `+0x21e` | `{0, 0, 5<<X, H-1}` | Left, full height, 5 columns wide |
 | `+0x222` | `{W-1-(5<<X), 0, W-1, H-1}` | Right, full height, 5 columns wide |
 
-**They are built lazily, on the first cockpit frame rather than in a constructor.** The cockpit tick (`004327ac`) calls the builder once, gated on a one-shot flag at `+0x23e`, which is why the three sit apart from the rest of the widget build — and, because registration is precedence (§5), why anything else occupying that band wins the click. Three cockpits do: MAVERICK's `[F6]` button, RAPTOR2's throttle and RAZOR's `TRACK` button all reach into the bottom `3 << YCoordShift` rows, and a click there works the instrument instead of changing view. The other six leave the band clear.
+**They are built lazily, on the first cockpit frame rather than in a constructor.** The cockpit tick (`004327ac`) calls the builder once, gated on a one-shot flag at `+0x23e`, which is why the three sit apart from the rest of the widget build — and, because registration is precedence (§5), why anything else occupying that band wins the click. MAVERICK's `[F6]` button and RAPTOR2's throttle reach into the bottom `3 << YCoordShift` rows, and a click there works the instrument instead of changing view. RAZOR's `TRACK` rect reaches into them too, but the button is in state 2 on a flyer ([`torso-aim.md`](torso-aim.md#automatic-turret-tracking--t)), so hit-testing passes over it and the strip takes the click. The other six leave the band clear.
 
 ### A strip changes edge with the view
 

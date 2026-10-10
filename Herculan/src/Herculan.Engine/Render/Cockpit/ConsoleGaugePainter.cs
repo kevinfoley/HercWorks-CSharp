@@ -287,7 +287,9 @@ internal static class ConsoleGaugePainter {
 		Button(new string('I', Math.Clamp(state.ChainGroup + 1, 1, 3)), gau.ChainButton,
 			Held(ConsoleButton.Chain));
 		Button(strings?.Text(CaptionGroup, 1), gau.LinkButton, Held(ConsoleButton.Link));
-		Button(strings?.Text(CaptionGroup, 2), gau.AutoTrackButton, state.AutoTrack);
+		if (!state.TrackHidden) {
+			Button(strings?.Text(CaptionGroup, 2), gau.AutoTrackButton, state.AutoTrack);
+		}
 	}
 
 	/// <summary>

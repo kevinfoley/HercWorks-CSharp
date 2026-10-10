@@ -498,7 +498,7 @@ public static class CockpitWidgets {
 			yield return link;
 		}
 
-		if (Button(ConsoleButton.Track, art.Gau.AutoTrackButton) is { } track) {
+		if (!state.TrackHidden && Button(ConsoleButton.Track, art.Gau.AutoTrackButton) is { } track) {
 			yield return track;
 		}
 	}

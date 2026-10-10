@@ -120,8 +120,9 @@ public sealed class PilotKeys(CockpitView view, CockpitDisplays displays, Cockpi
 		if (_autoTrack.PressOrRepeat(controls, Key.T, !displays.HddCommandHasKeyboard) && Unmodified(controls)) {
 			// Sim_DispatchCommand's 0x14 case toggles the TRACK widget and, if that turned it off,
 			// latches the centring mode — so [T] off brings the turret home rather than leaving it
-			// wherever the tracker had it. Backspace's own case is the mirror image.
-			if (!pilotMech.ToggleAutoTrack(scene.World)) {
+			// wherever the tracker had it. Backspace's own case is the mirror image. A refused toggle
+			// skips the tail.
+			if (pilotMech.ToggleAutoTrack(scene.World) && !pilotMech.Weapons.AutoTrack) {
 				pilotMech.LatchCenterTorso();
 			}
 		}

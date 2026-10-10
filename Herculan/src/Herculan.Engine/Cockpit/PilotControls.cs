@@ -466,7 +466,7 @@ public sealed class PilotControls {
 			// Command 0x14, the same one [T] dispatches: toggling ATT off also latches the centring mode,
 			// so the turret comes home rather than staying where the tracker left it.
 			case JoystickAction.AttitudeToggle:
-				if (!mech.ToggleAutoTrack(_scene.World)) {
+				if (mech.ToggleAutoTrack(_scene.World) && !mech.Weapons.AutoTrack) {
 					mech.LatchCenterTorso();
 				}
 

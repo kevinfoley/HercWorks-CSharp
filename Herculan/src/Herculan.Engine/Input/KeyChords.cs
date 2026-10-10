@@ -40,8 +40,9 @@ public static class KeyChords {
 
 /// <summary>
 /// One binding's held state, so its handler acts on the key going down rather than on every frame it is
-/// held — the original dispatches a command per key-down event. Each binding keeps its own latch even
-/// where two share a key, because each is refreshed under its own conditions.
+/// held — the original dispatches a command per key-down event, auto-repeats included, which
+/// <see cref="PressOrRepeat"/> also acts on. Each binding keeps its own latch even where two share a key,
+/// because each is refreshed under its own conditions.
 /// </summary>
 public sealed class KeyLatch {
 	private bool _held;
@@ -55,6 +56,13 @@ public sealed class KeyLatch {
 
 	/// <summary>Reads <paramref name="key"/> off <paramref name="keys"/> and says whether it is a fresh press.</summary>
 	public bool Press(IKeyState keys, Key key) => Press(keys.IsKeyPressed(key));
+
+	/// <summary>
+	/// Reads <paramref name="key"/> off <paramref name="keys"/> and says whether it is a fresh press or one of its
+	/// auto-repeats. While <paramref name="when"/> is false the key counts as up.
+	/// </summary>
+	public bool PressOrRepeat(IKeyState keys, Key key, bool when = true) =>
+		Press(when && keys.IsKeyPressed(key)) | (when && keys.IsKeyRepeated(key));
 
 	/// <summary>Forgets the key, so one still held reads as a fresh press next time.</summary>
 	public void Reset() => _held = false;

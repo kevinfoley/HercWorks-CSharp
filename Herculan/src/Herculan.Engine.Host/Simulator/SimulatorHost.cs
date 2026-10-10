@@ -295,6 +295,7 @@ sealed class SimulatorHost : IDisposable {
 
 		_joystick?.Announce(_frame.Pilot.Bindings, _panels.Controls, _options.WriteJoystickMap, _start.DataDirectory);
 
+		_input.LiveKeys?.AdvanceRepeat(deltaSeconds);
 		_frame.BeginFrame(deltaSeconds);
 		_windowKeys.ReadManualKey(_displays.FlashCommHasKeyboard, _panels.AnyOpen);
 		_windowKeys.ReadFullScreenKeys();

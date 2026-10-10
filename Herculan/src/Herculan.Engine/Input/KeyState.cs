@@ -9,13 +9,27 @@ namespace Herculan.Engine.Input;
 /// </summary>
 public interface IKeyState {
 	bool IsKeyPressed(Key key);
+
+	/// <summary>
+	/// Whether <paramref name="key"/>'s auto-repeat falls due this frame, which a binding that acts on every
+	/// key-down event reads beside the key's edge (<see cref="KeyLatch.PressOrRepeat"/>). Never, unless a
+	/// keyboard says otherwise: a tape holds each repeat as a press of its own.
+	/// </summary>
+	bool IsKeyRepeated(Key key) => false;
 }
 
-/// <summary>The window's own keyboard.</summary>
+/// <summary>The window's own keyboard, and the auto-repeat Windows would give it.</summary>
 public sealed class LiveKeys(IKeyboard device) : IKeyState {
+	private readonly KeyRepeat _repeat = new(KeyRepeat.SystemTypematic());
+
 	public IKeyboard Device { get; } = device;
 
 	public bool IsKeyPressed(Key key) => Device.IsKeyPressed(key);
+
+	public bool IsKeyRepeated(Key key) => _repeat.Repeated == key;
+
+	/// <summary>Moves the auto-repeat on by one host frame, before anything reads the keys.</summary>
+	public void AdvanceRepeat(double deltaSeconds) => _repeat.Advance(Device.IsKeyPressed, deltaSeconds);
 }
 
 /// <summary>

@@ -524,14 +524,16 @@ public sealed class ModalPanels {
 			: AlertPanelKey.None;
 	}
 
-	// One key's down edge, against its bit in a panel's held-key mask.
+	// One key's down edge, against its bit in a panel's held-key mask, or one of its auto-repeats: a panel's loop
+	// takes each repeat as a fresh code, so a held [Tab] walks the focus and a held key that raised a panel raises
+	// it again once it is down (docs/retail/simulation/cockpit-input.md#how-a-keystroke-becomes-one-of-those-codes).
 	private static bool KeyBit(IKeyState keyboard, Key key, int bit, ref int keysDown) {
 		bool down = keyboard.IsKeyPressed(key);
 		bool edge = down && (keysDown & (1 << bit)) == 0;
 		keysDown = down
 			? keysDown | (1 << bit)
 			: keysDown & ~(1 << bit);
-		return edge;
+		return edge || (down && keyboard.IsKeyRepeated(key));
 	}
 
 	// A modal panel's buttons, pressed and released. Read straight off the device rather than through

@@ -19479,8 +19479,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Sim_HandleWindowKey",
-      "description": "(code): 0x21c ([Alt+Enter]) runs Video_ToggleFullscreen unless a tape is playing back with 004d25b0 set; 0x430 ([Ctrl+B]) calls __break (INT3) when 004d25b0 is set. Returns 1 for either code, 0 otherwise. Input_BuildPlayerDevice and Sim_DispatchCommand call it.",
-      "source": "DBSIM decompile and disassembly at 0045fd60"
+      "description": "(code): 0x21c ([Alt+Enter]) runs Video_ToggleFullscreen unless a tape is playing back with 004d25b0 set; 0x430 ([Ctrl+B]) calls __break (INT3) when 004d25b0 is set. Returns 1 for either code, 0 otherwise. It keeps no state, so every 0x21c toggles, an auto-repeat's included. Callers found by es2_xref: Input_BuildPlayerDevice and Sim_DispatchCommand.",
+      "source": "DBSIM decompile and disassembly at 0045fd60",
+      "verified": {
+        "bytes": "0045fd60+75",
+        "sha1": "0cb64c0ff647",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "0045fdac",
@@ -24900,8 +24906,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Key_WndProcHook",
-      "description": "The keyboard filter in the same ten-slot table ahead of MainWndProc as Mouse_WndProcHook. Catches WM_KEYDOWN/UP (0x100/0x101) and WM_SYSKEYDOWN/UP (0x104/0x105), translates the virtual key through the 223-entry scancode table at 004a1104, ORs in 0x800 for Shift, 0x200 for Alt, 0x400 for Ctrl and 0x80 for a key-up, then offers the code to the ten subscribers at 006bb93c; whatever none of them claims goes into the 256-entry ring at 006bb734.",
-      "source": "docs/retail/simulation/cockpit-input.md"
+      "description": "The keyboard filter in the same ten-slot table ahead of MainWndProc as Mouse_WndProcHook. Catches WM_KEYDOWN/UP (0x100/0x101) and WM_SYSKEYDOWN/UP (0x104/0x105), translates the virtual key through the 223-entry scancode table at 004a1104, ORs in 0x800 for Shift, 0x200 for Alt, 0x400 for Ctrl and 0x80 for a key-up, then offers the code to the ten subscribers at 006bb93c; whatever none of them claims goes into the 256-entry ring at 006bb734 unless the ring is full. It reads the message and wParam and never lParam, so each auto-repeat WM_KEYDOWN becomes one more code, the same as the first. An unmapped key with Alt down returns 1 unprocessed; 0x20f, 0x401 and 0x201 call Video_LeaveFullscreen instead of becoming codes; a ringed 0x44 (F10) returns 1, every other ringed code 0.",
+      "source": "docs/retail/simulation/cockpit-input.md",
+      "verified": {
+        "bytes": "00477ae0+346",
+        "sha1": "0a7e6bc2badb",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00477c3c",

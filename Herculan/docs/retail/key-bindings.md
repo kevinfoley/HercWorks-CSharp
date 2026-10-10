@@ -4,6 +4,8 @@ The simulator's keyboard, by what each key does. Keys the manual does not list a
 
 "Keypad" means the numeric keypad with Num Lock off. The arrow keys and the keypad's arrows are the same keys to the game.
 
+A key held down acts again at the keyboard's repeat rate, as if pressed over and over: a held `[` keeps moving the shield balance, a held `W` keeps stepping through the weapons, and a held `V` goes in and out of the outside view. Only the key pressed last repeats. The driving and turret keys and `Space` are the exception: they are read as held for as long as they are down.
+
 ## Driving
 
 | Key | What it does |
@@ -120,7 +122,7 @@ While an input tape plays back, `Ctrl+E` stops it; see [`formats/tap-input-tape.
 
 **(not in the manual)** Keys the programmers used for testing, which DBSIM answers only when it is started with [`-SPRUNKNOWN`](launch-options.md#developer-mode--sprunknown). `Alt+S` is the exception: it also works while a recording is being made or played back. The retail code behind each key is [`command-line.md`](command-line.md#-sprunknown-the-developer-keys).
 
-The `Ctrl+Alt+number` keys choose how far the move and turn keys go; each mission starts on the `Ctrl+Alt+4` size. The move and turn keys act on the HERC the camera is on, which is your own until `Ctrl+N` or `Ctrl+P` moves the camera, and they take it straight through anything in the way. The arrows keep their ordinary job under `Alt` and `Ctrl`, so `Alt+Left`/`Right` and `Ctrl+Left`/`Right` also steer your HERC, and `Alt+Up`/`Down` also move its throttle. Holding any of these keys repeats it at the keyboard's repeat rate, so a held move key keeps moving.
+The `Ctrl+Alt+number` keys choose how far the move and turn keys go; each mission starts on the `Ctrl+Alt+4` size. The move and turn keys act on the HERC the camera is on, which is your own until `Ctrl+N` or `Ctrl+P` moves the camera, and they take it straight through anything in the way. The arrows keep their ordinary job under `Alt` and `Ctrl`, so `Alt+Left`/`Right` and `Ctrl+Left`/`Right` also steer your HERC, and `Alt+Up`/`Down` also move its throttle.
 
 | Key | What it does |
 |---|---|

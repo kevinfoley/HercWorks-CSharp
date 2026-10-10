@@ -147,7 +147,7 @@ public sealed class SimulatorFrame {
 		// view chain's own.
 		var pilotMech = _view.PilotMech;
 		if (pilotMech != null && _view.Chain != null && controls != null && !_panels.AnyOpen && !_outcome.Over) {
-			_developerKeys.Read(controls, _scene.World, pilotMech, _view.Chain, _tape.Playing, deltaSeconds);
+			_developerKeys.Read(controls, _scene.World, pilotMech, _view.Chain, _tape.Playing);
 		}
 
 		if (_view.Chain != null && controls != null && !_panels.AnyOpen && !_outcome.Over) {
@@ -233,7 +233,8 @@ public sealed class SimulatorFrame {
 	}
 
 	// [Esc] backs out one layer at a time: the host's menu, if it has one up, else the external view, a glance or
-	// the Heads-Down Display, else it raises the host's menu.
+	// the Heads-Down Display, else it raises the host's menu. Once per press, not per auto-repeat: the original's
+	// repeats back out of nothing once the view is forward, and here they would open and close the menu.
 	private void ReadEscapeKey(bool consumedByPanel) {
 		// During a replay the two halves of this key come apart: the tape's [Esc] is the game's and only
 		// ever backs out of a view, and the live one keeps the host's menu.

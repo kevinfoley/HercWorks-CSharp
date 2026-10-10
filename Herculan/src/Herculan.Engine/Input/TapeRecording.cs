@@ -15,6 +15,12 @@ public sealed class TapeRecording {
 	private readonly MessagePorts _ports;
 	private readonly HashSet<int> _keysDown = new();
 
+	// A key's auto-repeats go onto the tape as presses, as retail's do, because the handlers act on them. Not
+	// these, whose live handlers act on the key going down alone, so a recorded repeat would replay as a press
+	// the live session never took: [Esc] (0x01), the manual's [/] (0x35), and [Alt+Enter] (0x1c with Alt).
+	private static bool RecordsRepeats(int code) =>
+		(code & 0xff) is not (0x01 or 0x35) && code != (0x1c | InputTapePlayer.AltBit);
+
 	public TapeRecording(InputTapeRecorder? recorder, SimulatorPreferences preferences, MessagePorts ports) {
 		Recorder = recorder;
 		_preferences = preferences;
@@ -57,7 +63,8 @@ public sealed class TapeRecording {
 			| (CtrlHeld(liveKeys) ? InputTapePlayer.CtrlBit : 0);
 		foreach (int scancode in TapeKeys.RecordedScancodes) {
 			bool down = TapeKeys.KeysOf(scancode).Any(liveKeys.IsKeyPressed);
-			if (down && listening && !_keysDown.Contains(scancode)) {
+			bool repeated = RecordsRepeats(scancode | modifiers) && TapeKeys.KeysOf(scancode).Any(liveKeys.IsKeyRepeated);
+			if (down && listening && (!_keysDown.Contains(scancode) || repeated)) {
 				Recorder.AddPress(scancode | modifiers);
 			}
 

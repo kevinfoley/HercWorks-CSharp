@@ -2478,8 +2478,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Bullet_Construct",
-      "description": "Constructs the Type-2 Bullet-class object (own vtable BulletVtable (00498628), own 14-byte type table). PROJ.DAT category 2; subtype id 9 is the confirmed Plasma cannon.",
-      "source": "docs/retail/simulation/weapon-damage-types.md"
+      "description": "Constructs a travelling round, the PROJ.DAT Type-2 Bullet: SimObjectBase_Constructor on the shape the BULLETS.DAT record's model (+0x00) indexes, vtable ProjectileBaseVtable then BulletVtable (00498628), obj+4 = 3, the subtype id at obj+0x41, obj+0x4e = Proj_LookupRecord(2, subtypeId) (the PROJ.DAT record), and obj+0x59 = the BULLETS.DAT record's +0x06 animation interval. Subtype 9 is the plasma cannon's.",
+      "source": "docs/retail/simulation/weapon-damage-types.md",
+      "verified": {
+        "bytes": "0040af6c+132",
+        "sha1": "77d424b5e1ed",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040aff0",
@@ -2487,8 +2493,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Bullet_HomingSteer",
-      "description": "The plasma round's guidance, and a steer of the object's EULER ANGLES rather than of a velocity: takes the bearing from the shot to obj+0x5b's position via Math_EulerToward, moves euler[0] and euler[2] toward it through Math_RateLimitedMoveToward capped at 0x280 per 125 ms, integrates over the tick, and stores 0 to the frame-valid word at obj+0x32, so the next reader rebuilds the rotation.",
-      "source": "docs/retail/simulation/projectiles.md"
+      "description": "The plasma round's guidance, and a steer of the object's EULER ANGLES rather than of a velocity: takes the bearing from the shot to obj+0x5b's vtable +0x24 aim node (through the target's frame) or, when that returns none, its position +0x26, via Math_EulerToward; moves euler[0] and euler[2] toward it through Math_RateLimitedMoveToward capped at 0x280 per 125 ms, integrates over the tick, and stores 0 to the frame-valid word at obj+0x32, so the next reader rebuilds the rotation. Returns the euler[2] bearing error before this tick's move, which Bullet_TickUpdate's proximity fuze tests.",
+      "source": "docs/retail/simulation/projectiles.md",
+      "verified": {
+        "bytes": "0040aff0+306",
+        "sha1": "17e59aa1aaa1",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040b124",
@@ -2496,8 +2508,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Bullet_TickUpdate",
-      "description": "bullet.cpp per-bullet-instance tick. Fixed age rate Math_IntegrateRateOverTick(0x200). type==9 branch (confirmed Plasma cannon, subtype id 9 on a Bullet instance) calls Damage_ExplosiveBlastSweep directly with a 4000-unit blast radius.",
-      "source": "docs/retail/simulation/projectiles.md"
+      "description": "The travelling round's tick. Steps the shape's animation frame when the BULLETS.DAT record's +0x06 is nonzero; ages the round by Math_IntegrateRateOverTick(0x200) and returns 1 (remove) once the age +0x54 passes lifetime (+0x02) * 0x200; runs Bullet_HomingSteer when +0x5b holds a target. Moves Math_IntegrateRateOverTick(+0x52) along the frame's Y axis, sweeping that segment through Sim_RaycastObjectList with a shot record whose two damage figures are scaled Q10 by the power +0x56 when it is nonzero. Subtype 9 (plasma): a proximity fuze trips when the homing error exceeds 0x4000 in magnitude and the target is under 2000 units away, and skips the raycast; Bullet_StashDirectFireDamage stashes both figures, the record's damage and splash are zeroed, the armour figure is scaled by Damage_ScaleByDifficulty, and on contact or fuze Damage_ExplosiveBlastSweep runs at 4000 units. With no contact the round moves; contact returns 1.",
+      "source": "docs/retail/simulation/projectiles.md",
+      "verified": {
+        "bytes": "0040b124+789",
+        "sha1": "dc85968c997c",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040b43c",
@@ -2505,8 +2523,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Bullet_Fire",
-      "description": "Bullet_Fire(subtypeId, muzzleWorldPoint, aimEulerTriple, ownerMech) -- spawns one travelling PROJ.DAT Type-2 Bullet from the effect pool g_ProjectilePool. Copies the muzzle point to obj+0x26 (the frame's translation), stores the euler triple at obj+0x0c with components 0 and 2 displaced by (spread*2 & random) - spread from the BULLETS.DAT record's +0x0a, sets obj+0x52 = ownerMech->vtable+0x38 (travel speed) + PROJ.Speed, and plays the record's +0x08 sound. Returns the object so Bullet_FirePowered can add to it.",
-      "source": "docs/retail/simulation/projectiles.md"
+      "description": "Bullet_Fire(subtypeId, muzzleWorldPoint, aimEulerTriple, ownerMech) -- spawns one travelling PROJ.DAT Type-2 Bullet from the effect pool g_ProjectilePool through Bullet_Construct. Copies the muzzle point to obj+0x26 (the frame's translation), stores the euler triple at obj+0x0c with components 0 and 2 displaced by (spread*2 & random) - spread from the BULLETS.DAT record's +0x0a, and zeroes the frame-valid word +0x32. Stores ownerMech at +0x4a, zeroes the 8 bytes at +0x42, the age +0x54, the power +0x56 and the homing target +0x5b, and sets +0x5f = 0x400. Sets obj+0x52 = ownerMech->vtable+0x38 (travel speed) + the PROJ.DAT record's Speed (+0x0a), truncated to 16 bits. With the BULLETS.DAT record's +0x0c nonzero, sets +0x61 = 0x400 / its lifetime (+0x02). Plays sound id record+0x08 + 10 at the muzzle point. Returns the object so Bullet_FirePowered can add to it.",
+      "source": "docs/retail/simulation/projectiles.md",
+      "verified": {
+        "bytes": "0040b43c+354",
+        "sha1": "0890b229cf37",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040b5a0",
@@ -2515,7 +2539,13 @@
       "confidence": "high",
       "name": "Bullet_FirePowered",
       "description": "Bullet_Fire plus two writes: obj+0x56 = the capacitor charge the shot was fired at (which scales both damage figures Q10 in Bullet_TickUpdate; zero leaves them at face value), and for subtypeId 9 only (the plasma cannon) obj+0x5b = ownerMech+0x1a4, the firing machine's selected target, which is what makes that one subtype home.",
-      "source": "docs/retail/simulation/projectiles.md"
+      "source": "docs/retail/simulation/projectiles.md",
+      "verified": {
+        "bytes": "0040b5a0+56",
+        "sha1": "089f56b231f2",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040b5d8",
@@ -3509,8 +3539,14 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponMount_FireDispatch_GunBeam",
-      "description": "Energy/gun mount vtable +0x28, the fire dispatch. Opens with WeaponMount_PrepareShot, then branches on the mount's cached PROJ.DAT Type: Type==4(Beam) spends min(template+0x38, capacitor +0x7d) out of the capacitor and calls Bullet_FireBurst with that as the shot's power, having first copied the muzzle world point into the shot transform's translation; otherwise it builds a travelling Bullet, with a second barrel when template+0x3c==3 and a burst follow-up when template+0x3e==0x13.",
-      "source": "docs/retail/simulation/weapon-firing.md"
+      "description": "Energy/gun mount vtable +0x28, the fire dispatch. Opens with WeaponMount_PrepareShot and sets mount+0x44 = 1 when the byte at (+0x18)->+6 is below 4. Then branches on the mount's cached PROJ.DAT Type: Type==4 (Beam) copies the muzzle world point into the shot transform's translation, spends min(template+0x38, capacitor +0x7d) and calls Bullet_FireBurst with that as the shot's power and template+0x30 as the range. Otherwise, with the capacitor below the cost template+0x38 (a charge-up gun), it fires Bullet_FirePowered at the whole charge from the prologue's muzzle point, and when template+0x3c == 3 two more rounds at x = 0 and x = -(template+0x40) of the template's muzzle offset, three in all; then, when template+0x3e == 0x13 and +0x4d is clear, arms +0x4d and sets the refire countdown +0x31 to template+0x4c >> 2, and otherwise clears +0x4d and empties the capacitor. With the capacitor at or above the cost it subtracts the cost and fires one unpowered Bullet_Fire.",
+      "source": "docs/retail/simulation/weapon-firing.md",
+      "verified": {
+        "bytes": "0040ea58+523",
+        "sha1": "90bc53e64e4c",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0040ec64",
@@ -5379,8 +5415,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Mech_GetSpeed",
-      "description": "Mech vtable slot +0x38 (vtable 0049a282). Returns Q10(2000, mech+0x28e) for a walker, or mech+0x2bd when the type record's flyer flag (+0x50) is set. Used for its sign by the Center Body branch, and as a speed term by the AI's lead-the-target maths.",
-      "source": "docs/retail/simulation/mech-locomotion.md"
+      "description": "Mech vtable slot +0x38 (vtable 0049a282). Returns Q10(2000, mech+0x28e) for a walker, or mech+0x2bd, the airspeed, when the type record's flyer flag (+0x50) is set. Bullet_Fire (read) adds it to a travelling round's speed; mech-locomotion.md cites the Center Body branch's sign test and the AI's lead-the-target maths as other readers.",
+      "source": "docs/retail/simulation/mech-locomotion.md",
+      "verified": {
+        "bytes": "00415498+54",
+        "sha1": "6e0aaae393a4",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "004154d0",

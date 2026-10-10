@@ -9101,7 +9101,13 @@
       "name": "Hzline_DrawWithOffset",
       "description": "(self, view, yOffset, canvasOrigin): +0x34 = -view pitch (+0x10), +0x36 = view roll (+0x12); Hzline_BuildHorizon; adds yOffset >> 1 to both line ends' y; Hzline_FillSky; moves both ends down one row; Hzline_FillGround.",
       "source": "DBSIM decompile at 0042ec08; docs/retail/rendering/distance-fog-and-sky.md#the-sky--hzline",
-      "signature": "void __cdecl Hzline_DrawWithOffset(hzline *self, void *view, int yOffset, int *canvasOrigin)"
+      "signature": "void __cdecl Hzline_DrawWithOffset(hzline *self, void *view, int yOffset, int *canvasOrigin)",
+      "verified": {
+        "bytes": "0042ec08+94",
+        "sha1": "be4789db47e7",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0042ec68",
@@ -9109,9 +9115,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Hzline_BuildHorizon",
-      "description": "(self, canvasOrigin): writes the horizon line's screen ends to +0x38/+0x3c and +0x40/+0x44: (256 << coord shift) either side of a midpoint f*tan(pitch) from the projection centre (006c60b8/bc) along the rolled screen vertical, f = 2^006c60ac, plus +0x30 in y. A non-zero canvas origin lengthens it by its own length: both ends for a non-zero y, else the end on the x's side. +0x48/+0x4c = (sin roll, -cos roll), Q14, the band step direction; the test that would negate it compares the unsigned pitch with -0x4000 and is never true.",
+      "description": "(self, canvasOrigin): writes the horizon line's screen ends to +0x38/+0x3c (first) and +0x40/+0x44 (second): -cos roll and +cos roll times (256 << coord shift) across either side of a midpoint f*tan(pitch) from the projection centre (006c60b8/bc) along the rolled screen vertical, f = 2^006c60ac, cos(pitch) floored at 1 in Q14, plus +0x30 in y. So the first end is the left one up to a quarter turn of roll and the right one past it. A non-zero canvas origin lengthens it by its own length: both ends for a non-zero y, else the end on the x's side. +0x48/+0x4c = (sin roll, -cos roll), Q14, the band step direction; the test that would negate it compares the unsigned negated pitch (+0x34) with -0x4000 and is never true.",
       "source": "DBSIM decompile and disassembly at 0042ec68; docs/retail/rendering/distance-fog-and-sky.md#the-sky--hzline",
-      "signature": "void __cdecl Hzline_BuildHorizon(hzline *self, int *canvasOrigin)"
+      "signature": "void __cdecl Hzline_BuildHorizon(hzline *self, int *canvasOrigin)",
+      "verified": {
+        "bytes": "0042ec68+541",
+        "sha1": "b74e1d70dde6",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0042ee88",
@@ -9121,7 +9133,13 @@
       "name": "Hzline_FillSky",
       "description": "Paints the sky above the horizon line with the solid brush {0, colour} at the render context's +0x22c: +0x58 - 1 bands of +0x54 rows, the first in the horizon colour +0x28 and each next one entry lower, then the zenith colour beyond the last. Raster_FillRect rects when roll (+0x36) is 0, Raster_DrawPolygonReversed quads otherwise; the rolled bands' y offset uses one band fewer than the level fill's.",
       "source": "DBSIM decompile and disassembly at 0042ee88; docs/retail/rendering/distance-fog-and-sky.md#the-sky--hzline",
-      "signature": "void __cdecl Hzline_FillSky(hzline *self)"
+      "signature": "void __cdecl Hzline_FillSky(hzline *self)",
+      "verified": {
+        "bytes": "0042ee88+550",
+        "sha1": "dc23a8f92462",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0042f0b0",
@@ -9129,9 +9147,15 @@
       "type": "function",
       "confidence": "high",
       "name": "Hzline_FillGround",
-      "description": "Fills from the horizon line to the bottom of the view (render context +0x21c). With +0x71 set, which Scene_DrawTerrainPass does before its only call, one fill in the horizon colour +0x28: Raster_FillRect when level, else a polygon of the line and the view-rect corners below it through Raster_DrawPolygonDispatch. The rolled branch moves the line by its midpoint's offset from Terrain_ProjectFarEdgeAhead's point (+0x72/+0x76) into polygon slots 2-3, which every path overwrites or leaves past the vertex count. With +0x71 clear it would paint +0x60 bands of +0x5c rows down from colour +0x2c + +0x60 - 1.",
+      "description": "Fills the horizon line's ground side in one colour, bounded by the view rect at render context +0x210/+0x214/+0x218/+0x21c (left, top, right, bottom). With +0x71 set, which Scene_DrawTerrainPass sets before its Hzline_Draw call, the colour is the horizon colour +0x28: Raster_FillRect from the line to the bottom (+0x21c) when roll (+0x36) is 0; otherwise a polygon through Raster_DrawPolygonDispatch of the line's two ends (+0x38/+0x3c, +0x40/+0x44) closed through view-rect corners. When the first end is higher on screen: bottom-right if the second end's x is past the right side, then bottom-left, then top-left if the first end's x is right of the left side. Otherwise: top-right if the second end's x is short of the right side, then bottom-right, then bottom-left if the first end's x is past the left side. Hzline_BuildHorizon's ends swap sides past a quarter turn of roll, so the polygon lies on the screen-upper side when inverted; at a roll of exactly 0x8000 the line is level, the corners are top-right and bottom-right, and the outline crosses itself. The rolled branch moves the line by its midpoint's offset from Terrain_ProjectFarEdgeAhead's point (+0x72/+0x76) into polygon slots 2-3, which every path overwrites or leaves past the vertex count. With +0x71 clear it would paint +0x60 bands of +0x5c rows down from colour +0x2c + +0x60 - 1.",
       "source": "DBSIM decompile and disassembly at 0042f0b0; docs/retail/rendering/distance-fog-and-sky.md#the-sky--hzline",
-      "signature": "void __cdecl Hzline_FillGround(hzline *self)"
+      "signature": "void __cdecl Hzline_FillGround(hzline *self)",
+      "verified": {
+        "bytes": "0042f0b0+743",
+        "sha1": "bf17e46f4301",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0042f398",

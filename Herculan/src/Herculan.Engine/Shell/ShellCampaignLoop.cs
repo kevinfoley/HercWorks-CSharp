@@ -1,4 +1,5 @@
 using HercWorks.Core.Data.File.Sav;
+using HercWorks.Core.Io;
 using Herculan.Engine.Content;
 using Herculan.Engine.Numerics;
 using Herculan.Engine.Sim;
@@ -83,8 +84,8 @@ public sealed class ShellCampaignLoop {
 	/// the menu comes up.
 	/// </summary>
 	public ShellDebriefResult? ReturnFromMission() {
-		string resultsPath = Path.Combine(DataDirectory, MissionResults.FileName);
-		string countersPath = Path.Combine(DataDirectory, MissionLoader.CountersFileName);
+		string resultsPath = CaseInsensitivePath.Combine(DataDirectory, MissionResults.FileName);
+		string countersPath = CaseInsensitivePath.Combine(DataDirectory, MissionLoader.CountersFileName);
 		if (!LoadSlot(GameInProgress.CurrentGameSlot) || _game.LoadedGame == null || !File.Exists(resultsPath) || !File.Exists(countersPath)) {
 			Console.WriteLine($"Back from the mission, but slot 10 or {resultsPath} could not be read — main menu.");
 			return null;

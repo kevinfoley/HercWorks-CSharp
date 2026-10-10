@@ -1,3 +1,4 @@
+using HercWorks.Core.Io;
 using Herculan.Engine.Cockpit;
 using Herculan.Engine.Input;
 
@@ -72,7 +73,7 @@ sealed class JoystickSource : IJoystickSource {
 		new(input,
 			dataDirectory is null
 				? null
-				: JoystickDeviceMap.Load(Path.Combine(dataDirectory, JoystickDeviceMap.FileName)),
+				: JoystickDeviceMap.Load(CaseInsensitivePath.Combine(dataDirectory, JoystickDeviceMap.FileName)),
 			probe);
 
 	/// <summary>
@@ -185,7 +186,7 @@ sealed class JoystickSource : IJoystickSource {
 		}
 
 		if (writeMap && dataDirectory is not null) {
-			string mapPath = Path.Combine(dataDirectory, JoystickDeviceMap.FileName);
+			string mapPath = CaseInsensitivePath.Combine(dataDirectory, JoystickDeviceMap.FileName);
 			try {
 				map.Save(mapPath);
 				Console.WriteLine($"Wrote {mapPath}.");

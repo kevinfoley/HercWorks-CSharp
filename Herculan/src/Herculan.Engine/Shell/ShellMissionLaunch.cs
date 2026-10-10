@@ -1,4 +1,5 @@
 using HercWorks.Core.Data.File.Sav;
+using HercWorks.Core.Io;
 using HercWorks.Core.Io.Transform.Common;
 using Herculan.Engine.World;
 
@@ -164,11 +165,11 @@ public static class ShellMissionLaunch {
 		}
 
 		Directory.CreateDirectory(directory);
-		string scriptPath = Path.Combine(directory, MissionLoader.ScriptFileName);
+		string scriptPath = CaseInsensitivePath.Combine(directory, MissionLoader.ScriptFileName);
 		CopyUnlessSame(script, scriptPath);
 
 		string? text = working.Text;
-		string textPath = Path.Combine(directory, MissionLoader.TextFileName);
+		string textPath = CaseInsensitivePath.Combine(directory, MissionLoader.TextFileName);
 		if (File.Exists(text)) {
 			CopyUnlessSame(text, textPath);
 		} else if (File.Exists(textPath)) {
@@ -181,10 +182,10 @@ public static class ShellMissionLaunch {
 				BitConverter.GetBytes(save.GetCampaignFlag(i)).CopyTo(flags, i * 2);
 			}
 
-			File.WriteAllBytes(Path.Combine(directory, MissionVarFileName), flags);
+			File.WriteAllBytes(CaseInsensitivePath.Combine(directory, MissionVarFileName), flags);
 		}
 
-		File.WriteAllBytes(Path.Combine(directory, MissionLoader.PlayerFileName), ExportPlayerMec(hangar));
+		File.WriteAllBytes(CaseInsensitivePath.Combine(directory, MissionLoader.PlayerFileName), ExportPlayerMec(hangar));
 		return scriptPath;
 	}
 

@@ -1,4 +1,5 @@
 using HercWorks.Core.Data.File.Cfg;
+using HercWorks.Core.Io;
 using Herculan.Engine.Audio;
 using Herculan.Engine.Cockpit;
 using Herculan.Engine.Content;
@@ -247,8 +248,8 @@ sealed class SimulatorHost : IDisposable {
 		if ((_start.ShellLaunch != null || _start.TapePlayer != null) && _scene.World.PlayerMech is { } endPlayer) {
 			var (results, counters) = MissionResults.Write(_scene.World, endPlayer);
 			string resultsFolder = Path.GetDirectoryName(_start.ScriptPath) ?? ".";
-			File.WriteAllBytes(Path.Combine(resultsFolder, MissionResults.FileName), results);
-			File.WriteAllBytes(Path.Combine(resultsFolder, MissionLoader.CountersFileName), counters);
+			File.WriteAllBytes(CaseInsensitivePath.Combine(resultsFolder, MissionResults.FileName), results);
+			File.WriteAllBytes(CaseInsensitivePath.Combine(resultsFolder, MissionLoader.CountersFileName), counters);
 			Console.WriteLine($"Wrote {MissionResults.FileName} ({results.Length} bytes, {_scene.World.Mission.Salvage.Count} salvaged "
 				+ $"weapon(s)) and {MissionLoader.CountersFileName} to {resultsFolder}.");
 		}

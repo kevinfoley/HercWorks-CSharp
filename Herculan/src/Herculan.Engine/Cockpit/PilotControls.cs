@@ -1,4 +1,5 @@
 using HercWorks.Core.Data.File.Cfg;
+using HercWorks.Core.Io;
 using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
 using Herculan.Engine.Input;
@@ -66,7 +67,7 @@ public sealed class PilotControls {
 			PilotingRazor = start.PilotingRazor,
 			Keyjoy = start.DataDirectory is null
 				? new Keyjoy()
-				: Keyjoy.Load(Path.Combine(start.DataDirectory, Keyjoy.FileName)),
+				: Keyjoy.Load(CaseInsensitivePath.Combine(start.DataDirectory, Keyjoy.FileName)),
 		};
 	}
 

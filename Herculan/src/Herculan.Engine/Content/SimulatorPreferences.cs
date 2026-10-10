@@ -1,4 +1,5 @@
 using HercWorks.Core.Data.File.Cfg;
+using HercWorks.Core.Io;
 using HercWorks.Core.Io.Transform.Common;
 using Herculan.Engine.Cockpit;
 
@@ -230,7 +231,7 @@ public sealed class SimulatorPreferences {
 		}
 
 		try {
-			string path = Path.Combine(dataDirectory, Prefs.FileName);
+			string path = CaseInsensitivePath.Combine(dataDirectory, Prefs.FileName);
 			if (!File.Exists(path)) {
 				return null;
 			}
@@ -278,7 +279,7 @@ public sealed class SimulatorPreferences {
 		}
 
 		try {
-			string path = Path.Combine(directory, Prefs.FileName);
+			string path = CaseInsensitivePath.Combine(directory, Prefs.FileName);
 			if (!File.Exists(path)) {
 				return false;
 			}

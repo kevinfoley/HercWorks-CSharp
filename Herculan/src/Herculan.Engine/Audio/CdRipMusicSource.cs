@@ -112,6 +112,7 @@ public sealed class CdRipMusicSource : MusicSourceBase {
 		return null;
 	}
 
+	[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 	private static CdRipMusicSource? TryOpen(string drive, string? cacheRoot, out string failure) {
 		using var handle = OpenDevice($@"\\.\{drive}");
 		if (handle.IsInvalid) {
@@ -189,6 +190,8 @@ public sealed class CdRipMusicSource : MusicSourceBase {
 	}
 
 	/// <inheritdoc />
+	/// <remarks>Windows-only like the rest of the drive reading: only <see cref="TryOpen"/> makes an instance.</remarks>
+	[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 	protected override (MusicTrack Track, Action<CancellationToken> Produce)? Prepare(int track) {
 		if (!_tracks.TryGetValue(track, out var extent) || extent.Sectors <= 0) {
 			return null;
@@ -240,6 +243,7 @@ public sealed class CdRipMusicSource : MusicSourceBase {
 		}
 	}
 
+	[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 	private void Rip(long lba, long sectors, MusicTrack track, CancellationToken token) {
 		using var handle = OpenDevice(_device);
 		if (handle.IsInvalid) {
@@ -273,6 +277,7 @@ public sealed class CdRipMusicSource : MusicSourceBase {
 		}
 	}
 
+	[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 	private static bool ReadWithRetries(SafeFileHandle handle, long lba, int count, byte[] buffer) {
 		for (int attempt = 0; attempt <= ReadRetries; attempt++) {
 			if (RawRead(handle, lba, count, buffer)) {
@@ -283,6 +288,7 @@ public sealed class CdRipMusicSource : MusicSourceBase {
 		return false;
 	}
 
+	[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 	private static unsafe bool RawRead(SafeFileHandle handle, long lba, int count, byte[] buffer) {
 		// RAW_READ_INFO: the offset is in 2048-byte cooked sectors whatever the mode, then the count,
 		// then TRACK_MODE_TYPE, of which CDDA is 2.
@@ -309,6 +315,7 @@ public sealed class CdRipMusicSource : MusicSourceBase {
 			: null;
 	}
 
+	[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 	private static SafeFileHandle OpenDevice(string device) =>
 		CreateFileW(device, GenericRead, FileShareRead | FileShareWrite, IntPtr.Zero, OpenExisting, 0,
 			IntPtr.Zero);
@@ -324,10 +331,12 @@ public sealed class CdRipMusicSource : MusicSourceBase {
 	private const uint OpenExisting = 3;
 
 	[DllImport("kernel32.dll", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+	[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 	private static extern SafeFileHandle CreateFileW(string name, uint access, uint share,
 		IntPtr security, uint disposition, uint flags, IntPtr template);
 
 	[DllImport("kernel32.dll", ExactSpelling = true, SetLastError = true)]
+	[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 	private static extern bool DeviceIoControl(SafeFileHandle device, uint code, IntPtr input,
 		int inputLength, [Out] byte[] output, int outputLength, out int returned, IntPtr overlapped);
 }

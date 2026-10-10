@@ -1,3 +1,4 @@
+using HercWorks.Core.Io;
 using HercWorks.Disc;
 using HercWorks.Disc.Iso9660;
 using Herculan.Engine.Install;
@@ -80,17 +81,17 @@ public abstract class GameDisc : IDisposable {
 	private sealed class FolderDisc(string directory) : GameDisc {
 		public override string Location => directory;
 
-		public override bool FileExists(string relativePath) => File.Exists(Path.Combine(directory, relativePath));
+		public override bool FileExists(string relativePath) => File.Exists(CaseInsensitivePath.Combine(directory, relativePath));
 
-		public override bool DirectoryExists(string relativePath) => Directory.Exists(Path.Combine(directory, relativePath));
+		public override bool DirectoryExists(string relativePath) => Directory.Exists(CaseInsensitivePath.Combine(directory, relativePath));
 
 		public override Stream? OpenRead(string relativePath) {
-			string path = Path.Combine(directory, relativePath);
+			string path = CaseInsensitivePath.Combine(directory, relativePath);
 			return File.Exists(path) ? File.OpenRead(path) : null;
 		}
 
 		public override IReadOnlyList<string> ArchiveNames() {
-			string archives = Path.Combine(directory, GameInstall.ArchiveFolderName);
+			string archives = CaseInsensitivePath.Combine(directory, GameInstall.ArchiveFolderName);
 			return Directory.Exists(archives)
 				? Directory.GetFiles(archives, GameContent.ArchivePattern, new EnumerationOptions { MatchCasing = MatchCasing.CaseInsensitive })
 					.Select(Path.GetFileName).OfType<string>().ToList()

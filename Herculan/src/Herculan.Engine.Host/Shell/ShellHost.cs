@@ -1,4 +1,5 @@
 using HercWorks.Core.Data.File.Cfg;
+using HercWorks.Core.Io;
 using Herculan.Engine.Content;
 using Herculan.Engine.Host.Shell.Tabs;
 using Herculan.Engine.Install;
@@ -170,7 +171,7 @@ sealed class ShellHost : IDisposable {
 
 		// The preferences array: the practice screen's parameters, the preferences screen's options, the
 		// repair mode and the build mode are all options of it.
-		var preferences = SimulatorPreferences.Load(Path.Combine(installRoot, "DATA"));
+		var preferences = SimulatorPreferences.Load(CaseInsensitivePath.Combine(installRoot, "DATA"));
 		var options = preferences ?? SimulatorPreferences.Defaults();
 		options.SaveEnabled = writePreferences;
 		_game = new GameInProgress(installRoot, saveScreen, mainMenu, options, forcedMode, loadedGame, ShellHangar.From(loadedGame),

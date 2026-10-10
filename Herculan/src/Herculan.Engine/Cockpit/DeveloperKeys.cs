@@ -264,5 +264,6 @@ public sealed class DeveloperKeys(bool enabled) {
 	private const uint GetKeyboardDelay = 0x16;
 
 	[DllImport("user32.dll")]
+	[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 	private static extern bool SystemParametersInfo(uint action, uint param, ref int value, uint winIni);
 }

@@ -91,6 +91,7 @@ static class HostLog {
 	private const int AttachParentProcess = -1;
 
 	[DllImport("kernel32.dll")]
+	[System.Runtime.Versioning.SupportedOSPlatform("windows")]
 	private static extern bool AttachConsole(int processId);
 
 	// Writes everything to both writers. A failed write to the log is dropped, so a full disk never stops the host.

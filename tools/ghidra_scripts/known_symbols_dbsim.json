@@ -12999,8 +12999,14 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponSelectGadget_Ctor",
-      "description": "Constructor for WeaponSelectGadget (object size 0x46), the weapon-row leaf without chain membership. Called directly only by PodGauge_Ctor -- a pod row cannot join a fire chain -- and as the base constructor of ChainedWeaponSelectGadget_Ctor. Class name from the descriptor record at 00443283.",
-      "source": "docs/retail/simulation/cockpit-input.md"
+      "description": "Constructor for WeaponSelectGadget, the weapon-row leaf without chain membership: Widget_CtorRect on the .GAU rect, the PanelSelectGadget then WeaponSelectGadget vtables at +0x17 with their PanelGadget mixins at +0x20, param_3 at +0x24, the slot at +0x28, and +0x1b and +0x1d zeroed. Builds the slot-number Label at +0x40 in font DAT_0049b0d4, its rect 2 to 5 device pixels in from the gadget's left edge, or from its right edge when param_5 is set, and 0 to 5 down. Writes the slot's digit, (slot + 1) % 10 + '0', to +0x44 and 0 to +0x46, so row 10 prints 0. Callers found by es2_xref: PodGauge_Ctor, and ChainedWeaponSelectGadget_Ctor as its base constructor. Class name from the descriptor record at 00443283.",
+      "source": "docs/retail/simulation/cockpit-input.md",
+      "verified": {
+        "bytes": "004421dc+438",
+        "sha1": "22b4d7086814",
+        "scope": "body",
+        "via": "both"
+      }
     },
     {
       "address": "00442394",
@@ -13008,8 +13014,14 @@
       "type": "function",
       "confidence": "high",
       "name": "WeaponSelectGadget_PaintUnderlay",
-      "description": "Blits WPN_DMG frame 0 (112x14, the row background) at the gadget's .GAU rect and prints the slot number, unless the owning gauge is dark or mid-wipe or not yet armed.",
-      "source": "docs/retail/simulation/cockpit-hud-widgets.md"
+      "description": "Paints a weapon row's underlay and slot number, when CockpitView_RectCornerVisible passes the gadget. Does nothing while the owning gauge (+0x4) is dark (+0x76) or its sprite sequence at +0x6c is running (the wipe), or while the gauge's armed byte +0x8c is clear. Otherwise blits the first frame of the bitmap DAT_0049c4d4 holds (WPN_DMG frame 0, the row background) at the gadget's rect, sets the slot Label's (+0x40) colour to ColorSchemePanels[10], or [11] when +0x1b is 0, and sets its text to the digit buffer at +0x44.",
+      "source": "docs/retail/simulation/cockpit-hud-widgets.md",
+      "verified": {
+        "bytes": "00442394+141",
+        "sha1": "8c30875947c1",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "00442424",

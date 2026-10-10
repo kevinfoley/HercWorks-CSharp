@@ -180,7 +180,7 @@ The two pod labels are the only sub-rects that are ever painted rather than mere
 
 `WeaponSelectGadget_Paint` (`004426c0`) draws:
 
-- `WPN_DMG` frame 0 as the row underlay, then the slot number (`WeaponSelectGadget_PaintUnderlay`, `00442394`);
+- `WPN_DMG` frame 0 as the row underlay, then the slot number (`WeaponSelectGadget_PaintUnderlay`, `00442394`). It is one digit, `(slot + 1) % 10`, which `WeaponSelectGadget_Ctor` (`004421dc`) writes once, so a tenth row prints `0`, matching its `[0]` key;
 - the name, in `ColorSchemePanels[10]` `WHITE` when selected and `[11]` `GRAY` otherwise;
 - the slot number again, recoloured `[13]` `GREEN` when selected / `[11]` `GRAY`;
 - the state box, `PWEAPONS` 6x14 frames — **only when the mount is armed or in the current fire group**, otherwise the box area is filled with the row background. Frame 4 (green, index 14) when the mount is ready, frame 5 (red) when it is not — including when the selected target is outside the weapon's range, which is also what makes the firing chain skip it ([`weapon-mounts.md`](weapon-mounts.md#readiness--weaponmounts_mountisready-00410970)). A pod is in no fire group, so a pod row never has one;

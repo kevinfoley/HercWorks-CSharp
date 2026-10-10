@@ -99,7 +99,8 @@ internal static class ConsoleGaugePainter {
 				fillRect(x0, y0, x1 + 1, top + PodLabelBottom * S + 1, plate);
 			}
 
-			drawText(font, (i + 1).ToString(), left + 6, top);
+			// One digit, as WeaponSelectGadget_Ctor (004421dc) writes it: row 10 is the [0] key's and prints 0.
+			drawText(font, ((i + 1) % 10).ToString(), left + 6, top);
 			if (row.Name is { Length: > 0 } name) {
 				drawText(nameFont, name, left + 22, top);
 			}

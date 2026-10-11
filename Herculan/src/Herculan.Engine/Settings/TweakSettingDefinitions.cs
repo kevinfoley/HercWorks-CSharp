@@ -16,7 +16,8 @@ public static class TweakSettingDefinitions {
 	/// <para>CATEGORY: Cosmetic</para>
 	/// <para>Changes:</para>
 	/// <list type="bullet">
-	/// <item><description>Display correct speed for Outlaw in VSHELL (100 kph, not 80 kph)</description></item>
+	/// <item><description>Display each walker's top speed in VSHELL as the cockpit readout shows it, not
+	/// <c>herc_inf.dat</c>'s figure (Outlaw 100 kph, not 80) — see <see cref="Shell.ShellBuildScreen"/></description></item>
 	/// <item><description>Display correct hardpoints for Raptor II in VSHELL (5, not 4)</description></item>
 	/// </list>
 	///
@@ -172,6 +173,14 @@ public static class TweakSettingDefinitions {
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> FasterKeyboardAiming = new("tweak.faster_keyboard_aiming", TweakCategory.Functional, defaultValue: false, recommendedValue: false);
 
+	/// <summary>
+	/// Put the Raptor II pilot's eye in its cockpit. Retail's <c>RAPTOR2.DAT</c> lifts it above the top of the
+	/// model; this keeps the file's fore/aft offset and drops the lift. Turret tracking and gun convergence
+	/// measure from the same lift, so they move with the view, for every Raptor II in the mission. See
+	/// <see cref="Sim.MechObject.EyeLift"/>.
+	/// </summary>
+	public static readonly TweakSettingDefinition<bool> FixRaptorIIPerspective = new("tweak.fix_raptor2_perspective", TweakCategory.Functional, defaultValue: false, recommendedValue: true);
+
 	#endregion
 
 	/// <summary>Every defined <c>bool</c> tweak setting, keyed by ID for <see cref="TweakSettings"/> save/load.</summary>
@@ -180,6 +189,6 @@ public static class TweakSettingDefinitions {
 		PreserveSoundPosition, CriticalDamageMessage, ShowSquadmateNumber, FixComputerMessagePreference,
 		SmootherTurretMovement, MouseExternalView, FixDefendPositionOrder, FixWeaponDamageRecords,
 		ChargeBarPowerLevel, FlashThroughSecondHit, ShowAltitudeTape, DropPodSoundFromPod, FixRepairDiagramSides,
-		FixTerrainHitPoint, FlyerIgnoresPlayerThrottle, FasterKeyboardAiming,
+		FixTerrainHitPoint, FlyerIgnoresPlayerThrottle, FasterKeyboardAiming, FixRaptorIIPerspective,
 	};
 }

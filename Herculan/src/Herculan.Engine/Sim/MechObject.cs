@@ -157,7 +157,7 @@ public sealed partial class MechObject : SimObject {
 	/// <remarks>The mech vtable's <c>+0x30</c> (<c>004155c4</c>): <c>(0, +0x64, +0x66)</c> and
 	/// <c>(0, +0x68, +0x6a)</c> of the type record.</remarks>
 	public override (Vec3i Eye, Vec3i OrbitCentre) ViewMounts =>
-		(new Vec3i(0, Type.EyeOffsetY, Type.EyeOffsetZ), new Vec3i(0, Type.OrbitCentreY, Type.OrbitCentreZ));
+		(new Vec3i(0, Type.EyeOffsetY, EyeLift), new Vec3i(0, Type.OrbitCentreY, Type.OrbitCentreZ));
 
 	/// <inheritdoc />
 	public override Transform3? ViewNodeFrame => CameraNodeTransform;
@@ -317,13 +317,39 @@ public sealed partial class MechObject : SimObject {
 	public Transform3 EyeTransform {
 		get {
 			var node = CameraNodeTransform;
-			var eye = node.TransformPoint(0, Type.EyeOffsetY, Type.EyeOffsetZ);
+			var eye = node.TransformPoint(0, Type.EyeOffsetY, EyeLift);
 			node.X = eye.X;
 			node.Y = eye.Y;
 			node.Z = eye.Z;
 			return node;
 		}
 	}
+
+	/// <summary>
+	/// The eye's lift above the camera node: <see cref="MechTypeRecord.EyeOffsetZ"/>, except on a Raptor II with
+	/// <see cref="Settings.TweakSettingDefinitions.FixRaptorIIPerspective"/> on, where it is 0. Every reader of the
+	/// lift goes through this, so the view, turret tracking (<see cref="TrackWorldPoint"/>) and gun convergence
+	/// (<see cref="WeaponMount.ConvergeOnRange"/>) move together, as they would with the file changed.
+	///
+	/// <para><b>This engine's own.</b> Retail's <c>RAPTOR2.DAT</c> states 460, which with its node at 1740 puts
+	/// the eye at 2200, above the model's highest point (2090, the upper fins). The node itself sits level with the
+	/// cockpit, and the file's fore/aft 300 is kept. The values are from posing the retail <c>RAPTOR2.DTS</c> at
+	/// rest; the cockpit's identity is the user's reading of the model.</para>
+	/// </summary>
+	public short EyeLift =>
+		WorldTweaks?.GetSettingValue(Settings.TweakSettingDefinitions.FixRaptorIIPerspective) == true
+			&& string.Equals(Name, RaptorIIName, StringComparison.OrdinalIgnoreCase)
+			? (short)0
+			: Type.EyeOffsetZ;
+
+	/// <summary>The Raptor II's base name, <c>dat\RAPTOR2.DAT</c>.</summary>
+	private const string RaptorIIName = "RAPTOR2";
+
+	/// <summary>
+	/// The tweak settings of the world this machine was added to (<see cref="SimWorld.Add"/>); null before that,
+	/// which reads every setting as retail.
+	/// </summary>
+	internal Settings.TweakSettings? WorldTweaks { get; set; }
 
 	/// <summary>
 	/// Where one part of this machine's model has ended up in the world, orientation included: the

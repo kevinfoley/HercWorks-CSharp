@@ -5,7 +5,7 @@ general.close   Schließen
 tweak.target_distance_meters.display_name      Zielentfernungsanzeige korrigieren
 tweak.target_distance_meters.description       Zeigt auf dem MFD im Bildschirm F5 TARGET die Zielentfernung in Metern über Grund an, so wie der Bildschirm F4 SCANNER sie misst, damit beide Bildschirme übereinstimmen. Ohne diese Option zeigt der Bildschirm, was Ihre Version des Spiels anzeigt: Version 1.0 zeigt die Entfernung in internen Spieleinheiten (1 Einheit = 6 mm), Version 1.10 in Metern. Beide Versionen beziehen den Höhenunterschied mit ein.
 tweak.show_correct_stats.display_name          Korrekte Werte anzeigen
-tweak.show_correct_stats.description           Korrigiert HERC- und Waffenwerte, die das Originalspiel in VSHELL falsch anzeigte, etwa die Höchstgeschwindigkeit des Outlaw und die Anzahl der Waffenaufhängungen des Raptor II.
+tweak.show_correct_stats.description           Korrigiert HERC- und Waffenwerte, die das Originalspiel in VSHELL falsch anzeigte, etwa die Höchstgeschwindigkeit jedes HERC und die Anzahl der Waffenaufhängungen des Raptor II.
 tweak.show_accurate_speed.display_name         Genaue Geschwindigkeit anzeigen
 tweak.show_accurate_speed.description          Zeigt die tatsächliche Bewegungsgeschwindigkeit des HERC im HUD an. Das Originalspiel zeigt beim Gehen etwa das Doppelte der tatsächlichen Geschwindigkeit an. Der Wert beim Laufen bleibt unverändert.
 tweak.show_even_shield_balance.display_name    Schildverteilung runden
@@ -44,6 +44,8 @@ tweak.flyer_ignores_player_throttle.display_name  Cybrid-Flieger ignorieren Ihre
 tweak.flyer_ignores_player_throttle.description   Ein Cybrid-Flieger fliegt immer mit seiner normalen Reisegeschwindigkeit. Im Originalspiel werden alle Cybrid-Flieger der Mission langsamer, wenn Ihr Joystick einen Schubregler hat und die THROTTLE-Steuerung des Razor auf THROTTLE steht, auch wenn Sie keinen Razor fliegen.
 tweak.faster_keyboard_aiming.display_name  Schnelleres Zielen mit der Tastatur
 tweak.faster_keyboard_aiming.description   Eine gehaltene Taste dreht und neigt den Geschützturm Ihres HERC so schnell wie ein ganz ausgelenkter Joystick. Im Originalspiel zielt eine Taste mit der halben Geschwindigkeit und der Coolie-Hat des Joysticks mit drei Vierteln davon.
+tweak.fix_raptor2_perspective.display_name  Raptor-II-Perspektive korrigieren
+tweak.fix_raptor2_perspective.description   Setzt die Cockpitansicht des Raptor II in sein Cockpit. Im Originalspiel liegt die Ansicht über der Oberkante des HERC. Turmnachführung und Waffenkonvergenz wandern mit.
 tweaks.title                   Optimierungen
 tweaks.category.cosmetic       Kosmetisch
 tweaks.category.ai             KI

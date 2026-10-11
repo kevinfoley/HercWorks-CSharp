@@ -138,7 +138,7 @@ public sealed partial class MechObject {
 	/// <returns>The residual aim error: yaw and pitch, in binary angle.</returns>
 	public (short Yaw, short Pitch) TrackWorldPoint(SimWorld world, Vec3i point) {
 		var local = CameraNodeTransform.Inverted().TransformPoint(point.X, point.Y, point.Z);
-		local = new Vec3i(local.X, local.Y, local.Z - Type.EyeOffsetZ);
+		local = new Vec3i(local.X, local.Y, local.Z - EyeLift);
 
 		var (pitchError, _, yawError) = SimTrig.EulerToward(local, default);
 

@@ -5,7 +5,7 @@ general.close   Fermer
 tweak.target_distance_meters.display_name      Corriger l'affichage de la distance de la cible
 tweak.target_distance_meters.description       Sur l'écran F5 TARGET du MFD, affiche la distance de la cible en mètres mesurée au sol, comme la mesure l'écran F4 SCANNER, afin que les deux écrans concordent. Sans cette option, l'écran affiche ce qu'affiche votre version du jeu : la version 1.0 affiche la distance en unités du moteur (1 unité = 6 mm), et la version 1.10 l'affiche en mètres. Les deux versions tiennent compte de la différence d'altitude.
 tweak.show_correct_stats.display_name          Afficher les statistiques correctes
-tweak.show_correct_stats.description           Corrige les statistiques des HERC et des armes que le jeu original affichait de façon incorrecte dans VSHELL, comme la vitesse maximale de l'Outlaw et le nombre de points d'emport du Raptor II.
+tweak.show_correct_stats.description           Corrige les statistiques des HERC et des armes que le jeu original affichait de façon incorrecte dans VSHELL, comme la vitesse maximale de chaque HERC et le nombre de points d'emport du Raptor II.
 tweak.show_accurate_speed.display_name         Afficher la vitesse exacte
 tweak.show_accurate_speed.description          Affiche la vraie vitesse de déplacement du HERC sur le HUD. Le jeu original affiche environ le double de la vitesse réelle pendant la marche. La valeur en course est inchangée.
 tweak.show_even_shield_balance.display_name    Arrondir la répartition des boucliers
@@ -44,6 +44,8 @@ tweak.flyer_ignores_player_throttle.display_name  Les volants Cybrid ignorent vo
 tweak.flyer_ignores_player_throttle.description   Un volant Cybrid vole toujours à sa vitesse de croisière normale. Dans le jeu original, quand votre joystick a une manette des gaz et que la commande THROTTLE du Razor est réglée sur THROTTLE, tous les volants Cybrid de la mission ralentissent, même si vous ne pilotez pas un Razor.
 tweak.faster_keyboard_aiming.display_name  Visée au clavier plus rapide
 tweak.faster_keyboard_aiming.description   Maintenir une touche enfoncée fait pivoter et incliner la tourelle de votre HERC aussi vite qu'un joystick poussé à fond. Dans le jeu original, une touche vise à la moitié de cette vitesse, et le chapeau chinois du joystick aux trois quarts.
+tweak.fix_raptor2_perspective.display_name  Corriger la perspective du Raptor II
+tweak.fix_raptor2_perspective.description   Place la vue cockpit du Raptor II dans son cockpit. Dans le jeu original, la vue se trouve au-dessus du sommet du HERC. Le suivi de la tourelle et la convergence des armes suivent ce changement.
 tweaks.title                   Ajustements
 tweaks.category.cosmetic       Cosmétique
 tweaks.category.ai             IA

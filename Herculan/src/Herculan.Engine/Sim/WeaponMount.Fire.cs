@@ -508,7 +508,7 @@ public sealed partial class WeaponMount {
 		var muzzle = MuzzleOffset;
 		var (pitch, _, yaw) = SimTrig.EulerToward(
 			new Vec3i(0, range, 0),
-			new Vec3i(muzzle.X, muzzle.Y, muzzle.Z - owner.Type.EyeOffsetZ));
+			new Vec3i(muzzle.X, muzzle.Y, muzzle.Z - owner.EyeLift));
 
 		_convergePitch = pitch;
 		_convergeYaw = yaw;

@@ -5,7 +5,7 @@ general.close   Close
 tweak.target_distance_meters.display_name      Fix target distance readout
 tweak.target_distance_meters.description       On the MFD's F5 TARGET screen, show the target's distance in meters measured along the ground, the same way the F4 SCANNER screen measures it, so the two screens agree. Without this tweak the screen shows what your version of the game shows: version 1.0 shows the distance in engine units (1 unit = 6 mm), and version 1.10 shows it in meters. Both versions include the difference in height.
 tweak.show_correct_stats.display_name          Show correct stats
-tweak.show_correct_stats.description           Fix HERC and weapon stats that vanilla displayed incorrectly in VSHELL, such as the Outlaw's top speed and the Raptor II's hardpoint count.
+tweak.show_correct_stats.description           Fix HERC and weapon stats that vanilla displayed incorrectly in VSHELL, such as every HERC's top speed and the Raptor II's hardpoint count.
 tweak.show_accurate_speed.display_name         Show accurate speed
 tweak.show_accurate_speed.description          Show the HERC's true movement speed on the HUD. Retail shows about twice the real speed while walking. Running readings are unchanged.
 tweak.show_even_shield_balance.display_name    Round shield balance readout
@@ -44,6 +44,8 @@ tweak.flyer_ignores_player_throttle.display_name  Cybrid flyers ignore your thro
 tweak.flyer_ignores_player_throttle.description   A Cybrid flyer always flies at its normal cruising speed. In retail, when your joystick has a throttle and the Razor's THROTTLE control is set to THROTTLE, every Cybrid flyer in the mission slows to a lower speed, even when you are not flying a Razor.
 tweak.faster_keyboard_aiming.display_name  Faster Keyboard Aiming
 tweak.faster_keyboard_aiming.description   Holding a key turns and tilts your HERC's turret as fast as pushing the joystick all the way does. In retail a key aims at half that speed, and the joystick's hat at three quarters of it.
+tweak.fix_raptor2_perspective.display_name  Fix Raptor II Perspective
+tweak.fix_raptor2_perspective.description   Puts the Raptor II's cockpit view in its cockpit. In retail the view sits above the top of the HERC. Turret tracking and gun convergence move with it.
 tweaks.title                   Tweaks
 tweaks.category.cosmetic       Cosmetic
 tweaks.category.ai             AI

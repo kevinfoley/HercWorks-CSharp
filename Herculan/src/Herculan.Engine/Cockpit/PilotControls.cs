@@ -4,6 +4,7 @@ using Herculan.Engine.Audio;
 using Herculan.Engine.Content;
 using Herculan.Engine.Input;
 using Herculan.Engine.Scene;
+using Herculan.Engine.Settings;
 using Herculan.Engine.Sim;
 using Herculan.Engine.View;
 using Silk.NET.Input;
@@ -313,6 +314,10 @@ public sealed class PilotControls {
 		// takes it off the steering and throttle axes. Retail keeps it on them — see KNOWN_ISSUES.md.
 		bool arrowsAreCommands = _developerKeys.Enabled && (CtrlHeld(keys) || AltHeld(keys));
 		var keyboardAxes = _view.Pan.HeadsDownViewIndex ? PilotAxes.Centred : KeyboardAxes.Build(keys, RazorThrottleKeys);
+		if (FasterKeyboardAiming) {
+			keyboardAxes = KeyboardAxes.AtStickRate(keyboardAxes, _joystickInput.KeyboardAimsTurret);
+		}
+
 		keyboardAxes = new PilotAxes(
 			arrowsAreCommands ? (short)0 : keyboardAxes.Steer,
 			arrowsAreCommands ? (short)0 : keyboardAxes.Throttle,
@@ -391,6 +396,15 @@ public sealed class PilotControls {
 	/// a stick can.
 	/// </summary>
 	private static short TurretAxis(short keys, short held) => keys != 0 ? keys : held;
+
+	/// <summary>
+	/// Whether the keys that aim the turret are worth a full stick this frame (<see cref="KeyboardAxes.AtStickRate"/>):
+	/// the tweak is on and a walker's turret is what they aim. Not in a RAZOR, whose second pair is its rudder and
+	/// throttle; not while the controls drive a camera; and not while a round is flown, which the turret pair can steer.
+	/// </summary>
+	private bool FasterKeyboardAiming =>
+		TweakSettings.Current.GetSettingValue(TweakSettingDefinitions.FasterKeyboardAiming)
+		&& !Bindings.PilotingRazor && !_view.ControlsOnCamera && !_scene.World.PlayerMissile.Flown;
 
 	/// <summary>
 	/// Whether keypad <c>-</c> and <c>+</c> are axis keys this frame: in a RAZOR, and not on the Heads-Down

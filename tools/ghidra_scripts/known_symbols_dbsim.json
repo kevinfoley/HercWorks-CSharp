@@ -18958,8 +18958,14 @@
       "type": "function",
       "confidence": "high",
       "name": "Joystick_ReadWithResponse",
-      "description": "The joystick device object's vtable +4: normalises, applies the deadzone and the response curve selected by the object's +0x28, then expands the button mask and hat bits into the 0x1d-byte block at DAT_004d24b0. A joystick is always built with mode 1 (Joystick_InitAndSeedBindings passes it to JoystickDevice_Ctor), the SQUARED curve: deadzone 0x19 SUBTRACTED to give +/-103, then |x|^2 scaled by 1/((103*103)>>8), so full deflection is 103*103/41 = 258, just over the 0x100 the control laws clamp at. Mode 0 is linear; mode 2 reads through Joystick_ReadAxisSigns, whose -1/0/+1 axes the deadzone then zeroes. Neither is used by the joystick; reading the deadzone as mode 0's linear rescale puts full deflection on 0x80 and halves every downstream response.",
-      "source": "docs/retail/simulation/joystick-input.md"
+      "description": "The joystick device object's vtable +4: normalises, applies the deadzone and the response curve selected by the object's +0x28, then expands the button mask and hat bits into the 0x1d-byte block at DAT_004d24b0. A joystick is always built with mode 1 (Joystick_InitAndSeedBindings passes it to JoystickDevice_Ctor), the SQUARED curve: deadzone 0x19 SUBTRACTED to give +/-103, then |x|^2 scaled by 1/((103*103)>>8), so full deflection is 103*103/41 = 258, just over the 0x100 the control laws clamp at. Mode 0 is linear; mode 2 reads through Joystick_ReadAxisSigns, whose -1/0/+1 axes the deadzone then zeroes. Neither is used by the joystick; reading the deadzone as mode 0's linear rescale puts full deflection on 0x80 and halves every downstream response. Last, it compares the block with its copy at DAT_004d24cd, sets DAT_004d24ea when they differ, refreshes the copy, and returns the block's address.",
+      "source": "docs/retail/simulation/joystick-input.md",
+      "verified": {
+        "bytes": "0045c314+499",
+        "sha1": "f2d03f0c52ef",
+        "scope": "body",
+        "via": "decompile"
+      }
     },
     {
       "address": "0045c508",

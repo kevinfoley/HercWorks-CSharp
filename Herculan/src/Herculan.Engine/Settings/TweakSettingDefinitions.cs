@@ -166,6 +166,12 @@ public static class TweakSettingDefinitions {
 	/// </summary>
 	public static readonly TweakSettingDefinition<bool> FixTerrainHitPoint = new("tweak.fix_terrain_hit_point", TweakCategory.Functional, defaultValue: false, recommendedValue: true);
 
+	/// <summary>
+	/// A held key aims the turret as fast as a stick pushed all the way. Retail's key is worth half a stick, so
+	/// the keyboard turns the turret at half the rate the stick can reach. See <see cref="Input.KeyboardAxes.AtStickRate"/>.
+	/// </summary>
+	public static readonly TweakSettingDefinition<bool> FasterKeyboardAiming = new("tweak.faster_keyboard_aiming", TweakCategory.Functional, defaultValue: false, recommendedValue: false);
+
 	#endregion
 
 	/// <summary>Every defined <c>bool</c> tweak setting, keyed by ID for <see cref="TweakSettings"/> save/load.</summary>
@@ -174,6 +180,6 @@ public static class TweakSettingDefinitions {
 		PreserveSoundPosition, CriticalDamageMessage, ShowSquadmateNumber, FixComputerMessagePreference,
 		SmootherTurretMovement, MouseExternalView, FixDefendPositionOrder, FixWeaponDamageRecords,
 		ChargeBarPowerLevel, FlashThroughSecondHit, ShowAltitudeTape, DropPodSoundFromPod, FixRepairDiagramSides,
-		FixTerrainHitPoint, FlyerIgnoresPlayerThrottle,
+		FixTerrainHitPoint, FlyerIgnoresPlayerThrottle, FasterKeyboardAiming,
 	};
 }

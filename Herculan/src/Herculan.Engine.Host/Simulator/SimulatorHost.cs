@@ -94,8 +94,6 @@ sealed class SimulatorHost : IDisposable {
 			PrintScreenFiles.Attach(_window, session);
 		}
 
-		_outcome.Ended += _window.Close;
-
 		var cockpitInput = new CockpitInput();
 		var tape = new TapePlayback(start.TapePlayer, _preferences, () => _window.FramebufferSize, cockpitInput);
 		_recording = new TapeRecording(start.TapeRecorder, _preferences, _ports);
@@ -288,6 +286,14 @@ sealed class SimulatorHost : IDisposable {
 	}
 
 	private void OnUpdate(double deltaSeconds) {
+		// A mission that ended last frame closes its window here, between frames rather than in the frame that
+		// ended it: Close raises Closing at once, and OnClosing disposes what the rest of a frame still reads,
+		// ImGui's context among it.
+		if (_outcome.Over) {
+			_window.Close();
+			return;
+		}
+
 		_imgui?.Update((float)deltaSeconds);
 
 		if (_frame.Held) {

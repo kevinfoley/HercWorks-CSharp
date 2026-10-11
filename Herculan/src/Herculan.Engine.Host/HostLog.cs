@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 using Herculan.Engine.Host.Localization;
@@ -9,7 +10,8 @@ namespace Herculan.Engine.Host;
 /// Explorer or a shortcut it opens no console; started from a terminal, it attaches to that terminal's console so
 /// <c>--help</c> and the command-line runs still print there. The terminal does not wait for a Windows application,
 /// so its prompt can come back before the output ends. Everything written to either stream is copied to
-/// <see cref="LogPath"/> as well, the previous run's log kept beside it as <see cref="PreviousLogPath"/>.
+/// <see cref="LogPath"/> as well, the logs of the <see cref="KeptRuns"/> runs before it kept beside it, each named
+/// for when it was last written.
 ///
 /// <para>A crash, which nothing else catches, is written to the log and shown in the operating system's error box
 /// (<see cref="NativeAlert"/>), as is a startup failure the host reports through <see cref="Fail"/> when there is no
@@ -23,8 +25,13 @@ static class HostLog {
 	/// <summary>This run's log.</summary>
 	public static readonly string LogPath = Path.Combine(LogFolder, "herculan.log");
 
-	/// <summary>The run before's log, kept so a relaunch after a crash does not lose it.</summary>
-	public static readonly string PreviousLogPath = Path.Combine(LogFolder, "herculan.previous.log");
+	/// <summary>How many earlier runs' logs are kept, so a few relaunches after a crash do not lose it.</summary>
+	public const int KeptRuns = 9;
+
+	// The earlier runs' logs: herculan-<last written>.log, which sorts by time. Older builds kept one run as
+	// herculan.previous.log, which is archived the same way.
+	private const string ArchivePrefix = "herculan-";
+	private static readonly string LegacyPreviousLogPath = Path.Combine(LogFolder, "herculan.previous.log");
 
 	/// <summary>
 	/// Whether standard output reaches someone: a terminal the host attached to, or a redirect. Always true off
@@ -74,15 +81,43 @@ static class HostLog {
 	private static TextWriter? OpenLog() {
 		try {
 			Directory.CreateDirectory(LogFolder);
-			if (File.Exists(LogPath)) {
-				File.Move(LogPath, PreviousLogPath, overwrite: true);
-			}
+			Archive(LegacyPreviousLogPath);
+			Archive(LogPath);
+			PruneArchives();
 
 			var stream = new FileStream(LogPath, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
 			return TextWriter.Synchronized(new StreamWriter(stream, new UTF8Encoding(false)) { AutoFlush = true });
 		} catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
 			Console.Error.WriteLine($"Could not open {LogPath} ({ex.Message}); there is no log for this run.");
 			return null;
+		}
+	}
+
+	// Renames an earlier run's log to herculan-<last written>.log, with a count after it should two runs share a second.
+	private static void Archive(string path) {
+		if (!File.Exists(path)) {
+			return;
+		}
+
+		string stamp = File.GetLastWriteTime(path).ToString("yyyy-MM-dd-HHmmss", CultureInfo.InvariantCulture);
+		string target = Path.Combine(LogFolder, $"{ArchivePrefix}{stamp}.log");
+		for (int n = 2; File.Exists(target); n++) {
+			target = Path.Combine(LogFolder, $"{ArchivePrefix}{stamp}-{n}.log");
+		}
+
+		File.Move(path, target);
+	}
+
+	// Deletes all but the newest KeptRuns archived logs. One that cannot be deleted is left for the next run.
+	private static void PruneArchives() {
+		var archives = Directory.GetFiles(LogFolder, ArchivePrefix + "*.log")
+			.OrderByDescending(Path.GetFileName, StringComparer.Ordinal)
+			.Skip(KeptRuns);
+		foreach (string old in archives) {
+			try {
+				File.Delete(old);
+			} catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
+			}
 		}
 	}
 

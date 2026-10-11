@@ -76,6 +76,7 @@ See [`joystick-config.md`](joystick-config.md).
 | `--install <disc> <folder>` | Installs Earthsiege 2 from a retail disc folder or disc image (`.iso`, `.bin`, `.cue`) into a new or empty folder, as the Settings menu's install window does, then exits: 0 when the install is complete, 1 when it was refused or failed, having removed what it copied. Never looks for an install or opens a window. See `RetailInstaller` and [`retail-builds.md`](../retail/retail-builds.md#the-installer). |
 | `--install-size minimum\|medium\|maximum` | The size, as the retail installer offers it. Default `maximum`. |
 | `--install-language english\|french\|german` | The language written to `data\language.cfg`, and for v1.10 the voice archive, error and mission strings and readme copied. Default `english`. |
+| `--install-disc-files` | Also copies what both programs always read from the disc — the movies, the training instructor's clips and the on-line manual — for the language the install runs in, as the install window's box (ticked there by default) does. With `maximum`, the install then needs its disc only for the CD music. See `RetailInstaller.Plan`. |
 
 ## Developer
 

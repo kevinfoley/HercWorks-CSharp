@@ -122,7 +122,8 @@ install.size                   Size
 install.size_minimum           Minimum ({0:N0} MB)
 install.size_medium            Medium ({0:N0} MB)
 install.size_maximum           Maximum ({0:N0} MB)
-install.size_note              A smaller install leaves more of the game on the disc, so the disc must stay where it is.
+install.size_note              Every size leaves the movies, the training instructor's voice and the on-line manual on the disc unless the box below is ticked, and a smaller size leaves some of the archives there too. Whatever is left is read from the disc or image, so it must stay where it is. The CD music always plays from the disc.
+install.disc_files             Also copy the movies, the training instructor's voice and the on-line manual
 install.language               Language
 install.language_english       English
 install.language_french        Français (French)

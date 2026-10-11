@@ -122,7 +122,8 @@ install.size                   Größe
 install.size_minimum           Minimal ({0:N0} MB)
 install.size_medium            Mittel ({0:N0} MB)
 install.size_maximum           Maximal ({0:N0} MB)
-install.size_note              Eine kleinere Installation lässt mehr vom Spiel auf dem Datenträger, daher muss der Datenträger bleiben, wo er ist.
+install.size_note              Bei jeder Größe bleiben die Videos, die Stimme des Ausbilders im Training und das Online-Handbuch auf dem Datenträger, wenn das Kästchen unten nicht angekreuzt ist, und eine kleinere Installation lässt dort auch einen Teil der Archive. Was dort bleibt, wird vom Datenträger oder Datenträgerabbild gelesen, daher muss er bleiben, wo er ist. Die CD-Musik wird immer vom Datenträger gespielt.
+install.disc_files             Auch die Videos, die Stimme des Ausbilders im Training und das Online-Handbuch kopieren
 install.language               Sprache
 install.language_english       English (Englisch)
 install.language_french        Français (Französisch)

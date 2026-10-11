@@ -38,6 +38,12 @@ public abstract class GameDisc : IDisposable {
 	/// </summary>
 	public abstract IReadOnlyList<string> ArchiveNames();
 
+	/// <summary>
+	/// The names of the files directly in the disc folder <paramref name="relativeDirectory"/>, in no particular
+	/// order; empty when there is no such folder.
+	/// </summary>
+	public abstract IReadOnlyList<string> FileNames(string relativeDirectory);
+
 	/// <summary>Where <paramref name="relativePath"/> is, for a message.</summary>
 	public abstract string Describe(string relativePath);
 
@@ -98,6 +104,13 @@ public abstract class GameDisc : IDisposable {
 				: [];
 		}
 
+		public override IReadOnlyList<string> FileNames(string relativeDirectory) {
+			string folder = CaseInsensitivePath.Combine(directory, relativeDirectory);
+			return Directory.Exists(folder)
+				? Directory.GetFiles(folder).Select(Path.GetFileName).OfType<string>().ToList()
+				: [];
+		}
+
 		public override string Describe(string relativePath) => Path.Combine(directory, relativePath);
 	}
 
@@ -119,6 +132,11 @@ public abstract class GameDisc : IDisposable {
 					.Where(entry => !entry.IsDirectory && entry.Name.EndsWith(".vol", StringComparison.OrdinalIgnoreCase))
 					.Select(entry => entry.Name)
 					.ToList()
+				: [];
+
+		public override IReadOnlyList<string> FileNames(string relativeDirectory) =>
+			fileSystem.Find(relativeDirectory) is { IsDirectory: true } folder
+				? folder.Children.Where(entry => !entry.IsDirectory).Select(entry => entry.Name).ToList()
 				: [];
 
 		public override string Describe(string relativePath) => $"{relativePath} in {image.Path}";

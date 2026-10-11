@@ -122,7 +122,8 @@ install.size                   Taille
 install.size_minimum           Minimale ({0:N0} Mo)
 install.size_medium            Moyenne ({0:N0} Mo)
 install.size_maximum           Maximale ({0:N0} Mo)
-install.size_note              Une installation plus petite laisse une plus grande partie du jeu sur le disque, qui doit donc rester à sa place.
+install.size_note              Quelle que soit la taille, les vidéos, la voix de l'instructeur d'entraînement et le manuel en ligne restent sur le disque si la case ci-dessous n'est pas cochée, et une taille plus petite y laisse aussi une partie des archives. Ce qui reste est lu sur le disque ou l'image disque, qui doit donc rester à sa place. La musique du CD est toujours lue depuis le disque.
+install.disc_files             Copier aussi les vidéos, la voix de l'instructeur d'entraînement et le manuel en ligne
 install.language               Langue
 install.language_english       English (anglais)
 install.language_french        Français

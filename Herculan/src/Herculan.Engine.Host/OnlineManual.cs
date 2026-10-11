@@ -21,7 +21,7 @@ namespace Herculan.Engine.Host;
 /// </summary>
 internal static class OnlineManual {
 	/// <summary>The help file's name inside each language folder.</summary>
-	public const string FileName = "ES2GUIDE.HLP";
+	public const string FileName = RetailInstaller.ManualFileName;
 
 	/// <summary>
 	/// The readme inside each language folder, which the help file's <c>Readme</c> action opens
